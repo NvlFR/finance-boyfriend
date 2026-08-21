@@ -16,6 +16,7 @@ import {
     Camera,
     Upload,
     AlertTriangle,
+    Tag,
 } from '@lucide/vue';
 import DeleteUser from '@/components/DeleteUser.vue';
 import InputError from '@/components/InputError.vue';
@@ -405,6 +406,22 @@ function handleLogout() {
                     <div>
                         <p class="text-xs font-bold text-zinc-900 dark:text-zinc-100">Kelola Ruang Pasangan</p>
                         <p class="text-[11px] text-zinc-500">Kode pairing & status hubungan</p>
+                    </div>
+                </div>
+                <span class="text-xs text-zinc-400">&rarr;</span>
+            </Link>
+
+            <Link
+                href="/categories"
+                class="flex items-center justify-between rounded-2xl p-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+            >
+                <div class="flex items-center gap-3">
+                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400">
+                        <Tag class="h-5 w-5" />
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold text-zinc-900 dark:text-zinc-100">Kategori Keuangan</p>
+                        <p class="text-[11px] text-zinc-500">Kelola kategori pengeluaran & kencan</p>
                     </div>
                 </div>
                 <span class="text-xs text-zinc-400">&rarr;</span>

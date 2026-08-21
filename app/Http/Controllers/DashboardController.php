@@ -96,6 +96,13 @@ class DashboardController extends Controller
                 ->orWhere('couple_space_id', $space->id);
         })->get();
 
+        // Subscriptions due in next 7 days
+        $upcomingSubscriptions = $space->subscriptions()
+            ->where('is_active', true)
+            ->whereBetween('next_billing_date', [Carbon::today(), Carbon::today()->addDays(7)])
+            ->orderBy('next_billing_date', 'asc')
+            ->get();
+
         return Inertia::render('Dashboard', [
             'hasCoupleSpace' => true,
             'coupleSpace' => $space,
@@ -113,6 +120,7 @@ class DashboardController extends Controller
             'monthlySpending' => $monthlySpending,
             'monthlyIncome' => $monthlyIncome,
             'categories' => $categories,
+            'upcomingSubscriptions' => $upcomingSubscriptions,
         ]);
     }
 }

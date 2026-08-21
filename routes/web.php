@@ -32,7 +32,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Transaction routes
     Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
+    Route::get('transactions/export', [TransactionController::class, 'export'])->name('transactions.export');
     Route::post('transactions', [TransactionController::class, 'store'])->name('transactions.store');
+    Route::put('transactions/{transaction}', [TransactionController::class, 'update'])->name('transactions.update');
     Route::delete('transactions/{transaction}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
 
     // Settlement routes
@@ -42,6 +44,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Category routes
     Route::get('categories', [CategoryController::class, 'index'])->name('categories.index');
     Route::post('categories', [CategoryController::class, 'store'])->name('categories.store');
+    Route::put('categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
+    Route::delete('categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
 
     // Savings Goals routes
     Route::get('goals', [SavingsGoalController::class, 'index'])->name('goals.index');

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Category\StoreCategoryRequest;
 use App\Models\Category;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -46,7 +47,7 @@ class CategoryController extends Controller
     /**
      * Create a custom category for the user's couple space.
      */
-    public function store(StoreCategoryRequest $request): JsonResponse|Response
+    public function store(StoreCategoryRequest $request): JsonResponse|RedirectResponse|Response
     {
         $user = $request->user();
         $space = $user->currentCoupleSpace;
@@ -71,6 +72,60 @@ class CategoryController extends Controller
             ], 201);
         }
 
-        return redirect()->back()->with('success', 'Category created successfully.');
+        return redirect()->back()->with('success', 'Kategori baru berhasil dibuat!');
+    }
+
+    /**
+     * Update custom category.
+     */
+    public function update(Request $request, Category $category): JsonResponse|RedirectResponse|Response
+    {
+        $user = $request->user();
+        $space = $user->currentCoupleSpace;
+
+        if (! $space || $category->couple_space_id !== $space->id || $category->is_default) {
+            abort(403, 'Kategori sistem default tidak dapat diubah.');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+            'type' => 'required|in:income,expense,both',
+            'icon' => 'nullable|string|max:50',
+            'color' => 'nullable|string|max:20',
+        ]);
+
+        $category->update($validated);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Category updated successfully.',
+                'category' => $category,
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Kategori berhasil diperbarui!');
+    }
+
+    /**
+     * Delete custom category.
+     */
+    public function destroy(Request $request, Category $category): JsonResponse|RedirectResponse|Response
+    {
+        $user = $request->user();
+        $space = $user->currentCoupleSpace;
+
+        if (! $space || $category->couple_space_id !== $space->id || $category->is_default) {
+            abort(403, 'Kategori sistem default tidak dapat dihapus.');
+        }
+
+        $category->delete();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Category deleted successfully.',
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Kategori berhasil dihapus!');
     }
 }

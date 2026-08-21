@@ -444,9 +444,13 @@ function submitEdit() {
         <!-- Edit Space Modal -->
         <div
             v-if="isEditModalOpen && coupleSpace"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            @click.self="isEditModalOpen = false"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm cursor-pointer"
         >
-            <div class="w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+            <div
+                @click.stop
+                class="w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 cursor-default"
+            >
                 <div class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                     <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Edit Ruang Pasangan</h2>
                     <button

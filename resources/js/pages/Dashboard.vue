@@ -18,6 +18,7 @@ import {
     Gift,
     Repeat,
     PieChart,
+    Tag,
 } from '@lucide/vue';
 import CoupleHeader from '@/components/CoupleHeader.vue';
 import MobileBottomNav from '@/components/MobileBottomNav.vue';
@@ -55,32 +56,43 @@ const props = defineProps<{
     monthlySpending: number;
     monthlyIncome: number;
     categories: Category[];
+    upcomingSubscriptions?: any[];
     auth: {
         user: User;
     };
 }>();
 
-const { isOpen: isDrawerOpen, openModal } = useTransactionModal();
 const activeTab = ref<'all' | 'mine' | 'partner' | 'joint'>('all');
-
-function formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        maximumFractionDigits: 0,
-    }).format(amount || 0);
-}
-
-const formattedTotalNetWorth = computed(() => formatCurrency(props.totalNetWorth));
-const formattedMonthlySpending = computed(() => formatCurrency(props.monthlySpending));
-const formattedMonthlyIncome = computed(() => formatCurrency(props.monthlyIncome));
+const { openModal } = useTransactionModal();
 
 const displayedWallets = computed(() => {
-    if (activeTab.value === 'mine') return props.userWallets || [];
-    if (activeTab.value === 'partner') return props.partnerWallets || [];
-    if (activeTab.value === 'joint') return props.jointWallets || [];
-    return props.wallets || [];
+    switch (activeTab.value) {
+        case 'mine':
+            return props.userWallets;
+        case 'partner':
+            return props.partnerWallets;
+        case 'joint':
+            return props.jointWallets;
+        default:
+            return props.wallets;
+    }
 });
+
+const formattedTotalNetWorth = computed(() => {
+    return 'Rp ' + Number(props.totalNetWorth).toLocaleString('id-ID');
+});
+
+const formattedMonthlySpending = computed(() => {
+    return 'Rp ' + Number(props.monthlySpending).toLocaleString('id-ID');
+});
+
+const formattedMonthlyIncome = computed(() => {
+    return 'Rp ' + Number(props.monthlyIncome).toLocaleString('id-ID');
+});
+
+function formatCurrency(amount: number) {
+    return 'Rp ' + Number(amount).toLocaleString('id-ID');
+}
 
 // Quick 1-click Settle Up
 const settleForm = useForm({
@@ -104,19 +116,17 @@ function handleQuickSettle() {
     <Head title="Dashboard - Couple Finance" />
 
     <div class="space-y-6">
-            <!-- Pairing Reminder Banner (If not paired yet) -->
+        <!-- First-Time Onboarding Prompt (If no Couple Space) -->
             <div
-                v-if="!hasCoupleSpace || !partner"
-                class="relative overflow-hidden rounded-3xl border border-rose-500/30 bg-gradient-to-r from-rose-500/10 via-indigo-500/10 to-transparent p-5 shadow-sm"
+                v-if="!hasCoupleSpace"
+                class="rounded-3xl border border-rose-200 bg-gradient-to-r from-rose-50 to-indigo-50 p-6 dark:border-rose-900/50 dark:bg-zinc-900"
             >
                 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div class="space-y-1">
-                        <div class="flex items-center gap-2">
+                        <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                             <Sparkles class="h-5 w-5 text-rose-500" />
-                            <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                                Hubungkan dengan Pasangan Kamu!
-                            </h2>
-                        </div>
+                            Selamat Datang di Couple Finance!
+                        </h2>
                         <p class="text-xs text-zinc-600 dark:text-zinc-400">
                             Kelola uang bareng, catat split bill kencan, dan wujudkan tabungan impian berdua secara transparan.
                         </p>
@@ -134,7 +144,6 @@ function handleQuickSettle() {
             <div
                 class="relative overflow-hidden rounded-3xl border border-zinc-200/80 bg-gradient-to-br from-indigo-900/90 via-zinc-900 to-zinc-950 p-6 text-white shadow-xl dark:border-zinc-800"
             >
-                <!-- Background Accent Glow -->
                 <div class="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-rose-500/20 blur-3xl" />
                 <div class="absolute -left-10 -bottom-10 h-40 w-40 rounded-full bg-indigo-500/20 blur-3xl" />
 
@@ -156,7 +165,6 @@ function handleQuickSettle() {
                         {{ formattedTotalNetWorth }}
                     </div>
 
-                    <!-- Mini Breakdown Stats -->
                     <div class="grid grid-cols-3 gap-2 pt-2 border-t border-white/10">
                         <div>
                             <span class="text-[11px] text-indigo-300">Punya Kamu</span>
@@ -180,8 +188,38 @@ function handleQuickSettle() {
                 </div>
             </div>
 
-            <!-- Quick Couple Features Grid -->
-            <div class="grid grid-cols-4 gap-2 text-center">
+            <!-- Upcoming Subscription Bill Reminder Banner -->
+            <div
+                v-if="upcomingSubscriptions && upcomingSubscriptions.length > 0"
+                class="rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-4 shadow-sm"
+            >
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-sm">
+                            <Repeat class="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h3 class="text-xs font-bold text-amber-900 dark:text-amber-300">
+                                Pengingat Tagihan Jatuh Tempo ({{ upcomingSubscriptions.length }})
+                            </h3>
+                            <p class="text-[11px] text-zinc-600 dark:text-zinc-400 mt-0.5">
+                                <strong class="text-zinc-900 dark:text-zinc-100">{{ upcomingSubscriptions[0].name }}</strong>
+                                (Rp {{ Number(upcomingSubscriptions[0].amount).toLocaleString('id-ID') }}) jatuh tempo {{ new Date(upcomingSubscriptions[0].next_billing_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) }}.
+                            </p>
+                        </div>
+                    </div>
+
+                    <Link
+                        href="/subscriptions"
+                        class="shrink-0 rounded-full bg-amber-500/20 px-3 py-1.5 text-[11px] font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-500/30 transition-colors"
+                    >
+                        Lihat Tagihan &rarr;
+                    </Link>
+                </div>
+            </div>
+
+            <!-- Quick Couple Features Grid (6 Full Features) -->
+            <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center">
                 <!-- Goals -->
                 <Link
                     href="/goals"
@@ -224,6 +262,28 @@ function handleQuickSettle() {
                         <PieChart class="h-5 w-5" />
                     </div>
                     <span class="text-[10px] font-bold text-zinc-800 dark:text-zinc-200">Anggaran</span>
+                </Link>
+
+                <!-- Categories -->
+                <Link
+                    href="/categories"
+                    class="flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-200/80 bg-white p-3 shadow-sm hover:border-purple-300 dark:border-zinc-800 dark:bg-zinc-900 transition-all"
+                >
+                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400">
+                        <Tag class="h-5 w-5" />
+                    </div>
+                    <span class="text-[10px] font-bold text-zinc-800 dark:text-zinc-200">Kategori</span>
+                </Link>
+
+                <!-- Couple Space -->
+                <Link
+                    href="/couple-space"
+                    class="flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-200/80 bg-white p-3 shadow-sm hover:border-pink-300 dark:border-zinc-800 dark:bg-zinc-900 transition-all"
+                >
+                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-500/10 text-pink-600 dark:bg-pink-500/20 dark:text-pink-400">
+                        <Heart class="h-5 w-5" />
+                    </div>
+                    <span class="text-[10px] font-bold text-zinc-800 dark:text-zinc-200">Pasangan</span>
                 </Link>
             </div>
 

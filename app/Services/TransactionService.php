@@ -78,6 +78,96 @@ class TransactionService
     }
 
     /**
+     * Update an existing transaction and recalculate wallet balance adjustments.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function updateTransaction(Transaction $transaction, array $data): Transaction
+    {
+        return DB::transaction(function () use ($transaction, $data) {
+            $space = $transaction->coupleSpace;
+
+            // Revert original balances first
+            $oldAmount = (float) $transaction->amount;
+            $oldType = $transaction->type;
+            $oldSourceWallet = Wallet::where('id', $transaction->wallet_id)->lockForUpdate()->first();
+
+            if ($oldSourceWallet) {
+                if ($oldType === 'expense') {
+                    $oldSourceWallet->increment('balance', $oldAmount);
+                } elseif ($oldType === 'income') {
+                    $oldSourceWallet->decrement('balance', $oldAmount);
+                } elseif ($oldType === 'transfer') {
+                    $oldSourceWallet->increment('balance', $oldAmount);
+                }
+            }
+
+            if ($oldType === 'transfer' && $transaction->to_wallet_id) {
+                $oldDestWallet = Wallet::where('id', $transaction->to_wallet_id)->lockForUpdate()->first();
+                if ($oldDestWallet) {
+                    $oldDestWallet->decrement('balance', $oldAmount);
+                }
+            }
+
+            // Prepare new values
+            $newType = $data['type'] ?? $transaction->type;
+            $newScope = $data['scope'] ?? $transaction->scope;
+            $newAmount = isset($data['amount']) ? (float) $data['amount'] : (float) $transaction->amount;
+            $newWalletId = isset($data['wallet_id']) ? (int) $data['wallet_id'] : $transaction->wallet_id;
+            $newToWalletId = ! empty($data['to_wallet_id']) ? (int) $data['to_wallet_id'] : null;
+
+            $newSourceWallet = Wallet::where('couple_space_id', $space->id)
+                ->where('id', $newWalletId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $newDestWallet = null;
+            if ($newType === 'transfer') {
+                if (! $newToWalletId || $newToWalletId === $newWalletId) {
+                    throw new InvalidArgumentException('Destination wallet must be provided and distinct for transfers.');
+                }
+                $newDestWallet = Wallet::where('couple_space_id', $space->id)
+                    ->where('id', $newToWalletId)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+            }
+
+            // Apply new balances
+            if ($newType === 'expense') {
+                $newSourceWallet->decrement('balance', $newAmount);
+            } elseif ($newType === 'income') {
+                $newSourceWallet->increment('balance', $newAmount);
+            } elseif ($newType === 'transfer') {
+                $newSourceWallet->decrement('balance', $newAmount);
+                $newDestWallet->increment('balance', $newAmount);
+            }
+
+            // Update Transaction
+            $transaction->update([
+                'wallet_id' => $newSourceWallet->id,
+                'to_wallet_id' => $newDestWallet?->id,
+                'category_id' => $data['category_id'] ?? $transaction->category_id,
+                'type' => $newType,
+                'scope' => $newScope,
+                'amount' => $newAmount,
+                'transaction_date' => $data['transaction_date'] ?? $transaction->transaction_date,
+                'title' => $data['title'] ?? $transaction->title,
+                'notes' => $data['notes'] ?? $transaction->notes,
+            ]);
+
+            // Update split record if shared expense
+            if ($newScope === 'shared' && $newType === 'expense') {
+                $transaction->split()->delete();
+                $this->createSplitRecord($transaction, $transaction->user, $space, $data['split'] ?? []);
+            } elseif ($transaction->split) {
+                $transaction->split()->delete();
+            }
+
+            return $transaction->fresh(['wallet', 'toWallet', 'category', 'split', 'user']);
+        });
+    }
+
+    /**
      * Delete a transaction and revert wallet balance adjustments.
      */
     public function deleteTransaction(Transaction $transaction): void
