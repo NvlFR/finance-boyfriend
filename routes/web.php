@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CoupleSpaceController;
@@ -11,8 +12,19 @@ use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\WishlistController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
-Route::inertia('/', 'Welcome')->name('home');
+Route::get('/', function () {
+    if (auth()->check()) {
+        return redirect()->route('dashboard');
+    }
+
+    return Inertia::render('Welcome');
+})->name('home');
+
+// Google OAuth Login Routes
+Route::get('auth/google', [GoogleAuthController::class, 'redirect'])->name('auth.google');
+Route::get('auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');

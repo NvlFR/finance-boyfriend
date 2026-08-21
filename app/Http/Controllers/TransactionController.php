@@ -119,11 +119,7 @@ class TransactionController extends Controller
     public function store(StoreTransactionRequest $request): JsonResponse|RedirectResponse|Response
     {
         $user = $request->user();
-        $space = $user->currentCoupleSpace;
-
-        if (! $space) {
-            abort(400, 'User is not part of an active couple space.');
-        }
+        $space = $user->getOrEnsureCoupleSpace();
 
         $transaction = $this->transactionService->createTransaction(
             $user,
@@ -206,11 +202,7 @@ class TransactionController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $user = $request->user();
-        $space = $user->currentCoupleSpace;
-
-        if (! $space) {
-            abort(400, 'User is not part of an active couple space.');
-        }
+        $space = $user->getOrEnsureCoupleSpace();
 
         $query = Transaction::where('couple_space_id', $space->id)
             ->with(['wallet', 'category', 'user'])

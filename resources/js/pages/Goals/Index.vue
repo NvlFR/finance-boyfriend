@@ -52,7 +52,7 @@ const editForm = useForm({
 
 const contributeForm = useForm({
     amount: '' as string | number,
-    wallet_id: props.wallets[0]?.id || null,
+    wallet_id: props.wallets?.[0]?.id || null,
     notes: 'Setoran tabungan',
 });
 

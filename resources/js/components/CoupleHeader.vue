@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { Link, router } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import { Heart, Flame, Sparkles, User, Settings, LogOut, Shield, ChevronDown } from '@lucide/vue';
+import { useLogoutModal } from '@/composables/useLogoutModal';
 import type { CoupleSpace } from '@/types/finance';
 import type { User as AuthUser } from '@/types/auth';
 
@@ -12,9 +13,11 @@ defineProps<{
 }>();
 
 const isMenuOpen = ref(false);
+const { openLogoutModal } = useLogoutModal();
 
 function logout() {
-    router.post('/logout');
+    isMenuOpen.value = false;
+    openLogoutModal();
 }
 </script>
 

@@ -24,43 +24,82 @@ import CoupleHeader from '@/components/CoupleHeader.vue';
 import MobileBottomNav from '@/components/MobileBottomNav.vue';
 import TransactionDrawer from '@/components/TransactionDrawer.vue';
 import WalletCard from '@/components/WalletCard.vue';
+import CashflowChart from '@/components/CashflowChart.vue';
+import CategoryDonutChart from '@/components/CategoryDonutChart.vue';
 import type { CoupleSpace, Wallet, Category, Transaction } from '@/types/finance';
 import type { User } from '@/types/auth';
 
 import { useTransactionModal } from '@/composables/useTransactionModal';
 
-const props = defineProps<{
-    hasCoupleSpace: boolean;
-    coupleSpace?: CoupleSpace | null;
-    partner?: User | null;
-    wallets: Wallet[];
-    userWallets: Wallet[];
-    partnerWallets: Wallet[];
-    jointWallets: Wallet[];
-    totalNetWorth: number;
-    userNetWorth: number;
-    partnerNetWorth: number;
-    jointNetWorth: number;
-    recentTransactions: Transaction[];
-    settlementDebt?: {
-        net_balance: number;
-        debtor_id: number | null;
-        creditor_id: number | null;
-        debtor_name: string | null;
-        creditor_name: string | null;
-        amount_owed: number;
-        user_one_balance: number;
-        user_two_balance: number;
-        unsettled_splits_count: number;
-    } | null;
-    monthlySpending: number;
-    monthlyIncome: number;
-    categories: Category[];
-    upcomingSubscriptions?: any[];
-    auth: {
-        user: User;
-    };
-}>();
+const props = withDefaults(
+    defineProps<{
+        hasCoupleSpace: boolean;
+        coupleSpace?: CoupleSpace | null;
+        partner?: User | null;
+        wallets?: Wallet[];
+        userWallets?: Wallet[];
+        partnerWallets?: Wallet[];
+        jointWallets?: Wallet[];
+        totalNetWorth?: number;
+        userNetWorth?: number;
+        partnerNetWorth?: number;
+        jointNetWorth?: number;
+        recentTransactions?: Transaction[];
+        settlementDebt?: {
+            net_balance: number;
+            debtor_id: number | null;
+            creditor_id: number | null;
+            debtor_name: string | null;
+            creditor_name: string | null;
+            amount_owed: number;
+            user_one_balance: number;
+            user_two_balance: number;
+            unsettled_splits_count: number;
+        } | null;
+        monthlySpending?: number;
+        monthlyIncome?: number;
+        categories?: Category[];
+        dailyTrend?: Array<{
+            date: string;
+            day: string;
+            expense: number;
+            income: number;
+        }>;
+        categorySpending?: Array<{
+            id: number;
+            name: string;
+            color: string;
+            total: number;
+            percentage: number;
+        }>;
+        spendingByScope?: {
+            shared: number;
+            personal: number;
+        };
+        upcomingSubscriptions?: any[];
+        auth: {
+            user: User;
+        };
+    }>(),
+    {
+        hasCoupleSpace: false,
+        wallets: () => [],
+        userWallets: () => [],
+        partnerWallets: () => [],
+        jointWallets: () => [],
+        totalNetWorth: 0,
+        userNetWorth: 0,
+        partnerNetWorth: 0,
+        jointNetWorth: 0,
+        recentTransactions: () => [],
+        monthlySpending: 0,
+        monthlyIncome: 0,
+        categories: () => [],
+        dailyTrend: () => [],
+        categorySpending: () => [],
+        upcomingSubscriptions: () => [],
+    }
+);
 
 const activeTab = ref<'all' | 'mine' | 'partner' | 'joint'>('all');
 const { openModal } = useTransactionModal();
@@ -68,14 +107,31 @@ const { openModal } = useTransactionModal();
 const displayedWallets = computed(() => {
     switch (activeTab.value) {
         case 'mine':
-            return props.userWallets;
+            return props.userWallets || [];
         case 'partner':
-            return props.partnerWallets;
+            return props.partnerWallets || [];
         case 'joint':
-            return props.jointWallets;
+            return props.jointWallets || [];
         default:
-            return props.wallets;
+            return props.wallets || [];
     }
+});
+
+const greeting = computed(() => {
+    const hour = new Date().getHours();
+    if (hour >= 4 && hour < 11) return 'Selamat Pagi';
+    if (hour >= 11 && hour < 15) return 'Selamat Siang';
+    if (hour >= 15 && hour < 18) return 'Selamat Sore';
+    return 'Selamat Malam';
+});
+
+const todayDateFormatted = computed(() => {
+    return new Date().toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    });
 });
 
 const formattedTotalNetWorth = computed(() => {
@@ -116,6 +172,37 @@ function handleQuickSettle() {
     <Head title="Dashboard - Couple Finance" />
 
     <div class="space-y-6">
+        <!-- 💖 Welcome Greeting Headline -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-xl sm:text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">
+                        {{ greeting }}, {{ auth.user.nickname || auth.user.name.split(' ')[0] }}! 👋
+                    </h1>
+                    <span
+                        v-if="partner"
+                        class="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-0.5 text-xs font-bold text-rose-600 dark:bg-rose-500/20 dark:text-rose-400"
+                    >
+                        <Heart class="h-3 w-3 fill-current animate-pulse" /> & {{ partner.nickname || partner.name.split(' ')[0] }}
+                    </span>
+                </div>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                    {{ todayDateFormatted }} • {{ coupleSpace ? coupleSpace.name : 'Kelola keuangan kencan berdua' }}
+                </p>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <Link
+                    v-if="coupleSpace"
+                    href="/couple-space"
+                    class="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3.5 py-1.5 text-xs font-bold text-zinc-700 shadow-xs hover:border-rose-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 transition-all"
+                >
+                    <Heart class="h-3.5 w-3.5 text-rose-500 fill-current" />
+                    <span>{{ partner ? `${partner.nickname || partner.name.split(' ')[0]}` : 'Undang Pasangan' }}</span>
+                </Link>
+            </div>
+        </div>
+
         <!-- First-Time Onboarding Prompt (If no Couple Space) -->
             <div
                 v-if="!hasCoupleSpace"
@@ -349,6 +436,16 @@ function handleQuickSettle() {
                 </div>
             </div>
 
+            <!-- 📊 Interactive Financial Charts (7-Day Cashflow Trend & Monthly Category Donut) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <CashflowChart :data="dailyTrend || []" />
+                <CategoryDonutChart
+                    :categories="categorySpending || []"
+                    :monthly-spending="monthlySpending"
+                    :spending-by-scope="spendingByScope"
+                />
+            </div>
+
             <!-- Wallets Section -->
             <div class="space-y-3">
                 <div class="flex items-center justify-between">
@@ -465,17 +562,14 @@ function handleQuickSettle() {
                             </div>
                         </div>
 
-                        <div class="text-right">
+                        <div class="text-right shrink-0">
                             <span
-                                class="text-xs font-bold"
+                                class="text-xs font-extrabold whitespace-nowrap block"
                                 :class="[
                                     tx.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-zinc-100'
                                 ]"
-                            >
-                                {{ tx.type === 'expense' ? '-' : (tx.type === 'income' ? '+' : '') }}
-                                Rp {{ Number(tx.amount).toLocaleString() }}
-                            </span>
-                            <p class="text-[10px] text-zinc-400">
+                            >{{ tx.type === 'expense' ? '-Rp ' : (tx.type === 'income' ? '+Rp ' : 'Rp ') }}{{ Number(tx.amount).toLocaleString('id-ID') }}</span>
+                            <p class="text-[10px] text-zinc-400 whitespace-nowrap">
                                 {{ new Date(tx.transaction_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) }}
                             </p>
                         </div>

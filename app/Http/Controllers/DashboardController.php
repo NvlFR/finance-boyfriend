@@ -45,6 +45,10 @@ class DashboardController extends Controller
                 'monthlySpending' => 0,
                 'monthlyIncome' => 0,
                 'categories' => $categories,
+                'dailyTrend' => [],
+                'categorySpending' => [],
+                'spendingByScope' => ['shared' => 0, 'personal' => 0],
+                'upcomingSubscriptions' => [],
             ]);
         }
 
@@ -80,21 +84,75 @@ class DashboardController extends Controller
         $startOfMonth = Carbon::now()->startOfMonth();
         $endOfMonth = Carbon::now()->endOfMonth();
 
-        $monthlySpending = (float) Transaction::where('couple_space_id', $space->id)
-            ->where('type', 'expense')
+        $monthTransactions = Transaction::where('couple_space_id', $space->id)
             ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
-            ->sum('amount');
+            ->get();
 
-        $monthlyIncome = (float) Transaction::where('couple_space_id', $space->id)
-            ->where('type', 'income')
-            ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
-            ->sum('amount');
+        $monthlySpending = (float) $monthTransactions->where('type', 'expense')->sum('amount');
+        $monthlyIncome = (float) $monthTransactions->where('type', 'income')->sum('amount');
 
-        // Categories for quick add
+        // Scope Spending (Shared vs Personal)
+        $sharedSpending = (float) $monthTransactions->where('type', 'expense')->where('scope', 'shared')->sum('amount');
+        $personalSpending = (float) $monthTransactions->where('type', 'expense')->where('scope', 'personal')->sum('amount');
+        $spendingByScope = [
+            'shared' => $sharedSpending,
+            'personal' => $personalSpending,
+        ];
+
+        // 7-Day Cashflow Trend
+        $dailyTrend = [];
+        $indonesianDays = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+        $indonesianMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+        for ($i = 6; $i >= 0; $i--) {
+            $date = Carbon::today()->subDays($i);
+            $dateStr = $date->toDateString();
+
+            $dayExpense = (float) Transaction::where('couple_space_id', $space->id)
+                ->where('type', 'expense')
+                ->whereDate('transaction_date', $dateStr)
+                ->sum('amount');
+
+            $dayIncome = (float) Transaction::where('couple_space_id', $space->id)
+                ->where('type', 'income')
+                ->whereDate('transaction_date', $dateStr)
+                ->sum('amount');
+
+            $dailyTrend[] = [
+                'date' => $date->format('d').' '.$indonesianMonths[$date->month - 1],
+                'day' => $indonesianDays[$date->dayOfWeek],
+                'expense' => $dayExpense,
+                'income' => $dayIncome,
+            ];
+        }
+
+        // Category Spending Breakdown (Current Month)
         $categories = Category::where(function ($q) use ($space) {
             $q->whereNull('couple_space_id')
                 ->orWhere('couple_space_id', $space->id);
         })->get();
+
+        $categorySpending = [];
+        $expensesWithCategories = $monthTransactions->where('type', 'expense');
+
+        if ($monthlySpending > 0) {
+            $grouped = $expensesWithCategories->groupBy('category_id');
+            foreach ($grouped as $catId => $txs) {
+                $cat = $categories->firstWhere('id', $catId);
+                $total = (float) $txs->sum('amount');
+                $percentage = round(($total / $monthlySpending) * 100);
+
+                $categorySpending[] = [
+                    'id' => $catId ?: 0,
+                    'name' => $cat ? $cat->name : 'Tanpa Kategori',
+                    'color' => $cat ? $cat->color : '#94A3B8',
+                    'total' => $total,
+                    'percentage' => $percentage,
+                ];
+            }
+
+            usort($categorySpending, fn ($a, $b) => $b['total'] <=> $a['total']);
+        }
 
         // Subscriptions due in next 7 days
         $upcomingSubscriptions = $space->subscriptions()
@@ -120,6 +178,9 @@ class DashboardController extends Controller
             'monthlySpending' => $monthlySpending,
             'monthlyIncome' => $monthlyIncome,
             'categories' => $categories,
+            'dailyTrend' => $dailyTrend,
+            'categorySpending' => $categorySpending,
+            'spendingByScope' => $spendingByScope,
             'upcomingSubscriptions' => $upcomingSubscriptions,
         ]);
     }

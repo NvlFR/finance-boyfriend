@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { Handshake, CheckCircle2, History, Sparkles, User as UserIcon } from '@lucide/vue';
 import MobileBottomNav from '@/components/MobileBottomNav.vue';
@@ -8,29 +8,51 @@ import { useTransactionModal } from '@/composables/useTransactionModal';
 import type { Settlement, Wallet, Category } from '@/types/finance';
 import type { User } from '@/types/auth';
 
-const props = defineProps<{
-    unsettled: {
-        net_balance: number;
-        debtor_id: number | null;
-        creditor_id: number | null;
-        debtor_name: string | null;
-        creditor_name: string | null;
-        amount_owed: number;
-        user_one_balance: number;
-        user_two_balance: number;
-        unsettled_splits_count: number;
-    };
-    history: {
-        data: Settlement[];
-        links: any[];
-    };
-    wallets?: Wallet[];
-    categories?: Category[];
-    partner?: User | null;
-    auth: {
-        user: User;
-    };
-}>();
+const props = withDefaults(
+    defineProps<{
+        unsettled?: {
+            net_balance: number;
+            debtor_id: number | null;
+            creditor_id: number | null;
+            debtor_name: string | null;
+            creditor_name: string | null;
+            amount_owed: number;
+            user_one_balance: number;
+            user_two_balance: number;
+            unsettled_splits_count: number;
+        };
+        history?: {
+            data: Settlement[];
+            links: any[];
+        } | Settlement[];
+        wallets?: Wallet[];
+        categories?: Category[];
+        partner?: User | null;
+        auth: {
+            user: User;
+        };
+    }>(),
+    {
+        unsettled: () => ({
+            net_balance: 0,
+            debtor_id: null,
+            creditor_id: null,
+            debtor_name: null,
+            creditor_name: null,
+            amount_owed: 0,
+            user_one_balance: 0,
+            user_two_balance: 0,
+            unsettled_splits_count: 0,
+        }),
+        history: () => ({ data: [], links: [] }),
+    }
+);
+
+const historyItems = computed(() => {
+    if (!props.history) return [];
+    if (Array.isArray(props.history)) return props.history;
+    return props.history.data || [];
+});
 
 const isSettleModalOpen = ref(false);
 const { isOpen: isDrawerOpen } = useTransactionModal();
@@ -43,8 +65,8 @@ const settleForm = useForm({
 });
 
 function handleSettle() {
-    settleForm.amount = props.unsettled.amount_owed;
-    settleForm.to_user_id = props.unsettled.creditor_id || 0;
+    settleForm.amount = props.unsettled?.amount_owed || 0;
+    settleForm.to_user_id = props.unsettled?.creditor_id || 0;
     settleForm.post('/settlements', {
         preserveScroll: true,
         onSuccess: () => {
@@ -77,7 +99,7 @@ function handleSettle() {
                     <span>Status Saldo Talangan Kencan</span>
                 </div>
 
-                <div v-if="unsettled.amount_owed > 0" class="mt-4 space-y-4">
+                <div v-if="unsettled && unsettled.amount_owed > 0" class="mt-4 space-y-4">
                     <div>
                         <span class="text-xs text-zinc-400">
                             {{ unsettled.debtor_id === auth.user.id ? 'Kamu berhutang ke pasangan sebesar' : `${unsettled.debtor_name} berhutang ke kamu sebesar` }}
@@ -122,7 +144,7 @@ function handleSettle() {
 
                 <div class="rounded-2xl border border-zinc-200/80 bg-white divide-y divide-zinc-100 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:divide-zinc-800">
                     <div
-                        v-for="st in history.data"
+                        v-for="st in historyItems"
                         :key="st.id"
                         class="flex items-center justify-between p-4"
                     >
@@ -146,7 +168,7 @@ function handleSettle() {
                     </div>
 
                     <div
-                        v-if="history.data.length === 0"
+                        v-if="historyItems.length === 0"
                         class="p-6 text-center text-xs text-zinc-500"
                     >
                         Belum ada riwayat pelunasan.

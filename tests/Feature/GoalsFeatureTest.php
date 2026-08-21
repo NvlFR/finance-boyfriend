@@ -73,3 +73,44 @@ test('user can contribute to a savings goal and deduct wallet', function () {
         'amount' => 500000,
     ]);
 });
+
+test('user can update a savings goal', function () {
+    $user = User::factory()->create();
+    $space = CoupleSpace::factory()->create(['user_one_id' => $user->id]);
+    $user->update(['current_couple_space_id' => $space->id]);
+
+    $goal = SavingsGoal::factory()->create([
+        'couple_space_id' => $space->id,
+        'created_by_user_id' => $user->id,
+        'name' => 'Old Goal',
+        'target_amount' => 5000000,
+    ]);
+
+    $response = $this->actingAs($user)->put(route('goals.update', $goal), [
+        'name' => 'Renamed Goal',
+        'target_amount' => 8000000,
+    ]);
+
+    $response->assertRedirect();
+    $this->assertDatabaseHas('savings_goals', [
+        'id' => $goal->id,
+        'name' => 'Renamed Goal',
+        'target_amount' => 8000000,
+    ]);
+});
+
+test('user can delete a savings goal', function () {
+    $user = User::factory()->create();
+    $space = CoupleSpace::factory()->create(['user_one_id' => $user->id]);
+    $user->update(['current_couple_space_id' => $space->id]);
+
+    $goal = SavingsGoal::factory()->create([
+        'couple_space_id' => $space->id,
+        'created_by_user_id' => $user->id,
+    ]);
+
+    $response = $this->actingAs($user)->delete(route('goals.destroy', $goal));
+
+    $response->assertRedirect();
+    $this->assertDatabaseMissing('savings_goals', ['id' => $goal->id]);
+});

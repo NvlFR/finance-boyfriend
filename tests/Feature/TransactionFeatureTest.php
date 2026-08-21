@@ -199,3 +199,70 @@ test('destroying transaction rolls back wallet balance', function () {
     $this->assertDatabaseMissing('transactions', ['id' => $transaction->id]);
     expect($wallet->fresh()->balance)->toBe('1000000.00');
 });
+
+test('user can update a transaction and balance is correctly recalculated', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+
+    $wallet = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'balance' => 800000, // after 200k expense from 1000k
+    ]);
+
+    $transaction = Transaction::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'wallet_id' => $wallet->id,
+        'type' => 'expense',
+        'amount' => 200000,
+        'title' => 'Initial Expense',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->putJson(route('transactions.update', $transaction), [
+            'wallet_id' => $wallet->id,
+            'title' => 'Updated Expense',
+            'type' => 'expense',
+            'scope' => 'personal',
+            'amount' => 300000, // increasing expense to 300k, wallet should be 700k
+            'transaction_date' => now()->toDateString(),
+        ]);
+
+    $response->assertOk();
+    $this->assertDatabaseHas('transactions', [
+        'id' => $transaction->id,
+        'title' => 'Updated Expense',
+        'amount' => 300000,
+    ]);
+
+    expect($wallet->fresh()->balance)->toBe('700000.00');
+});
+
+test('user can export transactions to CSV', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+
+    $wallet = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+    ]);
+
+    Transaction::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'wallet_id' => $wallet->id,
+        'title' => 'Exportable Dinner',
+        'amount' => 150000,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('transactions.export'));
+
+    $response->assertOk()
+        ->assertHeader('content-type', 'text/csv; charset=UTF-8');
+
+    expect($response->streamedContent())->toContain('Exportable Dinner');
+});

@@ -39,7 +39,7 @@ const createForm = useForm({
     billing_cycle: 'monthly' as 'monthly' | 'yearly',
     next_billing_date: new Date().toISOString().slice(0, 10),
     split_mode: '50_50' as '50_50' | 'alternate' | 'single',
-    wallet_id: props.wallets[0]?.id || null,
+    wallet_id: props.wallets?.[0]?.id || null,
     color: '#6366F1',
 });
 

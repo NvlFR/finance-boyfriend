@@ -50,11 +50,7 @@ class CategoryController extends Controller
     public function store(StoreCategoryRequest $request): JsonResponse|RedirectResponse|Response
     {
         $user = $request->user();
-        $space = $user->currentCoupleSpace;
-
-        if (! $space) {
-            abort(400, 'User is not part of an active couple space.');
-        }
+        $space = $user->getOrEnsureCoupleSpace();
 
         $category = Category::create([
             'couple_space_id' => $space->id,

@@ -74,11 +74,7 @@ class BudgetController extends Controller
     public function store(Request $request): JsonResponse|RedirectResponse
     {
         $user = $request->user();
-        $space = $user->currentCoupleSpace;
-
-        if (! $space) {
-            abort(400, 'Not in a couple space.');
-        }
+        $space = $user->getOrEnsureCoupleSpace();
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',

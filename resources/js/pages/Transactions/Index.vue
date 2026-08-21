@@ -315,18 +315,15 @@ function exportCsv() {
                     </div>
                 </div>
 
-                <div class="flex items-center gap-2">
-                    <div class="text-right">
+                <div class="flex items-center gap-2 shrink-0">
+                    <div class="text-right shrink-0">
                         <span
-                            class="text-sm font-extrabold"
+                            class="text-sm font-extrabold whitespace-nowrap block"
                             :class="[
                                 tx.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-zinc-100'
                             ]"
-                        >
-                            {{ tx.type === 'expense' ? '-' : (tx.type === 'income' ? '+' : '') }}
-                            Rp {{ Number(tx.amount).toLocaleString('id-ID') }}
-                        </span>
-                        <p class="text-[10px] text-zinc-400">
+                        >{{ tx.type === 'expense' ? '-Rp ' : (tx.type === 'income' ? '+Rp ' : 'Rp ') }}{{ Number(tx.amount).toLocaleString('id-ID') }}</span>
+                        <p class="text-[10px] text-zinc-400 whitespace-nowrap">
                             {{ new Date(tx.transaction_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) }}
                         </p>
                     </div>

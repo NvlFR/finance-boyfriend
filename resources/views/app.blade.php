@@ -33,6 +33,18 @@
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png">
+        <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png">
+
+        {{-- PWA Manifest and Mobile App Capability --}}
+        <link rel="manifest" href="/manifest.json">
+        <meta name="theme-color" content="#4f46e5">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="CoupleFinance">
+        <meta name="application-name" content="CoupleFinance">
+        <meta name="msapplication-TileColor" content="#4f46e5">
 
         @fonts
 

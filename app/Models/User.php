@@ -33,7 +33,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'nickname', 'email', 'avatar_url', 'theme_color', 'current_couple_space_id', 'password'])]
+#[Fillable(['name', 'nickname', 'email', 'google_id', 'avatar_url', 'theme_color', 'current_couple_space_id', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
@@ -82,5 +82,37 @@ class User extends Authenticatable implements PasskeyUser
     public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class);
+    }
+
+    /**
+     * Get active couple space or automatically create one for user.
+     */
+    public function getOrEnsureCoupleSpace(): CoupleSpace
+    {
+        if ($this->current_couple_space_id && $this->currentCoupleSpace) {
+            return $this->currentCoupleSpace;
+        }
+
+        $existing = CoupleSpace::where('user_one_id', $this->id)
+            ->orWhere('user_two_id', $this->id)
+            ->first();
+
+        if ($existing) {
+            $this->update(['current_couple_space_id' => $existing->id]);
+
+            return $existing;
+        }
+
+        $displayName = $this->nickname ?: explode(' ', $this->name)[0];
+        $space = CoupleSpace::create([
+            'name' => "Ruang {$displayName} & Pasangan",
+            'invite_code' => CoupleSpace::generateInviteCode(),
+            'user_one_id' => $this->id,
+            'status' => 'pending',
+        ]);
+
+        $this->update(['current_couple_space_id' => $space->id]);
+
+        return $space;
     }
 }

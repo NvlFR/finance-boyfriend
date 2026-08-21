@@ -40,3 +40,44 @@ test('user can toggle bought status on wishlist', function () {
 
     expect($wishlist->fresh()->is_bought)->toBeTrue();
 });
+
+test('user can update a wishlist item', function () {
+    $user = User::factory()->create();
+    $space = CoupleSpace::factory()->create(['user_one_id' => $user->id]);
+    $user->update(['current_couple_space_id' => $space->id]);
+
+    $wishlist = Wishlist::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'title' => 'Old Item',
+        'estimated_price' => 200000,
+    ]);
+
+    $response = $this->actingAs($user)->put(route('wishlists.update', $wishlist), [
+        'title' => 'Updated Item',
+        'estimated_price' => 350000,
+        'priority' => 'high',
+    ]);
+
+    $response->assertRedirect();
+    $this->assertDatabaseHas('wishlists', [
+        'id' => $wishlist->id,
+        'title' => 'Updated Item',
+        'estimated_price' => 350000,
+    ]);
+});
+
+test('user can delete a wishlist item', function () {
+    $user = User::factory()->create();
+    $space = CoupleSpace::factory()->create(['user_one_id' => $user->id]);
+    $user->update(['current_couple_space_id' => $space->id]);
+
+    $wishlist = Wishlist::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+    ]);
+
+    $response = $this->actingAs($user)->delete(route('wishlists.destroy', $wishlist));
+    $response->assertRedirect();
+    $this->assertDatabaseMissing('wishlists', ['id' => $wishlist->id]);
+});

@@ -20,23 +20,36 @@ import WalletCard from '@/components/WalletCard.vue';
 import type { Wallet, Category } from '@/types/finance';
 import type { User } from '@/types/auth';
 
-const props = defineProps<{
-    his_wallets: Wallet[];
-    her_wallets: Wallet[];
-    joint_wallets: Wallet[];
-    user_wallets: Wallet[];
-    partner_wallets: Wallet[];
-    total_net_worth: number;
-    user_net_worth: number;
-    partner_net_worth: number;
-    joint_net_worth: number;
-    partner?: User | null;
-    categories?: Category[];
-    wallets?: Wallet[];
-    auth: {
-        user: User;
-    };
-}>();
+const props = withDefaults(
+    defineProps<{
+        his_wallets?: Wallet[];
+        her_wallets?: Wallet[];
+        joint_wallets?: Wallet[];
+        user_wallets?: Wallet[];
+        partner_wallets?: Wallet[];
+        total_net_worth?: number;
+        user_net_worth?: number;
+        partner_net_worth?: number;
+        joint_net_worth?: number;
+        partner?: User | null;
+        categories?: Category[];
+        wallets?: Wallet[];
+        auth: {
+            user: User;
+        };
+    }>(),
+    {
+        his_wallets: () => [],
+        her_wallets: () => [],
+        joint_wallets: () => [],
+        user_wallets: () => [],
+        partner_wallets: () => [],
+        total_net_worth: 0,
+        user_net_worth: 0,
+        partner_net_worth: 0,
+        joint_net_worth: 0,
+    }
+);
 
 const isCreateModalOpen = ref(false);
 const isEditModalOpen = ref(false);
@@ -73,7 +86,7 @@ const form = useForm({
     type: 'personal' as 'personal' | 'joint',
     wallet_type: 'bank' as 'bank' | 'ewallet' | 'cash' | 'investment' | 'credit_card',
     account_number: '',
-    balance: '' as string | number,
+    balance: 0 as string | number,
     currency: 'IDR',
     color: '#6366F1',
     icon: 'wallet',
@@ -101,7 +114,10 @@ function applyPresetToEdit(preset: typeof bankPresets[0]) {
 }
 
 function submitWallet() {
-    form.post('/wallets', {
+    form.transform((data) => ({
+        ...data,
+        balance: data.balance === '' || data.balance === null ? 0 : Number(data.balance),
+    })).post('/wallets', {
         preserveScroll: true,
         onSuccess: () => {
             form.reset();

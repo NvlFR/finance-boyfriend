@@ -3,6 +3,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { usePage, router } from '@inertiajs/vue3';
 import MobileBottomNav from '@/components/MobileBottomNav.vue';
 import TransactionDrawer from '@/components/TransactionDrawer.vue';
+import LogoutConfirmModal from '@/components/LogoutConfirmModal.vue';
+import PwaInstallPrompt from '@/components/PwaInstallPrompt.vue';
 import { useTransactionModal } from '@/composables/useTransactionModal';
 import type { BreadcrumbItem } from '@/types';
 import type { User } from '@/types/auth';
@@ -66,6 +68,9 @@ onUnmounted(() => {
             :partner="partner"
             @created="isDrawerOpen = false"
         />
+
+        <!-- Global Logout Confirmation Modal -->
+        <LogoutConfirmModal />
     </div>
 </template>
 

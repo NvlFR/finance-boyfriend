@@ -38,7 +38,10 @@ class SettlementController extends Controller
                     'user_two_balance' => 0.00,
                     'unsettled_splits_count' => 0,
                 ],
-                'history' => [],
+                'history' => [
+                    'data' => [],
+                    'links' => [],
+                ],
             ];
 
             if ($request->wantsJson()) {
@@ -75,11 +78,7 @@ class SettlementController extends Controller
     public function store(StoreSettlementRequest $request): JsonResponse|RedirectResponse|Response
     {
         $user = $request->user();
-        $space = $user->currentCoupleSpace;
-
-        if (! $space) {
-            abort(400, 'User is not part of an active couple space.');
-        }
+        $space = $user->getOrEnsureCoupleSpace();
 
         $settlement = $this->settlementService->settle(
             $space,

@@ -97,11 +97,7 @@ class WalletController extends Controller
     public function store(StoreWalletRequest $request): JsonResponse|RedirectResponse|Response
     {
         $user = $request->user();
-        $space = $user->currentCoupleSpace;
-
-        if (! $space) {
-            abort(400, 'User is not part of an active couple space.');
-        }
+        $space = $user->getOrEnsureCoupleSpace();
 
         $type = $request->validated('type');
         $userId = ($type === 'personal') ? $user->id : null;
@@ -113,10 +109,10 @@ class WalletController extends Controller
             'type' => $type,
             'wallet_type' => $request->validated('wallet_type'),
             'account_number' => $request->validated('account_number'),
-            'balance' => $request->validated('balance', 0),
-            'currency' => $request->validated('currency', 'IDR'),
-            'color' => $request->validated('color', '#6366F1'),
-            'icon' => $request->validated('icon', 'wallet'),
+            'balance' => $request->validated('balance') ?? 0,
+            'currency' => $request->validated('currency') ?? 'IDR',
+            'color' => $request->validated('color') ?? '#6366F1',
+            'icon' => $request->validated('icon') ?? 'wallet',
             'is_active' => true,
         ]);
 
@@ -136,13 +132,14 @@ class WalletController extends Controller
     public function update(UpdateWalletRequest $request, Wallet $wallet): JsonResponse|RedirectResponse|Response
     {
         $user = $request->user();
-        $space = $user->currentCoupleSpace;
+        $space = $user->getOrEnsureCoupleSpace();
 
-        if (! $space || $wallet->couple_space_id !== $space->id) {
+        if ($wallet->couple_space_id !== $space->id) {
             abort(403, 'Unauthorized access to this wallet.');
         }
 
-        $wallet->update($request->validated());
+        $data = array_filter($request->validated(), fn ($v) => $v !== null);
+        $wallet->update($data);
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -160,9 +157,9 @@ class WalletController extends Controller
     public function destroy(Request $request, Wallet $wallet): JsonResponse|RedirectResponse|Response
     {
         $user = $request->user();
-        $space = $user->currentCoupleSpace;
+        $space = $user->getOrEnsureCoupleSpace();
 
-        if (! $space || $wallet->couple_space_id !== $space->id) {
+        if ($wallet->couple_space_id !== $space->id) {
             abort(403, 'Unauthorized access to this wallet.');
         }
 

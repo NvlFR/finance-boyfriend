@@ -20,6 +20,7 @@ import {
 } from '@lucide/vue';
 import DeleteUser from '@/components/DeleteUser.vue';
 import InputError from '@/components/InputError.vue';
+import { useLogoutModal } from '@/composables/useLogoutModal';
 import type { User } from '@/types/auth';
 import type { CoupleSpace } from '@/types/finance';
 
@@ -86,10 +87,10 @@ function submitProfile() {
     });
 }
 
+const { openLogoutModal } = useLogoutModal();
+
 function handleLogout() {
-    if (confirm('Apakah kamu yakin ingin keluar dari akun?')) {
-        router.post('/logout');
-    }
+    openLogoutModal();
 }
 </script>
 

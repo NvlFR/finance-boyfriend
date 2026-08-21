@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5" />
+      <stop offset="50%" stop-color="#7C3AED" />
+      <stop offset="100%" stop-color="#E11D48" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  
+  <!-- App Background with smooth squircle -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+  
+  <!-- Subtle inner shine -->
+  <rect width="512" height="512" rx="128" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="4" />
+  
+  <!-- Wallet Body Shape -->
+  <g filter="url(#glow)">
+    <!-- Base Wallet Card -->
+    <rect x="96" y="140" width="320" height="232" rx="36" fill="#FFFFFF" fill-opacity="0.95" />
+    <rect x="96" y="140" width="320" height="70" rx="36" fill="#F8FAFC" />
+    
+    <!-- Magnetic Stripe / Top Accent -->
+    <path d="M96 210 L416 210" stroke="#E2E8F0" stroke-width="3" />
+    
+    <!-- Heart Symbol (Couple) -->
+    <path d="M256 315 C256 315 200 270 200 235 C200 215 216 200 236 200 C248 200 254 206 256 210 C258 206 264 200 276 200 C296 200 312 215 312 235 C312 270 256 315 256 315 Z" fill="#E11D48" />
+    
+    <!-- Wallet Pocket Flap on right -->
+    <path d="M350 220 L416 220 C420 220 424 224 424 228 L424 284 C424 288 420 292 416 292 L350 292 C336 292 326 280 326 256 C326 232 336 220 350 220 Z" fill="#4F46E5" />
+    
+    <!-- Pocket Gold Clasp / Coin -->
+    <circle cx="360" cy="256" r="10" fill="#FBBF24" stroke="#D97706" stroke-width="2" />
+  </g>
+  
+  <!-- Sparkles -->
+  <path d="M140 100 Q150 120 170 120 Q150 120 140 140 Q130 120 110 120 Q130 120 140 100 Z" fill="#FDE047" opacity="0.9" />
+  <path d="M380 90 Q386 102 398 102 Q386 102 380 114 Q374 102 362 102 Q374 102 380 90 Z" fill="#FDE047" opacity="0.8" />
+</svg>

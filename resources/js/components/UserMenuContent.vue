@@ -8,7 +8,7 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import UserInfo from '@/components/UserInfo.vue';
-import { logout } from '@/routes';
+import { useLogoutModal } from '@/composables/useLogoutModal';
 import { edit } from '@/routes/profile';
 import type { User } from '@/types';
 
@@ -16,8 +16,11 @@ type Props = {
     user: User;
 };
 
-const handleLogout = () => {
-    router.flushAll();
+const { openLogoutModal } = useLogoutModal();
+
+const handleLogout = (e: Event) => {
+    e.preventDefault();
+    openLogoutModal();
 };
 
 defineProps<Props>();
@@ -40,15 +43,14 @@ defineProps<Props>();
     </DropdownMenuGroup>
     <DropdownMenuSeparator />
     <DropdownMenuItem :as-child="true">
-        <Link
-            class="block w-full cursor-pointer"
-            :href="logout()"
+        <button
+            type="button"
+            class="flex w-full items-center px-2 py-1.5 text-xs text-rose-600 dark:text-rose-400 cursor-pointer"
             @click="handleLogout"
-            as="button"
             data-test="logout-button"
         >
             <LogOut class="mr-2 h-4 w-4" />
             Log out
-        </Link>
+        </button>
     </DropdownMenuItem>
 </template>

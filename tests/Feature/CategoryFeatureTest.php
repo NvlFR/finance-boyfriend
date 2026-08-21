@@ -54,3 +54,70 @@ test('user can create a custom category in their couple space', function () {
         'is_default' => false,
     ]);
 });
+
+test('user can update custom category', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+
+    $category = Category::factory()->create([
+        'name' => 'Old Category',
+        'type' => 'expense',
+        'is_default' => false,
+        'couple_space_id' => $space->id,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->putJson(route('categories.update', $category), [
+            'name' => 'Renamed Category',
+            'type' => 'expense',
+            'color' => '#6366F1',
+        ]);
+
+    $response->assertOk();
+    $this->assertDatabaseHas('categories', [
+        'id' => $category->id,
+        'name' => 'Renamed Category',
+    ]);
+});
+
+test('user cannot update default system category', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+
+    $defaultCategory = Category::factory()->create([
+        'name' => 'Default Food',
+        'type' => 'expense',
+        'is_default' => true,
+        'couple_space_id' => null,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->putJson(route('categories.update', $defaultCategory), [
+            'name' => 'Hacked Food',
+            'type' => 'expense',
+        ]);
+
+    $response->assertForbidden();
+    expect($defaultCategory->fresh()->name)->toBe('Default Food');
+});
+
+test('user can delete custom category', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+
+    $category = Category::factory()->create([
+        'name' => 'Disposable Category',
+        'type' => 'expense',
+        'is_default' => false,
+        'couple_space_id' => $space->id,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->deleteJson(route('categories.destroy', $category));
+
+    $response->assertOk();
+    $this->assertDatabaseMissing('categories', ['id' => $category->id]);
+});

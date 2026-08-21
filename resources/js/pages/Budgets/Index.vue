@@ -35,7 +35,7 @@ const editingBudget = ref<BudgetItem | null>(null);
 const createForm = useForm({
     name: '',
     limit_amount: '' as string | number,
-    category_id: props.categories[0]?.id || null,
+    category_id: props.categories?.[0]?.id || null,
     scope: 'shared' as 'shared' | 'personal',
 });
 
