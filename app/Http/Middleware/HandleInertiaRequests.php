@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Category;
+use App\Models\Wallet;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -35,13 +37,25 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+        $space = $user ? $user->currentCoupleSpace : null;
+        $partner = ($space && $user) ? $space->getPartnerOf($user) : null;
+
+        $wallets = $space ? Wallet::where('couple_space_id', $space->id)->where('is_active', true)->get() : [];
+        $categories = $space ? Category::where(function ($q) use ($space) {
+            $q->whereNull('couple_space_id')->orWhere('couple_space_id', $space->id);
+        })->get() : Category::whereNull('couple_space_id')->get();
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user,
             ],
-            'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'coupleSpace' => $space ? $space->load(['userOne', 'userTwo']) : null,
+            'partner' => $partner,
+            'wallets' => $wallets,
+            'categories' => $categories,
         ];
     }
 }

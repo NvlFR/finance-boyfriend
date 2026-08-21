@@ -1,18 +1,15 @@
 <script setup lang="ts">
-import { Form, Head } from '@inertiajs/vue3';
+import { Form, Head, Link } from '@inertiajs/vue3';
+import { Mail, ArrowLeft, Sparkles } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
-import TextLink from '@/components/TextLink.vue';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { login } from '@/routes';
 import { email } from '@/routes/password';
 
 defineOptions({
     layout: {
-        title: 'Forgot password',
-        description: 'Enter your email to receive a password reset link',
+        title: 'Lupa Kata Sandi',
+        description: 'Masukkan alamat email kamu untuk menerima tautan reset kata sandi',
     },
 });
 
@@ -22,45 +19,53 @@ defineProps<{
 </script>
 
 <template>
-    <Head title="Forgot password" />
+    <Head title="Lupa Kata Sandi - Couple Finance" />
 
     <div
         v-if="status"
-        class="mb-4 text-center text-sm font-medium text-green-600"
+        class="mb-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-center text-xs font-semibold text-emerald-600 dark:text-emerald-400"
     >
         {{ status }}
     </div>
 
-    <div class="space-y-6">
-        <Form v-bind="email.form()" v-slot="{ errors, processing }">
-            <div class="grid gap-2">
-                <Label for="email">Email address</Label>
-                <Input
+    <div class="space-y-4">
+        <Form v-bind="email.form()" v-slot="{ errors, processing }" class="space-y-4">
+            <div class="space-y-1">
+                <label for="email" class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    Alamat Email
+                </label>
+                <input
                     id="email"
                     type="email"
                     name="email"
                     autocomplete="off"
                     autofocus
-                    placeholder="email@example.com"
+                    required
+                    placeholder="nama@example.com"
+                    class="w-full rounded-2xl border border-zinc-200 bg-zinc-50/50 px-4 py-2.5 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100 dark:focus:bg-zinc-900"
                 />
                 <InputError :message="errors.email" />
             </div>
 
-            <div class="my-6 flex items-center justify-start">
-                <Button
-                    class="w-full"
+            <div class="pt-2">
+                <button
+                    type="submit"
                     :disabled="processing"
                     data-test="email-password-reset-link-button"
+                    class="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-rose-500 py-3 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 hover:opacity-95 transition-all disabled:opacity-50"
                 >
                     <Spinner v-if="processing" />
-                    Email password reset link
-                </Button>
+                    <Mail v-else class="h-4 w-4" />
+                    <span>Kirim Tautan Reset Sandi</span>
+                </button>
             </div>
         </Form>
 
-        <div class="space-x-1 text-center text-sm text-muted-foreground">
-            <span>Or, return to</span>
-            <TextLink :href="login()">log in</TextLink>
+        <div class="pt-2 text-center text-xs text-zinc-500">
+            Ingat kata sandi akunmu?
+            <Link :href="login()" class="font-bold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 underline ml-1">
+                Kembali ke Login
+            </Link>
         </div>
     </div>
 </template>
