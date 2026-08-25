@@ -17,6 +17,7 @@ use Illuminate\Support\Carbon;
  * @property string $amount
  * @property string $billing_cycle
  * @property Carbon $next_billing_date
+ * @property Carbon|null $last_paid_at
  * @property string $split_mode
  * @property string $icon
  * @property string $color
@@ -32,6 +33,7 @@ use Illuminate\Support\Carbon;
     'amount',
     'billing_cycle',
     'next_billing_date',
+    'last_paid_at',
     'split_mode',
     'icon',
     'color',
@@ -49,6 +51,7 @@ class Subscription extends Model
         return [
             'amount' => 'decimal:2',
             'next_billing_date' => 'date',
+            'last_paid_at' => 'datetime',
             'is_active' => 'boolean',
         ];
     }

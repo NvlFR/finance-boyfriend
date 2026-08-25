@@ -11,7 +11,10 @@ import {
     Edit2,
     Trash2,
 } from '@lucide/vue';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
+import FormErrorSummary from '@/components/FormErrorSummary.vue';
+import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
 import {
     contribute as goalContribute,
     destroy as goalDestroy,
@@ -51,6 +54,25 @@ const isEditModalOpen = ref(false);
 const isContributeModalOpen = ref(false);
 const selectedGoal = ref<Goal | null>(null);
 const editingGoal = ref<Goal | null>(null);
+const goalToDelete = ref<Goal | null>(null);
+const isDeleting = ref(false);
+const isAnyModalOpen = computed(
+    () =>
+        isCreateModalOpen.value ||
+        isEditModalOpen.value ||
+        isContributeModalOpen.value,
+);
+
+function closeActiveModal(): void {
+    isCreateModalOpen.value = false;
+    isEditModalOpen.value = false;
+    isContributeModalOpen.value = false;
+}
+
+const { dialogRef, handleDialogKeydown } = useAccessibleDialog(
+    isAnyModalOpen,
+    closeActiveModal,
+);
 
 const createForm = useForm({
     name: '',
@@ -91,6 +113,7 @@ const colors = [
 ];
 
 function openContributeModal(goal: Goal) {
+    contributeForm.clearErrors();
     selectedGoal.value = goal;
     contributeForm.amount = '';
     contributeForm.client_reference = createClientReference();
@@ -98,6 +121,7 @@ function openContributeModal(goal: Goal) {
 }
 
 function openEditModal(goal: Goal) {
+    editForm.clearErrors();
     editingGoal.value = goal;
     editForm.name = goal.name;
     editForm.target_amount = goal.target_amount;
@@ -114,6 +138,11 @@ function submitCreate() {
             isCreateModalOpen.value = false;
         },
     });
+}
+
+function openCreateModal(): void {
+    createForm.clearErrors();
+    isCreateModalOpen.value = true;
 }
 
 function submitEdit() {
@@ -145,11 +174,20 @@ function submitContribute() {
 }
 
 function deleteGoal(goal: Goal) {
-    if (confirm(`Hapus target tabungan "${goal.name}"?`)) {
-        router.delete(goalDestroy.url(goal.id), {
-            preserveScroll: true,
-        });
+    goalToDelete.value = goal;
+}
+
+function confirmDeleteGoal(): void {
+    if (!goalToDelete.value) {
+        return;
     }
+
+    router.delete(goalDestroy.url(goalToDelete.value.id), {
+        preserveScroll: true,
+        onStart: () => (isDeleting.value = true),
+        onSuccess: () => (goalToDelete.value = null),
+        onFinish: () => (isDeleting.value = false),
+    });
 }
 </script>
 
@@ -158,8 +196,10 @@ function deleteGoal(goal: Goal) {
 
     <div class="space-y-6">
         <!-- Top Bar Action -->
-        <div class="flex items-center justify-between">
-            <div>
+        <div
+            class="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center"
+        >
+            <div class="min-w-0">
                 <h1
                     class="text-base font-bold text-zinc-900 dark:text-zinc-100"
                 >
@@ -172,7 +212,7 @@ function deleteGoal(goal: Goal) {
 
             <button
                 type="button"
-                @click="isCreateModalOpen = true"
+                @click="openCreateModal"
                 class="flex min-h-11 items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-600 to-rose-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:opacity-90"
             >
                 <Plus class="h-4 w-4" /> Buat Target
@@ -377,13 +417,20 @@ function deleteGoal(goal: Goal) {
             class="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         >
             <div
+                ref="dialogRef"
                 @click.stop
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="create-goal-title"
+                tabindex="-1"
+                @keydown="handleDialogKeydown"
                 class="max-h-[calc(100dvh-2rem)] w-full max-w-md cursor-default overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
             >
                 <div
                     class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800"
                 >
                     <h2
+                        id="create-goal-title"
                         class="text-base font-semibold text-zinc-900 dark:text-zinc-100"
                     >
                         Buat Target Tabungan Impian
@@ -391,7 +438,8 @@ function deleteGoal(goal: Goal) {
                     <button
                         type="button"
                         @click="isCreateModalOpen = false"
-                        class="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        class="flex h-11 w-11 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        aria-label="Tutup dialog buat target"
                     >
                         <X class="h-5 w-5" />
                     </button>
@@ -446,8 +494,10 @@ function deleteGoal(goal: Goal) {
                                 :key="c"
                                 type="button"
                                 @click="createForm.color = c"
-                                class="flex h-7 w-7 items-center justify-center rounded-full transition-transform active:scale-95"
+                                class="flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-95"
                                 :style="{ backgroundColor: c }"
+                                :aria-label="`Pilih warna ${c}`"
+                                :aria-pressed="createForm.color === c"
                             >
                                 <CheckCircle2
                                     v-if="createForm.color === c"
@@ -457,12 +507,18 @@ function deleteGoal(goal: Goal) {
                         </div>
                     </div>
 
+                    <FormErrorSummary :errors="createForm.errors" />
+
                     <button
                         type="submit"
                         :disabled="createForm.processing"
                         class="w-full rounded-2xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-md transition-all hover:bg-indigo-500"
                     >
-                        Simpan Impian
+                        {{
+                            createForm.processing
+                                ? 'Menyimpan...'
+                                : 'Simpan Impian'
+                        }}
                     </button>
                 </form>
             </div>
@@ -475,13 +531,20 @@ function deleteGoal(goal: Goal) {
             class="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         >
             <div
+                ref="dialogRef"
                 @click.stop
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="edit-goal-title"
+                tabindex="-1"
+                @keydown="handleDialogKeydown"
                 class="max-h-[calc(100dvh-2rem)] w-full max-w-md cursor-default overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
             >
                 <div
                     class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800"
                 >
                     <h2
+                        id="edit-goal-title"
                         class="text-base font-semibold text-zinc-900 dark:text-zinc-100"
                     >
                         Edit Target Tabungan
@@ -489,7 +552,8 @@ function deleteGoal(goal: Goal) {
                     <button
                         type="button"
                         @click="isEditModalOpen = false"
-                        class="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        class="flex h-11 w-11 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        aria-label="Tutup dialog edit target"
                     >
                         <X class="h-5 w-5" />
                     </button>
@@ -542,8 +606,10 @@ function deleteGoal(goal: Goal) {
                                 :key="c"
                                 type="button"
                                 @click="editForm.color = c"
-                                class="flex h-7 w-7 items-center justify-center rounded-full transition-transform active:scale-95"
+                                class="flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-95"
                                 :style="{ backgroundColor: c }"
+                                :aria-label="`Pilih warna ${c}`"
+                                :aria-pressed="editForm.color === c"
                             >
                                 <CheckCircle2
                                     v-if="editForm.color === c"
@@ -553,13 +619,19 @@ function deleteGoal(goal: Goal) {
                         </div>
                     </div>
 
+                    <FormErrorSummary :errors="editForm.errors" />
+
                     <button
                         type="submit"
                         :disabled="editForm.processing"
                         class="w-full rounded-2xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-md transition-all hover:bg-indigo-500"
                     >
                         <Sparkles class="mr-1 inline h-4 w-4" />
-                        Simpan Perubahan
+                        {{
+                            editForm.processing
+                                ? 'Menyimpan...'
+                                : 'Simpan Perubahan'
+                        }}
                     </button>
                 </form>
             </div>
@@ -572,13 +644,20 @@ function deleteGoal(goal: Goal) {
             class="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         >
             <div
+                ref="dialogRef"
                 @click.stop
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="contribute-goal-title"
+                tabindex="-1"
+                @keydown="handleDialogKeydown"
                 class="max-h-[calc(100dvh-2rem)] w-full max-w-md cursor-default overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
             >
                 <div
                     class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800"
                 >
                     <h2
+                        id="contribute-goal-title"
                         class="text-base font-semibold text-zinc-900 dark:text-zinc-100"
                     >
                         Setor Tabungan
@@ -586,7 +665,8 @@ function deleteGoal(goal: Goal) {
                     <button
                         type="button"
                         @click="isContributeModalOpen = false"
-                        class="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        class="flex h-11 w-11 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        aria-label="Tutup dialog setor tabungan"
                     >
                         <X class="h-5 w-5" />
                     </button>
@@ -666,6 +746,8 @@ function deleteGoal(goal: Goal) {
                         />
                     </div>
 
+                    <FormErrorSummary :errors="contributeForm.errors" />
+
                     <button
                         type="submit"
                         :disabled="
@@ -673,10 +755,23 @@ function deleteGoal(goal: Goal) {
                         "
                         class="w-full rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 py-3 text-xs font-bold text-white shadow-md transition-all hover:opacity-90"
                     >
-                        Konfirmasi Setor
+                        {{
+                            contributeForm.processing
+                                ? 'Memproses...'
+                                : 'Konfirmasi Setor'
+                        }}
                     </button>
                 </form>
             </div>
         </div>
+
+        <ConfirmActionDialog
+            :open="goalToDelete !== null"
+            title="Hapus target tabungan?"
+            :description="`Target ${goalToDelete?.name || ''} beserta riwayat setorannya akan dihapus.`"
+            :processing="isDeleting"
+            @update:open="goalToDelete = null"
+            @confirm="confirmDeleteGoal"
+        />
     </div>
 </template>

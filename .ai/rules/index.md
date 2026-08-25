@@ -6,3 +6,4 @@ Before planning or editing, find the row whose globs match the file's path and r
 | --- | --- |
 | app/Http/** | .ai/rules/http.md |
 | app/Http/**,app/Services/**,resources/js/** | .ai/rules/js.md |
+| resources/js/pages/Trips/** | .ai/rules/trips.md |

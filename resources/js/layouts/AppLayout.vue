@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { usePage, router } from '@inertiajs/vue3';
-import MobileBottomNav from '@/components/MobileBottomNav.vue';
-import TransactionDrawer from '@/components/TransactionDrawer.vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { toast } from 'vue-sonner';
 import LogoutConfirmModal from '@/components/LogoutConfirmModal.vue';
+import MobileBottomNav from '@/components/MobileBottomNav.vue';
 import PwaInstallPrompt from '@/components/PwaInstallPrompt.vue';
+import TransactionDrawer from '@/components/TransactionDrawer.vue';
+import { Toaster } from '@/components/ui/sonner';
 import { useTransactionModal } from '@/composables/useTransactionModal';
 import type { BreadcrumbItem } from '@/types';
 import type { User } from '@/types/auth';
 import type { Wallet, Category } from '@/types/finance';
 
-const { breadcrumbs = [] } = defineProps<{
+defineProps<{
     breadcrumbs?: BreadcrumbItem[];
 }>();
 
@@ -18,10 +20,23 @@ const page = usePage();
 const user = computed(() => (page.props.auth as any)?.user as User);
 const partner = computed(() => (page.props as any).partner as User | undefined);
 const wallets = computed(() => ((page.props as any).wallets || []) as Wallet[]);
-const categories = computed(() => ((page.props as any).categories || []) as Category[]);
+const categories = computed(
+    () => ((page.props as any).categories || []) as Category[],
+);
 
-const { isOpen: isDrawerOpen, defaults: transactionDefaults } = useTransactionModal();
+const { isOpen: isDrawerOpen, defaults: transactionDefaults } =
+    useTransactionModal();
 const isNavigating = ref(false);
+
+watch(
+    () => (page.props as any).statusMessage,
+    (statusMessage?: { type: 'success' | 'error'; message: string }) => {
+        if (statusMessage?.message) {
+            toast[statusMessage.type](statusMessage.message);
+        }
+    },
+    { immediate: true, flush: 'post' },
+);
 
 let removeStartListener: (() => void) | null = null;
 let removeFinishListener: (() => void) | null = null;
@@ -37,17 +52,24 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-    if (removeStartListener) removeStartListener();
-    if (removeFinishListener) removeFinishListener();
+    if (removeStartListener) {
+        removeStartListener();
+    }
+
+    if (removeFinishListener) {
+        removeFinishListener();
+    }
 });
 </script>
 
 <template>
-    <div class="min-h-screen bg-zinc-50 text-zinc-900 antialiased pb-[calc(7rem+env(safe-area-inset-bottom))] dark:bg-zinc-950 dark:text-zinc-100 selection:bg-rose-500 selection:text-white">
+    <div
+        class="min-h-screen bg-zinc-50 pb-[calc(7rem+env(safe-area-inset-bottom))] text-zinc-900 antialiased selection:bg-rose-500 selection:text-white dark:bg-zinc-950 dark:text-zinc-100"
+    >
         <!-- Top Loading Progress Bar (Glowing Gradient Line) -->
         <div
             v-if="isNavigating"
-            class="fixed top-0 left-0 right-0 z-50 h-1 bg-gradient-to-r from-indigo-500 via-rose-500 to-amber-500 animate-pulse shadow-sm shadow-rose-500/50"
+            class="fixed top-0 right-0 left-0 z-50 h-1 animate-pulse bg-gradient-to-r from-indigo-500 via-rose-500 to-amber-500 shadow-sm shadow-rose-500/50"
         />
 
         <!-- Page Content Slot with Smooth Transition -->
@@ -72,6 +94,9 @@ onUnmounted(() => {
 
         <!-- Global Logout Confirmation Modal -->
         <LogoutConfirmModal />
+
+        <PwaInstallPrompt />
+        <Toaster position="top-center" rich-colors />
     </div>
 </template>
 
@@ -79,7 +104,9 @@ onUnmounted(() => {
 /* Smooth SPA Page Transition */
 .page-enter-active,
 .page-leave-active {
-    transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    transition:
+        opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .page-enter-from {

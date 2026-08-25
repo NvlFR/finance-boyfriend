@@ -1,10 +1,22 @@
 <script setup lang="ts">
-import { ref } from 'vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { Tag, Plus, Check, Edit2, Trash2, X, Sparkles, Lock } from '@lucide/vue';
+import {
+    Tag,
+    Plus,
+    Check,
+    Edit2,
+    Trash2,
+    X,
+    Sparkles,
+    Lock,
+} from '@lucide/vue';
+import { computed, ref } from 'vue';
+import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
+import FormErrorSummary from '@/components/FormErrorSummary.vue';
+import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
 import type { Category } from '@/types/finance';
 
-const props = defineProps<{
+defineProps<{
     categories: Category[];
     income_categories: Category[];
     expense_categories: Category[];
@@ -13,9 +25,32 @@ const props = defineProps<{
 const isCreateModalOpen = ref(false);
 const isEditModalOpen = ref(false);
 const editingCategory = ref<Category | null>(null);
+const categoryToDelete = ref<Category | null>(null);
+const isDeleting = ref(false);
+const isAnyModalOpen = computed(
+    () => isCreateModalOpen.value || isEditModalOpen.value,
+);
+
+function closeActiveModal(): void {
+    isCreateModalOpen.value = false;
+    isEditModalOpen.value = false;
+}
+
+const { dialogRef, handleDialogKeydown } = useAccessibleDialog(
+    isAnyModalOpen,
+    closeActiveModal,
+);
 
 const colors = [
-    '#6366F1', '#F43F5E', '#EC4899', '#10B981', '#F59E0B', '#3B82F6', '#8B5CF6', '#14B8A6', '#64748B'
+    '#6366F1',
+    '#F43F5E',
+    '#EC4899',
+    '#10B981',
+    '#F59E0B',
+    '#3B82F6',
+    '#8B5CF6',
+    '#14B8A6',
+    '#64748B',
 ];
 
 const createForm = useForm({
@@ -42,7 +77,13 @@ function submitCreate() {
     });
 }
 
+function openCreateModal(): void {
+    createForm.clearErrors();
+    isCreateModalOpen.value = true;
+}
+
 function openEditModal(cat: Category) {
+    editForm.clearErrors();
     editingCategory.value = cat;
     editForm.name = cat.name;
     editForm.type = cat.type as any;
@@ -52,7 +93,10 @@ function openEditModal(cat: Category) {
 }
 
 function submitEdit() {
-    if (!editingCategory.value) return;
+    if (!editingCategory.value) {
+        return;
+    }
+
     editForm.put(`/categories/${editingCategory.value.id}`, {
         preserveScroll: true,
         onSuccess: () => {
@@ -63,11 +107,20 @@ function submitEdit() {
 }
 
 function deleteCategory(cat: Category) {
-    if (confirm(`Hapus kategori kustom "${cat.name}"?`)) {
-        router.delete(`/categories/${cat.id}`, {
-            preserveScroll: true,
-        });
+    categoryToDelete.value = cat;
+}
+
+function confirmDeleteCategory(): void {
+    if (!categoryToDelete.value) {
+        return;
     }
+
+    router.delete(`/categories/${categoryToDelete.value.id}`, {
+        preserveScroll: true,
+        onStart: () => (isDeleting.value = true),
+        onSuccess: () => (categoryToDelete.value = null),
+        onFinish: () => (isDeleting.value = false),
+    });
 }
 </script>
 
@@ -76,18 +129,24 @@ function deleteCategory(cat: Category) {
 
     <div class="space-y-6">
         <!-- Top Bar Action -->
-        <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
+        <div
+            class="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center"
+        >
+            <div class="min-w-0">
+                <h1
+                    class="text-base font-bold text-zinc-900 dark:text-zinc-100"
+                >
                     Kategori Keuangan
                 </h1>
-                <p class="text-xs text-zinc-500">Kelola kategori pengeluaran dan pemasukan bersama</p>
+                <p class="text-xs text-zinc-500">
+                    Kelola kategori pengeluaran dan pemasukan bersama
+                </p>
             </div>
 
             <button
                 type="button"
-                @click="isCreateModalOpen = true"
-                class="flex min-h-11 items-center gap-1.5 rounded-full bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors"
+                @click="openCreateModal"
+                class="flex min-h-11 items-center gap-1.5 rounded-full bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500"
             >
                 <Plus class="h-4 w-4" /> Tambah Kategori
             </button>
@@ -95,11 +154,13 @@ function deleteCategory(cat: Category) {
 
         <!-- Expense Categories Section -->
         <div class="space-y-3">
-            <h2 class="text-xs font-bold uppercase tracking-wider text-rose-500">
+            <h2
+                class="text-xs font-bold tracking-wider text-rose-500 uppercase"
+            >
                 Kategori Pengeluaran & Kencan
             </h2>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
                 <div
                     v-for="cat in expense_categories"
                     :key="cat.id"
@@ -113,11 +174,17 @@ function deleteCategory(cat: Category) {
                             <Tag class="h-5 w-5" />
                         </div>
                         <div>
-                            <h3 class="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                            <h3
+                                class="text-xs font-bold text-zinc-900 dark:text-zinc-100"
+                            >
                                 {{ cat.name }}
                             </h3>
                             <span class="text-[10px] text-zinc-400">
-                                {{ cat.is_default ? 'Kategori Bawaan' : 'Kategori Kustom Pasangan' }}
+                                {{
+                                    cat.is_default
+                                        ? 'Kategori Bawaan'
+                                        : 'Kategori Kustom Pasangan'
+                                }}
                             </span>
                         </div>
                     </div>
@@ -127,7 +194,7 @@ function deleteCategory(cat: Category) {
                             <button
                                 type="button"
                                 @click="openEditModal(cat)"
-                                class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 transition-colors"
+                                class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
                                 title="Edit Kategori"
                             >
                                 <Edit2 class="h-3.5 w-3.5" />
@@ -135,13 +202,17 @@ function deleteCategory(cat: Category) {
                             <button
                                 type="button"
                                 @click="deleteCategory(cat)"
-                                class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 transition-colors"
+                                class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
                                 title="Hapus Kategori"
                             >
                                 <Trash2 class="h-3.5 w-3.5" />
                             </button>
                         </template>
-                        <Lock v-else class="h-3.5 w-3.5 text-zinc-300 dark:text-zinc-600" title="Kategori Sistem Default" />
+                        <Lock
+                            v-else
+                            class="h-3.5 w-3.5 text-zinc-300 dark:text-zinc-600"
+                            title="Kategori Sistem Default"
+                        />
                     </div>
                 </div>
             </div>
@@ -149,11 +220,13 @@ function deleteCategory(cat: Category) {
 
         <!-- Income Categories Section -->
         <div class="space-y-3">
-            <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-500">
+            <h2
+                class="text-xs font-bold tracking-wider text-emerald-500 uppercase"
+            >
                 Kategori Pemasukan
             </h2>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
                 <div
                     v-for="cat in income_categories"
                     :key="cat.id"
@@ -167,11 +240,17 @@ function deleteCategory(cat: Category) {
                             <Tag class="h-5 w-5" />
                         </div>
                         <div>
-                            <h3 class="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                            <h3
+                                class="text-xs font-bold text-zinc-900 dark:text-zinc-100"
+                            >
                                 {{ cat.name }}
                             </h3>
                             <span class="text-[10px] text-zinc-400">
-                                {{ cat.is_default ? 'Kategori Bawaan' : 'Kategori Kustom Pasangan' }}
+                                {{
+                                    cat.is_default
+                                        ? 'Kategori Bawaan'
+                                        : 'Kategori Kustom Pasangan'
+                                }}
                             </span>
                         </div>
                     </div>
@@ -181,7 +260,7 @@ function deleteCategory(cat: Category) {
                             <button
                                 type="button"
                                 @click="openEditModal(cat)"
-                                class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 transition-colors"
+                                class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
                                 title="Edit Kategori"
                             >
                                 <Edit2 class="h-3.5 w-3.5" />
@@ -189,13 +268,17 @@ function deleteCategory(cat: Category) {
                             <button
                                 type="button"
                                 @click="deleteCategory(cat)"
-                                class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 transition-colors"
+                                class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
                                 title="Hapus Kategori"
                             >
                                 <Trash2 class="h-3.5 w-3.5" />
                             </button>
                         </template>
-                        <Lock v-else class="h-3.5 w-3.5 text-zinc-300 dark:text-zinc-600" title="Kategori Sistem Default" />
+                        <Lock
+                            v-else
+                            class="h-3.5 w-3.5 text-zinc-300 dark:text-zinc-600"
+                            title="Kategori Sistem Default"
+                        />
                     </div>
                 </div>
             </div>
@@ -205,18 +288,32 @@ function deleteCategory(cat: Category) {
         <div
             v-if="isCreateModalOpen"
             @click.self="isCreateModalOpen = false"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm cursor-pointer"
+            class="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         >
             <div
+                ref="dialogRef"
                 @click.stop
-                class="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 cursor-default"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="create-category-title"
+                tabindex="-1"
+                @keydown="handleDialogKeydown"
+                class="max-h-[calc(100dvh-2rem)] w-full max-w-md cursor-default overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
             >
-                <div class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-                    <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Tambah Kategori Baru</h2>
+                <div
+                    class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800"
+                >
+                    <h2
+                        id="create-category-title"
+                        class="text-base font-semibold text-zinc-900 dark:text-zinc-100"
+                    >
+                        Tambah Kategori Baru
+                    </h2>
                     <button
                         type="button"
                         @click="isCreateModalOpen = false"
-                        class="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        class="flex h-11 w-11 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        aria-label="Tutup dialog tambah kategori"
                     >
                         <X class="h-5 w-5" />
                     </button>
@@ -224,7 +321,9 @@ function deleteCategory(cat: Category) {
 
                 <form @submit.prevent="submitCreate" class="mt-4 space-y-4">
                     <div>
-                        <label class="block text-xs font-medium text-zinc-500">Nama Kategori</label>
+                        <label class="block text-xs font-medium text-zinc-500"
+                            >Nama Kategori</label
+                        >
                         <input
                             v-model="createForm.name"
                             type="text"
@@ -235,7 +334,9 @@ function deleteCategory(cat: Category) {
                     </div>
 
                     <div>
-                        <label class="block text-xs font-medium text-zinc-500">Tipe Kategori</label>
+                        <label class="block text-xs font-medium text-zinc-500"
+                            >Tipe Kategori</label
+                        >
                         <select
                             v-model="createForm.type"
                             class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
@@ -246,27 +347,40 @@ function deleteCategory(cat: Category) {
                     </div>
 
                     <div>
-                        <label class="block text-xs font-medium text-zinc-500">Warna Kategori</label>
+                        <label class="block text-xs font-medium text-zinc-500"
+                            >Warna Kategori</label
+                        >
                         <div class="mt-2 flex flex-wrap gap-2">
                             <button
                                 v-for="c in colors"
                                 :key="c"
                                 type="button"
                                 @click="createForm.color = c"
-                                class="flex h-7 w-7 items-center justify-center rounded-full transition-transform active:scale-95"
+                                class="flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-95"
                                 :style="{ backgroundColor: c }"
+                                :aria-label="`Pilih warna ${c}`"
+                                :aria-pressed="createForm.color === c"
                             >
-                                <Check v-if="createForm.color === c" class="h-3.5 w-3.5 text-white" />
+                                <Check
+                                    v-if="createForm.color === c"
+                                    class="h-3.5 w-3.5 text-white"
+                                />
                             </button>
                         </div>
                     </div>
 
+                    <FormErrorSummary :errors="createForm.errors" />
+
                     <button
                         type="submit"
                         :disabled="createForm.processing"
-                        class="w-full rounded-2xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-md hover:bg-indigo-500 transition-all"
+                        class="w-full rounded-2xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-md transition-all hover:bg-indigo-500"
                     >
-                        Simpan Kategori
+                        {{
+                            createForm.processing
+                                ? 'Menyimpan...'
+                                : 'Simpan Kategori'
+                        }}
                     </button>
                 </form>
             </div>
@@ -276,18 +390,32 @@ function deleteCategory(cat: Category) {
         <div
             v-if="isEditModalOpen && editingCategory"
             @click.self="isEditModalOpen = false"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm cursor-pointer"
+            class="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         >
             <div
+                ref="dialogRef"
                 @click.stop
-                class="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 cursor-default"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="edit-category-title"
+                tabindex="-1"
+                @keydown="handleDialogKeydown"
+                class="max-h-[calc(100dvh-2rem)] w-full max-w-md cursor-default overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
             >
-                <div class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
-                    <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Edit Kategori</h2>
+                <div
+                    class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800"
+                >
+                    <h2
+                        id="edit-category-title"
+                        class="text-base font-semibold text-zinc-900 dark:text-zinc-100"
+                    >
+                        Edit Kategori
+                    </h2>
                     <button
                         type="button"
                         @click="isEditModalOpen = false"
-                        class="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        class="flex h-11 w-11 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        aria-label="Tutup dialog edit kategori"
                     >
                         <X class="h-5 w-5" />
                     </button>
@@ -295,7 +423,9 @@ function deleteCategory(cat: Category) {
 
                 <form @submit.prevent="submitEdit" class="mt-4 space-y-4">
                     <div>
-                        <label class="block text-xs font-medium text-zinc-500">Nama Kategori</label>
+                        <label class="block text-xs font-medium text-zinc-500"
+                            >Nama Kategori</label
+                        >
                         <input
                             v-model="editForm.name"
                             type="text"
@@ -305,7 +435,9 @@ function deleteCategory(cat: Category) {
                     </div>
 
                     <div>
-                        <label class="block text-xs font-medium text-zinc-500">Tipe Kategori</label>
+                        <label class="block text-xs font-medium text-zinc-500"
+                            >Tipe Kategori</label
+                        >
                         <select
                             v-model="editForm.type"
                             class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
@@ -316,31 +448,53 @@ function deleteCategory(cat: Category) {
                     </div>
 
                     <div>
-                        <label class="block text-xs font-medium text-zinc-500">Warna Kategori</label>
+                        <label class="block text-xs font-medium text-zinc-500"
+                            >Warna Kategori</label
+                        >
                         <div class="mt-2 flex flex-wrap gap-2">
                             <button
                                 v-for="c in colors"
                                 :key="c"
                                 type="button"
                                 @click="editForm.color = c"
-                                class="flex h-7 w-7 items-center justify-center rounded-full transition-transform active:scale-95"
+                                class="flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-95"
                                 :style="{ backgroundColor: c }"
+                                :aria-label="`Pilih warna ${c}`"
+                                :aria-pressed="editForm.color === c"
                             >
-                                <Check v-if="editForm.color === c" class="h-3.5 w-3.5 text-white" />
+                                <Check
+                                    v-if="editForm.color === c"
+                                    class="h-3.5 w-3.5 text-white"
+                                />
                             </button>
                         </div>
                     </div>
 
+                    <FormErrorSummary :errors="editForm.errors" />
+
                     <button
                         type="submit"
                         :disabled="editForm.processing"
-                        class="w-full rounded-2xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-md hover:bg-indigo-500 transition-all"
+                        class="w-full rounded-2xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-md transition-all hover:bg-indigo-500"
                     >
-                        <Sparkles class="h-4 w-4 inline mr-1" />
-                        Simpan Perubahan
+                        <Sparkles class="mr-1 inline h-4 w-4" />
+                        {{
+                            editForm.processing
+                                ? 'Menyimpan...'
+                                : 'Simpan Perubahan'
+                        }}
                     </button>
                 </form>
             </div>
         </div>
+
+        <ConfirmActionDialog
+            :open="categoryToDelete !== null"
+            title="Hapus kategori?"
+            :description="`Kategori ${categoryToDelete?.name || ''} akan dihapus. Transaksi lama tetap tersimpan.`"
+            :processing="isDeleting"
+            @update:open="categoryToDelete = null"
+            @confirm="confirmDeleteCategory"
+        />
     </div>
 </template>

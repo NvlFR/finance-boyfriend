@@ -49,6 +49,8 @@ class StoreTransactionRequest extends FormRequest
             'notes' => ['nullable', 'string'],
             'receipt_image_path' => ['nullable', 'string', 'max:255'],
             'client_reference' => ['nullable', 'string', 'max:64'],
+            'source_type' => ['nullable', 'required_with:source_id', Rule::in(['subscription', 'wishlist', 'budget'])],
+            'source_id' => ['nullable', 'required_with:source_type', 'integer'],
 
             // Split bill details (optional or required when scope=shared)
             'split' => ['nullable', 'array'],

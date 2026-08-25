@@ -55,22 +55,22 @@ const walletIconComponent = computed(() => {
                 : 'border-zinc-200/80 bg-white dark:border-zinc-800/80 dark:bg-zinc-900',
         ]"
     >
-        <div class="flex items-start justify-between">
-            <div class="flex items-center gap-2.5">
+        <div class="flex min-w-0 items-start justify-between gap-2">
+            <div class="flex min-w-0 flex-1 items-center gap-2.5">
                 <div
                     class="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-sm"
                     :style="{ backgroundColor: wallet.color || '#6366F1' }"
                 >
                     <component :is="walletIconComponent" class="h-5 w-5" />
                 </div>
-                <div>
+                <div class="min-w-0">
                     <h3
-                        class="text-sm font-semibold text-zinc-900 dark:text-zinc-100"
+                        class="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100"
                     >
                         {{ wallet.name }}
                     </h3>
                     <p
-                        class="text-xs text-zinc-500 capitalize dark:text-zinc-400"
+                        class="truncate text-xs text-zinc-500 capitalize dark:text-zinc-400"
                     >
                         {{ wallet.wallet_type }}
                         {{
@@ -80,7 +80,7 @@ const walletIconComponent = computed(() => {
                         }}
                     </p>
                     <p
-                        class="mt-0.5 text-[11px] font-semibold"
+                        class="mt-0.5 truncate text-[11px] font-semibold"
                         :class="
                             isJoint
                                 ? 'text-emerald-600 dark:text-emerald-400'
@@ -97,7 +97,7 @@ const walletIconComponent = computed(() => {
             </div>
 
             <!-- Badges and Actions -->
-            <div class="flex items-center gap-1.5">
+            <div class="flex shrink-0 items-center gap-1">
                 <span
                     v-if="isJoint"
                     class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400"
@@ -111,6 +111,7 @@ const walletIconComponent = computed(() => {
                     @click.stop="emit('edit', wallet)"
                     class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                     title="Edit Dompet"
+                    :aria-label="`Edit dompet ${wallet.name}`"
                 >
                     <Edit2 class="h-3.5 w-3.5" />
                 </button>
@@ -121,6 +122,7 @@ const walletIconComponent = computed(() => {
                     @click.stop="emit('delete', wallet)"
                     class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
                     title="Hapus Dompet"
+                    :aria-label="`Hapus dompet ${wallet.name}`"
                 >
                     <Trash2 class="h-3.5 w-3.5" />
                 </button>
@@ -129,7 +131,7 @@ const walletIconComponent = computed(() => {
 
         <div class="mt-4 flex items-baseline justify-between">
             <span
-                class="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100"
+                class="text-lg font-bold tracking-tight break-all text-zinc-900 dark:text-zinc-100"
             >
                 {{ formattedBalance }}
             </span>

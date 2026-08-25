@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Trip\StoreTripRequest;
+use App\Http\Requests\Trip\UpdateTripPositionRequest;
 use App\Models\Category;
 use App\Models\PushSubscription;
 use App\Models\Trip;
@@ -66,21 +68,12 @@ class TripController extends Controller
     /**
      * Start a new live trip and notify partner.
      */
-    public function store(Request $request): JsonResponse|RedirectResponse
+    public function store(StoreTripRequest $request): JsonResponse|RedirectResponse
     {
         $user = $request->user();
         $space = $user->getOrEnsureCoupleSpace();
 
-        $validated = $request->validate([
-            'title' => 'required|string|max:150',
-            'destination_name' => 'nullable|string|max:150',
-            'origin_name' => 'nullable|string|max:150',
-            'origin_lat' => 'nullable|numeric|between:-90,90',
-            'origin_lng' => 'nullable|numeric|between:-180,180',
-            'destination_lat' => 'nullable|numeric|between:-90,90',
-            'destination_lng' => 'nullable|numeric|between:-180,180',
-            'notes' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
 
         $trip = DB::transaction(function () use ($space, $user, $validated): Trip {
             $lockedSpace = $space->newQuery()->whereKey($space->id)->lockForUpdate()->firstOrFail();
@@ -140,24 +133,17 @@ class TripController extends Controller
     /**
      * Update current GPS location and speed during active trip.
      */
-    public function updatePosition(Request $request, Trip $trip): JsonResponse
+    public function updatePosition(UpdateTripPositionRequest $request, Trip $trip): JsonResponse
     {
         $user = $request->user();
-
-        if ($trip->user_id !== $user->id) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
-        $validated = $request->validate([
-            'lat' => 'required|numeric|between:-90,90',
-            'lng' => 'required|numeric|between:-180,180',
-            'speed' => 'nullable|numeric|min:0',
-        ]);
+        $validated = $request->validated();
 
         $trip = DB::transaction(function () use ($trip, $user, $validated): Trip {
             $lockedTrip = Trip::query()->whereKey($trip->id)->lockForUpdate()->firstOrFail();
 
-            if ($lockedTrip->user_id !== $user->id || $lockedTrip->status !== 'active') {
+            if ($lockedTrip->user_id !== $user->id
+                || $lockedTrip->couple_space_id !== $user->current_couple_space_id
+                || $lockedTrip->status !== 'active') {
                 abort(403);
             }
 
@@ -195,7 +181,9 @@ class TripController extends Controller
     {
         $user = $request->user();
 
-        if ($trip->user_id !== $user->id || $trip->status !== 'active') {
+        if ($trip->user_id !== $user->id
+            || $trip->couple_space_id !== $user->current_couple_space_id
+            || $trip->status !== 'active') {
             abort(403);
         }
 

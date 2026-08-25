@@ -184,9 +184,9 @@ function formatCurrency(amount: number) {
             class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center"
         >
             <div>
-                <div class="flex items-center gap-2">
+                <div class="flex min-w-0 flex-wrap items-center gap-2">
                     <h1
-                        class="text-xl font-black tracking-tight text-zinc-900 sm:text-2xl dark:text-zinc-100"
+                        class="min-w-0 text-xl font-black tracking-tight break-words text-zinc-900 sm:text-2xl dark:text-zinc-100"
                     >
                         {{ greeting }},
                         {{
@@ -283,7 +283,9 @@ function formatCurrency(amount: number) {
                     </button>
                 </div>
 
-                <div class="text-3xl font-extrabold tracking-tight sm:text-4xl">
+                <div
+                    class="text-2xl font-extrabold tracking-tight break-words min-[360px]:text-3xl sm:text-4xl"
+                >
                     {{ formattedTotalNetWorth }}
                 </div>
 
@@ -325,14 +327,16 @@ function formatCurrency(amount: number) {
             v-if="upcomingSubscriptions && upcomingSubscriptions.length > 0"
             class="rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-4 shadow-sm"
         >
-            <div class="flex items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
+            <div
+                class="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center"
+            >
+                <div class="flex min-w-0 items-center gap-3">
                     <div
                         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-sm"
                     >
                         <Repeat class="h-5 w-5" />
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <h3
                             class="text-xs font-bold text-amber-900 dark:text-amber-300"
                         >
@@ -343,9 +347,10 @@ function formatCurrency(amount: number) {
                         <p
                             class="mt-0.5 text-[11px] text-zinc-600 dark:text-zinc-400"
                         >
-                            <strong class="text-zinc-900 dark:text-zinc-100">{{
-                                upcomingSubscriptions[0].name
-                            }}</strong>
+                            <strong
+                                class="break-words text-zinc-900 dark:text-zinc-100"
+                                >{{ upcomingSubscriptions[0].name }}</strong
+                            >
                             (Rp
                             {{
                                 Number(
@@ -366,7 +371,7 @@ function formatCurrency(amount: number) {
 
                 <Link
                     href="/subscriptions"
-                    class="shrink-0 rounded-full bg-amber-500/20 px-3 py-1.5 text-[11px] font-bold text-amber-700 transition-colors hover:bg-amber-500/30 dark:text-amber-300"
+                    class="inline-flex min-h-11 shrink-0 items-center justify-center self-start rounded-full bg-amber-500/20 px-3 py-1.5 text-[11px] font-bold text-amber-700 transition-colors hover:bg-amber-500/30 sm:self-auto dark:text-amber-300"
                 >
                     Lihat Tagihan &rarr;
                 </Link>
@@ -547,9 +552,7 @@ function formatCurrency(amount: number) {
                                     ).toLocaleString()
                                 }}</span
                             >
-                            ({{
-                                settlementDebt.unsettled_splits_count
-                            }}
+                            ({{ settlementDebt.unsettled_splits_count }}
                             transaksi kencan)
                         </p>
                     </div>
@@ -797,9 +800,9 @@ function formatCurrency(amount: number) {
                     :key="tx.id"
                     class="flex items-center justify-between p-3.5 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
                 >
-                    <div class="flex items-center gap-3">
+                    <div class="flex min-w-0 flex-1 items-center gap-3">
                         <div
-                            class="flex h-9 w-9 items-center justify-center rounded-xl text-white"
+                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white"
                             :style="{
                                 backgroundColor:
                                     tx.category?.color || '#6366F1',
@@ -816,18 +819,20 @@ function formatCurrency(amount: number) {
                             <ArrowRightLeft v-else class="h-4 w-4" />
                         </div>
 
-                        <div>
+                        <div class="min-w-0">
                             <h3
-                                class="text-xs font-semibold text-zinc-900 dark:text-zinc-100"
+                                class="truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100"
                             >
                                 {{
                                     tx.title || tx.category?.name || 'Transaksi'
                                 }}
                             </h3>
                             <div
-                                class="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400"
+                                class="flex min-w-0 items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400"
                             >
-                                <span>{{ tx.wallet?.name }}</span>
+                                <span class="truncate">{{
+                                    tx.wallet?.name
+                                }}</span>
                                 <span>•</span>
                                 <span>{{
                                     tx.user?.nickname ||

@@ -13,6 +13,8 @@ use Illuminate\Support\Carbon;
  * @property int $couple_space_id
  * @property int $from_user_id
  * @property int $to_user_id
+ * @property int|null $transaction_id
+ * @property string|null $client_reference
  * @property string $amount
  * @property string $payment_method
  * @property string|null $notes
@@ -24,6 +26,8 @@ use Illuminate\Support\Carbon;
     'couple_space_id',
     'from_user_id',
     'to_user_id',
+    'transaction_id',
+    'client_reference',
     'amount',
     'payment_method',
     'notes',

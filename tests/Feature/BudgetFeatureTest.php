@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\CoupleSpace;
+use App\Models\Transaction;
 use App\Models\User;
+use App\Models\Wallet;
 
 test('user can view and create category budgets', function () {
     $user = User::factory()->create();
@@ -63,4 +65,36 @@ test('user can delete a budget', function () {
     $response = $this->actingAs($user)->delete(route('budgets.destroy', $budget));
     $response->assertRedirect();
     $this->assertDatabaseMissing('budgets', ['id' => $budget->id]);
+});
+
+test('budget percentage reports actual overage above one hundred percent', function () {
+    $user = User::factory()->create();
+    $space = CoupleSpace::factory()->create(['user_one_id' => $user->id]);
+    $user->update(['current_couple_space_id' => $space->id]);
+    $wallet = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+    ]);
+
+    $space->budgets()->create([
+        'created_by_user_id' => $user->id,
+        'name' => 'Budget Terlampaui',
+        'limit_amount' => 100000,
+        'scope' => 'shared',
+    ]);
+
+    Transaction::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'wallet_id' => $wallet->id,
+        'type' => 'expense',
+        'amount' => 150000,
+        'transaction_date' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->getJson(route('budgets.index'))
+        ->assertOk()
+        ->assertJsonPath('budgets.0.percentage', 150)
+        ->assertJsonPath('budgets.0.is_overbudget', true);
 });

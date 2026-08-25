@@ -24,6 +24,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $notes
  * @property string|null $receipt_image_path
  * @property string|null $client_reference
+ * @property string|null $source_type
+ * @property int|null $source_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -41,6 +43,8 @@ use Illuminate\Support\Carbon;
     'notes',
     'receipt_image_path',
     'client_reference',
+    'source_type',
+    'source_id',
 ])]
 class Transaction extends Model
 {

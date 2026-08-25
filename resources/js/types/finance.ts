@@ -73,6 +73,8 @@ export type Transaction = {
     notes: string | null;
     receipt_image_path: string | null;
     client_reference?: string | null;
+    source_type?: 'subscription' | 'wishlist' | 'budget' | null;
+    source_id?: number | null;
     wallet?: Wallet;
     to_wallet?: Wallet;
     category?: Category;
@@ -134,14 +136,19 @@ export type Trip = {
     notes: string | null;
     started_at: string;
     ended_at: string | null;
+    updated_at?: string;
     user?: User;
 };
 
 export type TransactionDefaults = {
+    amount?: number | string;
     title?: string;
     notes?: string;
     scope?: TransactionScope;
     type?: TransactionType;
     wallet_id?: number;
     category_id?: number | null;
+    split_type?: SplitType;
+    source_type?: 'subscription' | 'wishlist' | 'budget';
+    source_id?: number;
 };

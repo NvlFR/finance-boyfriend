@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\Budget;
 use App\Models\CoupleSpace;
+use App\Models\Subscription;
 use App\Models\Transaction;
 use App\Models\TransactionSplit;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Models\Wishlist;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -41,6 +44,9 @@ class TransactionService
 
                 $sourceWallet = Wallet::where('couple_space_id', $space->id)
                     ->where('id', $walletId)
+                    ->where(function ($query) use ($user) {
+                        $query->where('type', 'joint')->orWhere('user_id', $user->id);
+                    })
                     ->lockForUpdate()
                     ->firstOrFail();
 
@@ -82,12 +88,16 @@ class TransactionService
                     'notes' => $data['notes'] ?? null,
                     'receipt_image_path' => $data['receipt_image_path'] ?? null,
                     'client_reference' => $clientReference,
+                    'source_type' => $data['source_type'] ?? null,
+                    'source_id' => $data['source_id'] ?? null,
                 ]);
 
                 // Handle Split for shared expenses or shared transactions
                 if ($scope === 'shared' && $type === 'expense') {
                     $this->createSplitRecord($transaction, $user, $space, $data['split'] ?? []);
                 }
+
+                $this->applyFeatureContext($transaction, $user, $space);
 
                 return $transaction->load(['wallet', 'toWallet', 'category', 'split', 'user']);
             });
@@ -151,8 +161,17 @@ class TransactionService
             $newWalletId = isset($data['wallet_id']) ? (int) $data['wallet_id'] : $transaction->wallet_id;
             $newToWalletId = ! empty($data['to_wallet_id']) ? (int) $data['to_wallet_id'] : null;
 
+            if ($transaction->source_type && $newType !== 'expense') {
+                throw ValidationException::withMessages([
+                    'type' => 'Transaksi pembayaran fitur harus tetap berupa pengeluaran.',
+                ]);
+            }
+
             $newSourceWallet = Wallet::where('couple_space_id', $space->id)
                 ->where('id', $newWalletId)
+                ->where(function ($query) use ($transaction) {
+                    $query->where('type', 'joint')->orWhere('user_id', $transaction->user_id);
+                })
                 ->lockForUpdate()
                 ->firstOrFail();
 
@@ -213,6 +232,12 @@ class TransactionService
      */
     public function deleteTransaction(Transaction $transaction): void
     {
+        if ($transaction->source_type) {
+            throw ValidationException::withMessages([
+                'transaction' => 'Transaksi yang terhubung ke fitur tidak dapat dihapus agar status pembayaran tetap konsisten.',
+            ]);
+        }
+
         DB::transaction(function () use ($transaction) {
             $amount = (float) $transaction->amount;
             $type = $transaction->type;
@@ -315,5 +340,61 @@ class TransactionService
             ->where('client_reference', $clientReference)
             ->with(['wallet', 'toWallet', 'category', 'split', 'user'])
             ->first();
+    }
+
+    private function applyFeatureContext(Transaction $transaction, User $user, CoupleSpace $space): void
+    {
+        if (! $transaction->source_type || ! $transaction->source_id) {
+            return;
+        }
+
+        if ($transaction->type !== 'expense') {
+            throw ValidationException::withMessages([
+                'type' => 'Pembayaran fitur harus dicatat sebagai pengeluaran.',
+            ]);
+        }
+
+        if ($transaction->source_type === 'subscription') {
+            $subscription = Subscription::query()
+                ->where('couple_space_id', $space->id)
+                ->lockForUpdate()
+                ->findOrFail($transaction->source_id);
+            $nextBillingDate = $subscription->next_billing_date->copy();
+
+            do {
+                $nextBillingDate = $subscription->billing_cycle === 'yearly'
+                    ? $nextBillingDate->addYearNoOverflow()
+                    : $nextBillingDate->addMonthNoOverflow();
+            } while ($nextBillingDate->lessThanOrEqualTo($transaction->transaction_date));
+
+            $subscription->update([
+                'paid_by_user_id' => $user->id,
+                'wallet_id' => $transaction->wallet_id,
+                'last_paid_at' => $transaction->transaction_date,
+                'next_billing_date' => $nextBillingDate,
+            ]);
+
+            return;
+        }
+
+        if ($transaction->source_type === 'wishlist') {
+            $wishlist = Wishlist::query()
+                ->where('couple_space_id', $space->id)
+                ->lockForUpdate()
+                ->findOrFail($transaction->source_id);
+
+            if ($wishlist->is_secret_surprise && $wishlist->target_user_id === $user->id) {
+                abort(403, 'Kado kejutan hanya dapat dibeli oleh pembuatnya.');
+            }
+
+            $wishlist->update(['is_bought' => true]);
+
+            return;
+        }
+
+        Budget::query()
+            ->where('couple_space_id', $space->id)
+            ->lockForUpdate()
+            ->findOrFail($transaction->source_id);
     }
 }

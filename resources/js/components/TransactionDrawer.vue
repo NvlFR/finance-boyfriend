@@ -16,6 +16,7 @@ import {
     Plus,
 } from '@lucide/vue';
 import { ref, computed, watch } from 'vue';
+import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
 import { store as categoryStore } from '@/routes/categories';
 import { store as transactionStore } from '@/routes/transactions';
 import type { User } from '@/types/auth';
@@ -95,7 +96,11 @@ const selfFullSplitType = computed<SplitType>(() =>
         ? 'full_one'
         : 'full_two',
 );
-
+const isContextualExpense = computed(() => Boolean(props.defaults.source_type));
+const { dialogRef, handleDialogKeydown } = useAccessibleDialog(
+    () => props.open,
+    () => emit('update:open', false),
+);
 const quickAmounts = [10000, 25000, 50000, 100000, 250000, 500000];
 
 function localDateTimeInputValue(): string {
@@ -123,6 +128,8 @@ const form = useForm({
     title: '',
     notes: '',
     client_reference: createClientReference(),
+    source_type: null as TransactionDefaults['source_type'] | null,
+    source_id: null as number | null,
     split: {
         split_type: 'split_equal' as SplitType,
         user_one_amount: 0,
@@ -143,10 +150,18 @@ watch(
                 : 'personal';
             form.title = props.defaults.title || '';
             form.notes = props.defaults.notes || '';
+            form.amount = props.defaults.amount || '';
+            form.source_type = props.defaults.source_type || null;
+            form.source_id = props.defaults.source_id || null;
             form.split.paid_by_user_id = effectiveUser.value?.id || 0;
-            form.split.split_type = 'split_equal';
+            form.split.split_type = props.defaults.split_type || 'split_equal';
 
-            if (props.defaults.wallet_id) {
+            if (
+                props.defaults.wallet_id &&
+                sourceWallets.value.some(
+                    (wallet) => wallet.id === props.defaults.wallet_id,
+                )
+            ) {
                 form.wallet_id = props.defaults.wallet_id;
             } else if (
                 !sourceWallets.value.some(
@@ -214,6 +229,13 @@ watch(
 );
 
 const isCategoryModalOpen = ref(false);
+const {
+    dialogRef: categoryDialogRef,
+    handleDialogKeydown: handleCategoryDialogKeydown,
+} = useAccessibleDialog(
+    () => isCategoryModalOpen.value,
+    () => (isCategoryModalOpen.value = false),
+);
 const categoryColors = [
     '#6366F1',
     '#EC4899',
@@ -305,7 +327,13 @@ function submit() {
         class="fixed inset-0 z-50 flex cursor-pointer items-end justify-center bg-black/60 backdrop-blur-sm transition-opacity sm:items-center sm:p-4"
     >
         <div
+            ref="dialogRef"
             @click.stop
+            @keydown="handleDialogKeydown"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="transaction-dialog-title"
+            tabindex="-1"
             class="max-h-[92dvh] w-full max-w-lg cursor-default space-y-4 overflow-y-auto rounded-t-3xl border border-zinc-200 bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl transition-all sm:rounded-3xl dark:border-zinc-800 dark:bg-zinc-900"
         >
             <!-- Header -->
@@ -320,6 +348,7 @@ function submit() {
                     </div>
                     <div>
                         <h2
+                            id="transaction-dialog-title"
                             class="text-sm font-bold text-zinc-900 dark:text-zinc-100"
                         >
                             Catat Transaksi
@@ -343,6 +372,7 @@ function submit() {
             <form @submit.prevent="submit" class="space-y-4">
                 <!-- Type Segmented Tabs -->
                 <div
+                    v-if="!isContextualExpense"
                     class="grid grid-cols-3 gap-1 rounded-2xl bg-zinc-100 p-1 dark:bg-zinc-800/60"
                 >
                     <button
@@ -382,6 +412,13 @@ function submit() {
                         <ArrowRightLeft class="h-3.5 w-3.5" /> Transfer
                     </button>
                 </div>
+                <div
+                    v-else
+                    class="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300"
+                >
+                    <TrendingDown class="h-4 w-4 shrink-0" />
+                    Pembayaran ini otomatis dicatat sebagai pengeluaran.
+                </div>
 
                 <!-- Nominal Input -->
                 <div
@@ -403,7 +440,6 @@ function submit() {
                             id="transaction-amount"
                             type="number"
                             placeholder="0"
-                            autofocus
                             required
                             min="1"
                             class="w-full bg-transparent py-2 pr-2 pl-12 text-3xl font-black tracking-tight text-zinc-900 focus:outline-none dark:text-zinc-100"
@@ -552,11 +588,13 @@ function submit() {
                     <div
                         class="grid max-h-44 grid-cols-2 gap-2 overflow-y-auto pr-1"
                     >
-                        <div
+                        <button
                             v-for="w in sourceWallets"
                             :key="w.id"
+                            type="button"
                             @click="selectWallet(w.id)"
-                            class="relative flex cursor-pointer flex-col justify-between rounded-2xl border p-3 transition-all active:scale-[0.98]"
+                            :aria-pressed="form.wallet_id === w.id"
+                            class="relative flex cursor-pointer flex-col justify-between rounded-2xl border p-3 text-left transition-all active:scale-[0.98]"
                             :class="[
                                 form.wallet_id === w.id
                                     ? 'border-indigo-600 bg-indigo-50/70 shadow-sm ring-2 ring-indigo-500/20 dark:border-indigo-400 dark:bg-indigo-950/40'
@@ -632,7 +670,7 @@ function submit() {
                                     }}
                                 </span>
                             </div>
-                        </div>
+                        </button>
                     </div>
                 </div>
 
@@ -660,13 +698,15 @@ function submit() {
                     <div
                         class="grid max-h-44 grid-cols-2 gap-2 overflow-y-auto pr-1"
                     >
-                        <div
+                        <button
                             v-for="w in effectiveWallets.filter(
                                 (w: Wallet) => w.id !== Number(form.wallet_id),
                             )"
                             :key="w.id"
+                            type="button"
                             @click="selectToWallet(w.id)"
-                            class="relative flex cursor-pointer flex-col justify-between rounded-2xl border p-3 transition-all active:scale-[0.98]"
+                            :aria-pressed="form.to_wallet_id === w.id"
+                            class="relative flex cursor-pointer flex-col justify-between rounded-2xl border p-3 text-left transition-all active:scale-[0.98]"
                             :class="[
                                 form.to_wallet_id === w.id
                                     ? 'border-emerald-600 bg-emerald-50/70 shadow-sm ring-2 ring-emerald-500/20 dark:border-emerald-400 dark:bg-emerald-950/40'
@@ -737,7 +777,7 @@ function submit() {
                                     }}
                                 </span>
                             </div>
-                        </div>
+                        </button>
                     </div>
                 </div>
 
@@ -850,11 +890,18 @@ function submit() {
             class="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
         >
             <div
+                ref="categoryDialogRef"
+                @keydown="handleCategoryDialogKeydown"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="category-dialog-title"
+                tabindex="-1"
                 class="w-full max-w-sm space-y-4 rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
             >
                 <div class="flex items-center justify-between gap-3">
                     <div>
                         <h3
+                            id="category-dialog-title"
                             class="text-sm font-bold text-zinc-900 dark:text-zinc-100"
                         >
                             Tambah Kategori

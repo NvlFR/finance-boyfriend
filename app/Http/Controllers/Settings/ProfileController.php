@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\AvatarUpdateRequest;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -10,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -55,6 +57,26 @@ class ProfileController extends Controller
         $user->save();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Profile updated.')]);
+
+        return to_route('profile.edit');
+    }
+
+    /**
+     * Persist a newly selected profile photo immediately.
+     */
+    public function updateAvatar(AvatarUpdateRequest $request): RedirectResponse
+    {
+        $user = $request->user();
+        $previousAvatarUrl = $user->avatar_url;
+        $path = $request->file('avatar')->store('avatars', 'public');
+
+        $user->update(['avatar_url' => Storage::url($path)]);
+
+        if ($previousAvatarUrl && str_starts_with($previousAvatarUrl, '/storage/')) {
+            Storage::disk('public')->delete(Str::after($previousAvatarUrl, '/storage/'));
+        }
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Foto profil berhasil disimpan.']);
 
         return to_route('profile.edit');
     }

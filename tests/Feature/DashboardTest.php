@@ -20,6 +20,17 @@ test('authenticated users can visit the dashboard', function () {
     $response->assertOk();
 });
 
+test('legacy success flash messages are shared with inertia pages', function () {
+    $user = User::factory()->create();
+
+    $this->withSession(['success' => 'Perubahan berhasil disimpan.'])
+        ->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('statusMessage.type', 'success')
+            ->where('statusMessage.message', 'Perubahan berhasil disimpan.'));
+});
+
 test('dashboard provides a shortcut to the trip tracker', function () {
     $dashboard = file_get_contents(resource_path('js/pages/Dashboard.vue'));
 

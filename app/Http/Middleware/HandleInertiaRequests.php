@@ -59,6 +59,9 @@ class HandleInertiaRequests extends Middleware
             'partner' => $partner,
             'wallets' => $wallets,
             'categories' => $categories,
+            'statusMessage' => fn (): ?array => session('success')
+                ? ['type' => 'success', 'message' => session('success')]
+                : (session('error') ? ['type' => 'error', 'message' => session('error')] : null),
         ];
     }
 }

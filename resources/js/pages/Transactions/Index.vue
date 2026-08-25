@@ -19,6 +19,9 @@ import {
     Check,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
+import FormErrorSummary from '@/components/FormErrorSummary.vue';
+import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
 import { useTransactionModal } from '@/composables/useTransactionModal';
 import {
     destroy as transactionDestroy,
@@ -61,12 +64,18 @@ const { isOpen: isDrawerOpen } = useTransactionModal();
 
 const isEditModalOpen = ref(false);
 const editingTransaction = ref<Transaction | null>(null);
+const transactionToDelete = ref<Transaction | null>(null);
+const isDeleting = ref(false);
 const showFilters = ref(false);
 const sourceWallets = computed(() =>
     (props.wallets || []).filter(
         (wallet) =>
             wallet.type === 'joint' || wallet.user_id === props.auth.user.id,
     ),
+);
+const { dialogRef, handleDialogKeydown } = useAccessibleDialog(
+    () => isEditModalOpen.value,
+    () => (isEditModalOpen.value = false),
 );
 
 const search = ref(props.filters?.search || '');
@@ -115,6 +124,7 @@ function resetFilters() {
 }
 
 function openEditModal(tx: Transaction) {
+    editForm.clearErrors();
     editingTransaction.value = tx;
     editForm.title = tx.title || '';
     editForm.amount = tx.amount;
@@ -144,16 +154,21 @@ function submitEdit() {
     });
 }
 
-function deleteTransaction(id: number) {
-    if (
-        confirm(
-            'Yakin ingin menghapus transaksi ini? Saldo dompet akan otomatis disesuaikan kembali.',
-        )
-    ) {
-        router.delete(transactionDestroy.url(id), {
-            preserveScroll: true,
-        });
+function deleteTransaction(transaction: Transaction): void {
+    transactionToDelete.value = transaction;
+}
+
+function confirmDeleteTransaction(): void {
+    if (!transactionToDelete.value) {
+        return;
     }
+
+    router.delete(transactionDestroy.url(transactionToDelete.value.id), {
+        preserveScroll: true,
+        onStart: () => (isDeleting.value = true),
+        onSuccess: () => (transactionToDelete.value = null),
+        onFinish: () => (isDeleting.value = false),
+    });
 }
 
 function exportCsv() {
@@ -386,9 +401,7 @@ function exportCsv() {
                         <p
                             class="truncate text-xs font-bold text-zinc-900 dark:text-zinc-100"
                         >
-                            {{
-                                movement.wallet?.name || 'Dana di luar dompet'
-                            }}
+                            {{ movement.wallet?.name || 'Dana di luar dompet' }}
                             → {{ movement.goal?.name || 'Tabungan' }}
                         </p>
                         <p class="mt-0.5 text-[10px] text-zinc-500">
@@ -471,6 +484,19 @@ function exportCsv() {
                             >
                                 Kencan Bersama
                             </span>
+                            <span
+                                v-if="tx.source_type"
+                                class="rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400"
+                            >
+                                Terhubung
+                                {{
+                                    tx.source_type === 'subscription'
+                                        ? 'Langganan'
+                                        : tx.source_type === 'wishlist'
+                                          ? 'Wishlist'
+                                          : 'Anggaran'
+                                }}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -511,6 +537,7 @@ function exportCsv() {
                         class="flex items-center gap-0.5"
                     >
                         <button
+                            v-if="!tx.source_type"
                             type="button"
                             @click="openEditModal(tx)"
                             class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
@@ -521,7 +548,7 @@ function exportCsv() {
 
                         <button
                             type="button"
-                            @click="deleteTransaction(tx.id)"
+                            @click="deleteTransaction(tx)"
                             class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
                             title="Hapus Transaksi"
                         >
@@ -567,13 +594,20 @@ function exportCsv() {
             class="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         >
             <div
+                ref="dialogRef"
                 @click.stop
+                @keydown="handleDialogKeydown"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="edit-transaction-title"
+                tabindex="-1"
                 class="max-h-[calc(100dvh-2rem)] w-full max-w-md cursor-default overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
             >
                 <div
                     class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800"
                 >
                     <h2
+                        id="edit-transaction-title"
                         class="text-base font-semibold text-zinc-900 dark:text-zinc-100"
                     >
                         Edit Transaksi
@@ -581,7 +615,8 @@ function exportCsv() {
                     <button
                         type="button"
                         @click="isEditModalOpen = false"
-                        class="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        class="flex h-11 w-11 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        aria-label="Tutup form edit transaksi"
                     >
                         <X class="h-5 w-5" />
                     </button>
@@ -658,11 +693,13 @@ function exportCsv() {
                         <div
                             class="grid max-h-36 grid-cols-2 gap-2 overflow-y-auto pr-1"
                         >
-                            <div
+                            <button
                                 v-for="w in sourceWallets"
                                 :key="w.id"
+                                type="button"
                                 @click="editForm.wallet_id = w.id"
-                                class="relative flex cursor-pointer flex-col justify-between rounded-2xl border p-2.5 transition-all active:scale-[0.98]"
+                                :aria-pressed="editForm.wallet_id === w.id"
+                                class="relative flex cursor-pointer flex-col justify-between rounded-2xl border p-2.5 text-left transition-all active:scale-[0.98]"
                                 :class="[
                                     editForm.wallet_id === w.id
                                         ? 'border-indigo-600 bg-indigo-50/70 shadow-sm ring-2 ring-indigo-500/20 dark:border-indigo-400 dark:bg-indigo-950/40'
@@ -725,7 +762,7 @@ function exportCsv() {
                                         }}</span
                                     >
                                 </div>
-                            </div>
+                            </button>
                         </div>
                     </div>
 
@@ -803,16 +840,31 @@ function exportCsv() {
                         />
                     </div>
 
+                    <FormErrorSummary :errors="editForm.errors" />
+
                     <button
                         type="submit"
                         :disabled="editForm.processing"
                         class="w-full rounded-2xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-md transition-all hover:bg-indigo-500"
                     >
                         <Sparkles class="mr-1 inline h-4 w-4" />
-                        Simpan Perubahan
+                        {{
+                            editForm.processing
+                                ? 'Menyimpan...'
+                                : 'Simpan Perubahan'
+                        }}
                     </button>
                 </form>
             </div>
         </div>
+
+        <ConfirmActionDialog
+            :open="transactionToDelete !== null"
+            title="Hapus transaksi?"
+            description="Saldo dompet akan otomatis disesuaikan kembali. Tindakan ini tidak dapat dibatalkan."
+            :processing="isDeleting"
+            @update:open="transactionToDelete = null"
+            @confirm="confirmDeleteTransaction"
+        />
     </div>
 </template>

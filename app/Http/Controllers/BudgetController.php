@@ -50,7 +50,7 @@ class BudgetController extends Controller
 
             $spent = (float) $query->sum('amount');
             $limit = (float) $budget->limit_amount;
-            $percentage = $limit > 0 ? min(100, round(($spent / $limit) * 100, 1)) : 0;
+            $percentage = $limit > 0 ? round(($spent / $limit) * 100, 1) : 0;
 
             $budget->spent_amount = $spent;
             $budget->percentage = $percentage;

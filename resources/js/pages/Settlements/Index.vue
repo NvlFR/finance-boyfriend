@@ -7,8 +7,10 @@ import {
     AlertTriangle,
     X,
     ArrowRight,
+    ArrowRightLeft,
 } from '@lucide/vue';
 import { ref, computed } from 'vue';
+import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
 import { store as settlementStore } from '@/routes/settlements';
 import type { User } from '@/types/auth';
 import type { Settlement, Wallet, Category } from '@/types/finance';
@@ -79,13 +81,47 @@ const historyItems = computed(() => {
 });
 
 const isSettleModalOpen = ref(false);
+const { dialogRef, handleDialogKeydown } = useAccessibleDialog(
+    () => isSettleModalOpen.value,
+    () => (isSettleModalOpen.value = false),
+);
+const sourceWallets = computed(() =>
+    (props.wallets || []).filter(
+        (wallet) =>
+            wallet.type === 'joint' || wallet.user_id === props.auth.user.id,
+    ),
+);
+const destinationWallets = computed(() =>
+    (props.wallets || []).filter(
+        (wallet) => wallet.user_id === props.unsettled?.creditor_id,
+    ),
+);
+
+function createClientReference(): string {
+    return (
+        globalThis.crypto?.randomUUID?.() ||
+        `settlement-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    );
+}
 
 const settleForm = useForm({
     amount: props.unsettled?.amount_owed || 0,
     to_user_id: props.unsettled?.creditor_id || 0,
     payment_method: 'Transfer Bank',
     notes: 'Pelunasan talangan kencan',
+    payment_mode: 'external' as 'external' | 'wallet_transfer',
+    source_wallet_id: null as number | null,
+    destination_wallet_id: null as number | null,
+    client_reference: createClientReference(),
 });
+
+function openSettleModal() {
+    settleForm.clearErrors();
+    settleForm.client_reference = createClientReference();
+    settleForm.source_wallet_id = sourceWallets.value[0]?.id || null;
+    settleForm.destination_wallet_id = destinationWallets.value[0]?.id || null;
+    isSettleModalOpen.value = true;
+}
 
 function handleSettle() {
     settleForm.amount = props.unsettled?.amount_owed || 0;
@@ -161,7 +197,7 @@ function handleSettle() {
                     <button
                         v-if="unsettled.debtor_id === auth.user.id"
                         type="button"
-                        @click="isSettleModalOpen = true"
+                        @click="openSettleModal"
                         class="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-6 py-3 text-xs font-bold text-zinc-950 shadow-md shadow-amber-500/20 transition-all hover:bg-amber-400 sm:w-auto"
                     >
                         <CheckCircle2 class="h-4 w-4" /> Tinjau Pelunasan
@@ -313,11 +349,18 @@ function handleSettle() {
             class="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
         >
             <div
+                ref="dialogRef"
+                @keydown="handleDialogKeydown"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="settlement-dialog-title"
+                tabindex="-1"
                 class="w-full max-w-md space-y-4 rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
             >
                 <div class="flex items-start justify-between gap-3">
                     <div>
                         <h2
+                            id="settlement-dialog-title"
                             class="text-base font-bold text-zinc-900 dark:text-zinc-100"
                         >
                             Konfirmasi Pelunasan Talangan
@@ -363,6 +406,96 @@ function handleSettle() {
                 </div>
 
                 <div
+                    class="grid grid-cols-2 gap-2 rounded-2xl bg-zinc-100 p-1 dark:bg-zinc-800"
+                >
+                    <button
+                        type="button"
+                        @click="settleForm.payment_mode = 'wallet_transfer'"
+                        class="min-h-11 rounded-xl px-2 text-xs font-bold transition-colors"
+                        :class="
+                            settleForm.payment_mode === 'wallet_transfer'
+                                ? 'bg-amber-500 text-zinc-950 shadow-sm'
+                                : 'text-zinc-500'
+                        "
+                    >
+                        Transfer Dompet
+                    </button>
+                    <button
+                        type="button"
+                        @click="settleForm.payment_mode = 'external'"
+                        class="min-h-11 rounded-xl px-2 text-xs font-bold transition-colors"
+                        :class="
+                            settleForm.payment_mode === 'external'
+                                ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                                : 'text-zinc-500'
+                        "
+                    >
+                        Bayar di Luar App
+                    </button>
+                </div>
+
+                <div
+                    v-if="settleForm.payment_mode === 'wallet_transfer'"
+                    class="space-y-3 rounded-2xl border border-zinc-200 p-3 dark:border-zinc-700"
+                >
+                    <div
+                        class="flex items-center gap-2 text-xs font-bold text-zinc-800 dark:text-zinc-200"
+                    >
+                        <ArrowRightLeft class="h-4 w-4 text-amber-500" />
+                        Pemindahan saldo
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-semibold text-zinc-500"
+                            >Dari dompet kamu</label
+                        >
+                        <select
+                            v-model="settleForm.source_wallet_id"
+                            required
+                            class="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-xs dark:border-zinc-700 dark:bg-zinc-800"
+                        >
+                            <option
+                                v-for="wallet in sourceWallets"
+                                :key="wallet.id"
+                                :value="wallet.id"
+                            >
+                                {{ wallet.name }} · Rp
+                                {{
+                                    Number(wallet.balance).toLocaleString(
+                                        'id-ID',
+                                    )
+                                }}
+                            </option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-semibold text-zinc-500"
+                            >Ke dompet pasangan</label
+                        >
+                        <select
+                            v-model="settleForm.destination_wallet_id"
+                            required
+                            class="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-xs dark:border-zinc-700 dark:bg-zinc-800"
+                        >
+                            <option
+                                v-for="wallet in destinationWallets"
+                                :key="wallet.id"
+                                :value="wallet.id"
+                            >
+                                {{ wallet.name }}
+                            </option>
+                        </select>
+                        <p
+                            v-if="destinationWallets.length === 0"
+                            class="mt-1 text-[11px] font-semibold text-rose-600"
+                        >
+                            Pasangan belum memiliki dompet pribadi. Gunakan
+                            pembayaran di luar aplikasi.
+                        </p>
+                    </div>
+                </div>
+
+                <div
+                    v-else
                     class="flex gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-300"
                 >
                     <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0" />
@@ -373,7 +506,7 @@ function handleSettle() {
                     </p>
                 </div>
 
-                <div>
+                <div v-if="settleForm.payment_mode === 'external'">
                     <label
                         for="settlement-payment-method"
                         class="text-xs font-semibold text-zinc-700 dark:text-zinc-300"
@@ -407,13 +540,20 @@ function handleSettle() {
                     <button
                         type="button"
                         @click="handleSettle"
-                        :disabled="settleForm.processing"
+                        :disabled="
+                            settleForm.processing ||
+                            (settleForm.payment_mode === 'wallet_transfer' &&
+                                (!settleForm.source_wallet_id ||
+                                    !settleForm.destination_wallet_id))
+                        "
                         class="min-h-12 rounded-2xl bg-amber-500 px-3 text-xs font-bold text-zinc-950 shadow-md transition-colors hover:bg-amber-400 disabled:opacity-50"
                     >
                         {{
                             settleForm.processing
                                 ? 'Mencatat...'
-                                : 'Sudah Dibayar, Lunaskan'
+                                : settleForm.payment_mode === 'wallet_transfer'
+                                  ? 'Transfer & Lunaskan'
+                                  : 'Sudah Dibayar, Lunaskan'
                         }}
                     </button>
                 </div>

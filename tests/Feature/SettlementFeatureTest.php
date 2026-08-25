@@ -159,3 +159,56 @@ test('creditor cannot settle debt in the reverse direction', function () {
         'payment_method' => 'Tunai',
     ])->assertUnprocessable()->assertJsonValidationErrorFor('amount');
 });
+
+test('wallet settlement transfers balance and is idempotent', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $creditor = $space->userOne;
+    $debtor = $space->userTwo;
+    $debtor->update(['current_couple_space_id' => $space->id]);
+    $creditorWallet = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $creditor->id,
+        'balance' => 100000,
+    ]);
+    $debtorWallet = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $debtor->id,
+        'balance' => 300000,
+    ]);
+    $expense = Transaction::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $creditor->id,
+        'wallet_id' => $creditorWallet->id,
+        'scope' => 'shared',
+        'amount' => 200000,
+    ]);
+    TransactionSplit::factory()->create([
+        'transaction_id' => $expense->id,
+        'paid_by_user_id' => $creditor->id,
+        'user_one_amount' => 100000,
+        'user_two_amount' => 100000,
+        'settled' => false,
+    ]);
+    $payload = [
+        'to_user_id' => $creditor->id,
+        'amount' => 100000,
+        'payment_method' => 'Transfer Dompet',
+        'payment_mode' => 'wallet_transfer',
+        'source_wallet_id' => $debtorWallet->id,
+        'destination_wallet_id' => $creditorWallet->id,
+        'client_reference' => 'settlement-request-1',
+    ];
+
+    $this->actingAs($debtor)->postJson(route('settlements.store'), $payload)->assertCreated();
+    $this->actingAs($debtor)->postJson(route('settlements.store'), $payload)->assertCreated();
+
+    expect($debtorWallet->fresh()->balance)->toBe('200000.00')
+        ->and($creditorWallet->fresh()->balance)->toBe('200000.00');
+    $this->assertDatabaseCount('settlements', 1);
+    $this->assertDatabaseHas('transactions', [
+        'wallet_id' => $debtorWallet->id,
+        'to_wallet_id' => $creditorWallet->id,
+        'type' => 'transfer',
+        'amount' => 100000,
+    ]);
+});

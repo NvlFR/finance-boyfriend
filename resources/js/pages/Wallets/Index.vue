@@ -14,8 +14,11 @@ import {
     Users,
     User as UserIcon,
 } from '@lucide/vue';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
+import FormErrorSummary from '@/components/FormErrorSummary.vue';
 import WalletCard from '@/components/WalletCard.vue';
+import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
 import {
     destroy as walletDestroy,
     store as walletStore,
@@ -58,6 +61,21 @@ withDefaults(
 const isCreateModalOpen = ref(false);
 const isEditModalOpen = ref(false);
 const editingWallet = ref<Wallet | null>(null);
+const walletToDelete = ref<Wallet | null>(null);
+const isDeleting = ref(false);
+const isAnyModalOpen = computed(
+    () => isCreateModalOpen.value || isEditModalOpen.value,
+);
+
+function closeActiveModal(): void {
+    isCreateModalOpen.value = false;
+    isEditModalOpen.value = false;
+}
+
+const { dialogRef, handleDialogKeydown } = useAccessibleDialog(
+    isAnyModalOpen,
+    closeActiveModal,
+);
 
 const walletTypes = [
     {
@@ -180,7 +198,13 @@ function submitWallet() {
     });
 }
 
+function openCreateModal(): void {
+    form.clearErrors();
+    isCreateModalOpen.value = true;
+}
+
 function handleEdit(w: Wallet) {
+    editForm.clearErrors();
     editingWallet.value = w;
     editForm.name = w.name;
     editForm.type = w.type;
@@ -206,15 +230,20 @@ function submitEditWallet() {
 }
 
 function handleDelete(w: Wallet) {
-    if (
-        confirm(
-            `Apakah kamu yakin ingin menghapus dompet "${w.name}"? Saldo di dalamnya akan dihapus.`,
-        )
-    ) {
-        router.delete(walletDestroy.url(w.id), {
-            preserveScroll: true,
-        });
+    walletToDelete.value = w;
+}
+
+function confirmDeleteWallet(): void {
+    if (!walletToDelete.value) {
+        return;
     }
+
+    router.delete(walletDestroy.url(walletToDelete.value.id), {
+        preserveScroll: true,
+        onStart: () => (isDeleting.value = true),
+        onSuccess: () => (walletToDelete.value = null),
+        onFinish: () => (isDeleting.value = false),
+    });
 }
 </script>
 
@@ -223,8 +252,10 @@ function handleDelete(w: Wallet) {
 
     <div class="space-y-6">
         <!-- Top Bar Action -->
-        <div class="flex items-center justify-between">
-            <div>
+        <div
+            class="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center"
+        >
+            <div class="min-w-0">
                 <h1
                     class="text-base font-bold text-zinc-900 dark:text-zinc-100"
                 >
@@ -237,7 +268,7 @@ function handleDelete(w: Wallet) {
 
             <button
                 type="button"
-                @click="isCreateModalOpen = true"
+                @click="openCreateModal"
                 class="flex min-h-11 items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-600 to-rose-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-500/20 transition-all hover:opacity-95"
             >
                 <Plus class="h-4 w-4" /> Tambah Rekening / Dompet
@@ -420,7 +451,13 @@ function handleDelete(w: Wallet) {
             class="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         >
             <div
+                ref="dialogRef"
                 @click.stop
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="create-wallet-title"
+                tabindex="-1"
+                @keydown="handleDialogKeydown"
                 class="max-h-[92vh] w-full max-w-lg cursor-default space-y-4 overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
             >
                 <div
@@ -434,6 +471,7 @@ function handleDelete(w: Wallet) {
                         </div>
                         <div>
                             <h2
+                                id="create-wallet-title"
                                 class="text-sm font-bold text-zinc-900 dark:text-zinc-100"
                             >
                                 Tambah Dompet / Rekening
@@ -446,7 +484,8 @@ function handleDelete(w: Wallet) {
                     <button
                         type="button"
                         @click="isCreateModalOpen = false"
-                        class="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        class="flex h-11 w-11 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        aria-label="Tutup dialog tambah dompet"
                     >
                         <X class="h-5 w-5" />
                     </button>
@@ -665,8 +704,10 @@ function handleDelete(w: Wallet) {
                                 :key="c"
                                 type="button"
                                 @click="form.color = c"
-                                class="flex h-7 w-7 items-center justify-center rounded-full shadow-xs transition-transform active:scale-95"
+                                class="flex h-11 w-11 items-center justify-center rounded-full shadow-xs transition-transform active:scale-95"
                                 :style="{ backgroundColor: c }"
+                                :aria-label="`Pilih warna ${c}`"
+                                :aria-pressed="form.color === c"
                             >
                                 <Check
                                     v-if="form.color === c"
@@ -676,13 +717,19 @@ function handleDelete(w: Wallet) {
                         </div>
                     </div>
 
+                    <FormErrorSummary :errors="form.errors" />
+
                     <button
                         type="submit"
                         :disabled="form.processing || !form.name"
                         class="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-rose-500 py-3.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/20 transition-all hover:opacity-95 disabled:opacity-50"
                     >
                         <Sparkles class="h-4 w-4" />
-                        <span>Simpan Dompet Baru</span>
+                        <span>{{
+                            form.processing
+                                ? 'Menyimpan...'
+                                : 'Simpan Dompet Baru'
+                        }}</span>
                     </button>
                 </form>
             </div>
@@ -695,13 +742,20 @@ function handleDelete(w: Wallet) {
             class="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         >
             <div
+                ref="dialogRef"
                 @click.stop
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="edit-wallet-title"
+                tabindex="-1"
+                @keydown="handleDialogKeydown"
                 class="max-h-[92vh] w-full max-w-lg cursor-default space-y-4 overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
             >
                 <div
                     class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800"
                 >
                     <h2
+                        id="edit-wallet-title"
                         class="text-base font-bold text-zinc-900 dark:text-zinc-100"
                     >
                         Edit Dompet / Rekening
@@ -709,7 +763,8 @@ function handleDelete(w: Wallet) {
                     <button
                         type="button"
                         @click="isEditModalOpen = false"
-                        class="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        class="flex h-11 w-11 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        aria-label="Tutup dialog edit dompet"
                     >
                         <X class="h-5 w-5" />
                     </button>
@@ -929,8 +984,10 @@ function handleDelete(w: Wallet) {
                                 :key="c"
                                 type="button"
                                 @click="editForm.color = c"
-                                class="flex h-7 w-7 items-center justify-center rounded-full shadow-xs transition-transform active:scale-95"
+                                class="flex h-11 w-11 items-center justify-center rounded-full shadow-xs transition-transform active:scale-95"
                                 :style="{ backgroundColor: c }"
+                                :aria-label="`Pilih warna ${c}`"
+                                :aria-pressed="editForm.color === c"
                             >
                                 <Check
                                     v-if="editForm.color === c"
@@ -940,16 +997,31 @@ function handleDelete(w: Wallet) {
                         </div>
                     </div>
 
+                    <FormErrorSummary :errors="editForm.errors" />
+
                     <button
                         type="submit"
                         :disabled="editForm.processing || !editForm.name"
                         class="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 disabled:opacity-50"
                     >
                         <Sparkles class="h-4 w-4" />
-                        <span>Simpan Perubahan Dompet</span>
+                        <span>{{
+                            editForm.processing
+                                ? 'Menyimpan...'
+                                : 'Simpan Perubahan Dompet'
+                        }}</span>
                     </button>
                 </form>
             </div>
         </div>
+
+        <ConfirmActionDialog
+            :open="walletToDelete !== null"
+            title="Hapus dompet?"
+            :description="`Dompet ${walletToDelete?.name || ''} akan dihapus. Pastikan saldo dan transaksi terkait sudah kamu periksa.`"
+            :processing="isDeleting"
+            @update:open="walletToDelete = null"
+            @confirm="confirmDeleteWallet"
+        />
     </div>
 </template>

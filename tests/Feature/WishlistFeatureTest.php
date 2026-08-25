@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\Category;
 use App\Models\CoupleSpace;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Models\Wishlist;
 
 test('user can view and add wishlists', function () {
@@ -108,4 +110,37 @@ test('secret surprise target cannot reveal modify or delete the gift', function 
     $this->actingAs($target)->delete(route('wishlists.destroy', $wishlist))->assertForbidden();
 
     expect($wishlist->fresh()->title)->toBe('Hadiah Rahasia');
+});
+
+test('buying a wishlist item records expense before marking it bought', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+    $wallet = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'balance' => 1000000,
+    ]);
+    $category = Category::factory()->create(['type' => 'expense']);
+    $wishlist = Wishlist::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'estimated_price' => 250000,
+        'is_bought' => false,
+    ]);
+
+    $this->actingAs($user)->postJson(route('transactions.store'), [
+        'wallet_id' => $wallet->id,
+        'category_id' => $category->id,
+        'type' => 'expense',
+        'scope' => 'personal',
+        'amount' => 250000,
+        'transaction_date' => now()->toIso8601String(),
+        'client_reference' => 'wishlist-payment-1',
+        'source_type' => 'wishlist',
+        'source_id' => $wishlist->id,
+    ])->assertCreated();
+
+    expect($wallet->fresh()->balance)->toBe('750000.00')
+        ->and($wishlist->fresh()->is_bought)->toBeTrue();
 });

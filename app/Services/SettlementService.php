@@ -12,6 +12,10 @@ use Illuminate\Validation\ValidationException;
 
 class SettlementService
 {
+    public function __construct(
+        protected TransactionService $transactionService
+    ) {}
+
     /**
      * Calculate unsettled balances between partners in a couple space.
      *
@@ -119,7 +123,35 @@ class SettlementService
      */
     public function settle(CoupleSpace $space, User $fromUser, array $data): Settlement
     {
+        $clientReference = $data['client_reference'] ?? null;
+
+        if ($clientReference) {
+            $existingSettlement = Settlement::query()
+                ->where('couple_space_id', $space->id)
+                ->where('from_user_id', $fromUser->id)
+                ->where('client_reference', $clientReference)
+                ->first();
+
+            if ($existingSettlement) {
+                return $existingSettlement->load(['fromUser', 'toUser']);
+            }
+        }
+
         return DB::transaction(function () use ($space, $fromUser, $data) {
+            CoupleSpace::query()->whereKey($space->id)->lockForUpdate()->firstOrFail();
+
+            if (! empty($data['client_reference'])) {
+                $existingSettlement = Settlement::query()
+                    ->where('couple_space_id', $space->id)
+                    ->where('from_user_id', $fromUser->id)
+                    ->where('client_reference', $data['client_reference'])
+                    ->first();
+
+                if ($existingSettlement) {
+                    return $existingSettlement->load(['fromUser', 'toUser']);
+                }
+            }
+
             $space->loadMissing(['userOne', 'userTwo']);
             $splits = TransactionSplit::whereHas('transaction', function ($query) use ($space) {
                 $query->where('couple_space_id', $space->id);
@@ -133,6 +165,7 @@ class SettlementService
             $paymentMethod = $data['payment_method'];
             $notes = $data['notes'] ?? null;
             $settledAt = $data['settled_at'] ?? now();
+            $paymentMode = $data['payment_mode'] ?? 'external';
 
             if ($balance['debtor_id'] !== $fromUser->id) {
                 throw ValidationException::withMessages([
@@ -152,12 +185,29 @@ class SettlementService
                 ]);
             }
 
+            $transferTransaction = null;
+            if ($paymentMode === 'wallet_transfer') {
+                $transferTransaction = $this->transactionService->createTransaction($fromUser, $space, [
+                    'wallet_id' => $data['source_wallet_id'],
+                    'to_wallet_id' => $data['destination_wallet_id'],
+                    'type' => 'transfer',
+                    'scope' => 'personal',
+                    'amount' => $amount,
+                    'transaction_date' => $settledAt,
+                    'title' => 'Pelunasan talangan ke '.$balance['creditor_name'],
+                    'notes' => $notes,
+                    'client_reference' => isset($data['client_reference']) ? 'settlement-'.$data['client_reference'] : null,
+                ]);
+            }
+
             $settlement = Settlement::create([
                 'couple_space_id' => $space->id,
                 'from_user_id' => $fromUser->id,
                 'to_user_id' => $toUserId,
+                'transaction_id' => $transferTransaction?->id,
+                'client_reference' => $data['client_reference'] ?? null,
                 'amount' => $amount,
-                'payment_method' => $paymentMethod,
+                'payment_method' => $paymentMode === 'wallet_transfer' ? 'Transfer Dompet' : $paymentMethod,
                 'notes' => $notes,
                 'settled_at' => $settledAt,
             ]);

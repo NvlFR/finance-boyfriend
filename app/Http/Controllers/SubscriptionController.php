@@ -29,7 +29,12 @@ class SubscriptionController extends Controller
             ->orderBy('next_billing_date', 'asc')
             ->get();
 
-        $wallets = Wallet::where('couple_space_id', $space->id)->where('is_active', true)->get();
+        $wallets = Wallet::where('couple_space_id', $space->id)
+            ->where('is_active', true)
+            ->where(function ($query) use ($user) {
+                $query->where('type', 'joint')->orWhere('user_id', $user->id);
+            })
+            ->get();
 
         $totalMonthlyCost = (float) $subs->where('is_active', true)->sum(function ($item) {
             return $item->billing_cycle === 'yearly' ? ($item->amount / 12) : $item->amount;
@@ -49,7 +54,7 @@ class SubscriptionController extends Controller
         $user = $request->user();
         $space = $user->getOrEnsureCoupleSpace();
 
-        $validated = $request->validate($this->rules($space->id, [$space->user_one_id, $space->user_two_id]));
+        $validated = $request->validate($this->rules($space->id, [$space->user_one_id, $space->user_two_id], $user->id));
 
         Subscription::create([
             'couple_space_id' => $space->id,
@@ -77,7 +82,7 @@ class SubscriptionController extends Controller
         }
 
         $validated = $request->validate([
-            ...$this->rules($space->id, [$space->user_one_id, $space->user_two_id]),
+            ...$this->rules($space->id, [$space->user_one_id, $space->user_two_id], $user->id),
             'is_active' => ['nullable', 'boolean'],
         ]);
 
@@ -101,7 +106,7 @@ class SubscriptionController extends Controller
     }
 
     /** @param array<int, int|null> $memberIds */
-    private function rules(int $spaceId, array $memberIds): array
+    private function rules(int $spaceId, array $memberIds, int $userId): array
     {
         return [
             'name' => ['required', 'string', 'max:100'],
@@ -110,7 +115,14 @@ class SubscriptionController extends Controller
             'next_billing_date' => ['required', 'date'],
             'split_mode' => ['nullable', 'in:50_50,alternate,single'],
             'paid_by_user_id' => ['nullable', Rule::in(array_filter($memberIds))],
-            'wallet_id' => ['nullable', Rule::exists('wallets', 'id')->where('couple_space_id', $spaceId)],
+            'wallet_id' => [
+                'nullable',
+                Rule::exists('wallets', 'id')->where(fn ($query) => $query
+                    ->where('couple_space_id', $spaceId)
+                    ->where(fn ($walletQuery) => $walletQuery
+                        ->where('type', 'joint')
+                        ->orWhere('user_id', $userId))),
+            ],
             'color' => ['nullable', 'string', 'max:20'],
         ];
     }

@@ -15,6 +15,23 @@ const { openModal } = useTransactionModal();
 
 const page = usePage();
 const currentUrl = computed(() => page.url);
+const homeSectionPaths = [
+    '/dashboard',
+    '/goals',
+    '/wishlists',
+    '/subscriptions',
+    '/budgets',
+    '/categories',
+    '/couple-space',
+    '/settlements',
+    '/trips',
+];
+
+const isHomeSectionActive = computed(
+    () =>
+        currentUrl.value === '/' ||
+        homeSectionPaths.some((path) => currentUrl.value.startsWith(path)),
+);
 
 function isActive(pattern: string): boolean {
     if (pattern === '/dashboard') {
@@ -35,20 +52,22 @@ function isActive(pattern: string): boolean {
             <!-- 1. Home -->
             <Link
                 href="/dashboard"
+                :aria-current="isHomeSectionActive ? 'page' : undefined"
                 class="flex min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-2xl py-1 text-center transition-colors"
                 :class="
-                    isActive('/dashboard')
+                    isHomeSectionActive
                         ? 'font-bold text-indigo-600 dark:text-indigo-400'
                         : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
                 "
             >
                 <Home class="h-5 w-5" />
-                <span class="text-[10px] leading-tight">Home</span>
+                <span class="text-[11px] leading-tight">Home</span>
             </Link>
 
             <!-- 2. Wallets -->
             <Link
                 href="/wallets"
+                :aria-current="isActive('/wallets') ? 'page' : undefined"
                 class="flex min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-2xl py-1 text-center transition-colors"
                 :class="
                     isActive('/wallets')
@@ -57,7 +76,7 @@ function isActive(pattern: string): boolean {
                 "
             >
                 <WalletCards class="h-5 w-5" />
-                <span class="text-[10px] leading-tight">Dompet</span>
+                <span class="text-[11px] leading-tight">Dompet</span>
             </Link>
 
             <!-- 3. Center Hero (+) Quick Add Button (Symmetric & Centered) -->
@@ -75,6 +94,7 @@ function isActive(pattern: string): boolean {
             <!-- 4. Transaction History -->
             <Link
                 :href="transactionsIndex()"
+                :aria-current="isActive('/transactions') ? 'page' : undefined"
                 prefetch
                 class="flex min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-2xl py-1 text-center transition-colors"
                 :class="
@@ -84,12 +104,13 @@ function isActive(pattern: string): boolean {
                 "
             >
                 <History class="h-5 w-5" />
-                <span class="text-[10px] leading-tight">Riwayat</span>
+                <span class="text-[11px] leading-tight">Riwayat</span>
             </Link>
 
             <!-- 5. Profile & Settings -->
             <Link
                 href="/settings/profile"
+                :aria-current="isActive('/settings') ? 'page' : undefined"
                 class="flex min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-2xl py-1 text-center transition-colors"
                 :class="
                     isActive('/settings')
@@ -98,7 +119,7 @@ function isActive(pattern: string): boolean {
                 "
             >
                 <UserIcon class="h-5 w-5" />
-                <span class="text-[10px] leading-tight">Profil</span>
+                <span class="text-[11px] leading-tight">Profil</span>
             </Link>
         </nav>
     </div>

@@ -77,6 +77,39 @@ test('user can update current live position and speed', function () {
     ]);
 });
 
+test('partner receives the latest moving position from the active trip feed', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $traveler = $space->userOne;
+    $partner = $space->userTwo;
+    $traveler->update(['current_couple_space_id' => $space->id]);
+    $partner->update(['current_couple_space_id' => $space->id]);
+    $trip = Trip::create([
+        'couple_space_id' => $space->id,
+        'user_id' => $traveler->id,
+        'title' => 'OTW Rumah Pacar',
+        'status' => 'active',
+        'current_lat' => -6.2,
+        'current_lng' => 106.8,
+    ]);
+
+    $this->actingAs($traveler)->postJson(route('trips.position', $trip), [
+        'lat' => -6.201,
+        'lng' => 106.801,
+        'speed' => 18,
+        'accuracy' => 12,
+    ])->assertOk();
+
+    $this->actingAs($partner)
+        ->getJson(route('trips.index'))
+        ->assertOk()
+        ->assertJsonPath('activeTrip.id', $trip->id)
+        ->assertJsonPath('activeTrip.current_lat', -6.201)
+        ->assertJsonPath('activeTrip.current_lng', 106.801)
+        ->assertJsonPath('activeTrip.speed', 18)
+        ->assertJsonPath('activeTrip.user.id', $traveler->id)
+        ->assertJsonPath('activeTrip.status', 'active');
+});
+
 test('user can complete a live trip', function () {
     $user = User::factory()->create();
     $space = CoupleSpace::create([
@@ -149,6 +182,26 @@ test('completed trip cannot receive new positions', function () {
         'lat' => -6.2,
         'lng' => 106.8,
     ])->assertForbidden();
+});
+
+test('trip from a previous couple space cannot receive position updates', function () {
+    $user = User::factory()->create();
+    $oldSpace = CoupleSpace::factory()->create(['user_one_id' => $user->id]);
+    $currentSpace = CoupleSpace::factory()->create(['user_one_id' => $user->id]);
+    $user->update(['current_couple_space_id' => $currentSpace->id]);
+    $trip = Trip::create([
+        'couple_space_id' => $oldSpace->id,
+        'user_id' => $user->id,
+        'title' => 'Trip Ruang Lama',
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($user)->postJson(route('trips.position', $trip), [
+        'lat' => -6.2,
+        'lng' => 106.8,
+    ])->assertForbidden();
+
+    expect($trip->fresh()->current_lat)->toBeNull();
 });
 
 test('push subscription stores encryption keys and endpoint ownership', function () {
