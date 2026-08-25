@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Transaction\StoreTransactionRequest;
 use App\Models\Category;
+use App\Models\SavingsContribution;
 use App\Models\Transaction;
 use App\Models\Wallet;
 use App\Services\TransactionService;
@@ -45,6 +46,7 @@ class TransactionController extends Controller
                 'filters' => $request->all(),
                 'wallets' => [],
                 'categories' => [],
+                'savingsMovements' => [],
             ]);
         }
 
@@ -88,13 +90,21 @@ class TransactionController extends Controller
             $query->whereDate('transaction_date', '<=', $request->input('end_date'));
         }
 
-        $perPage = (int) $request->input('per_page', 20);
+        $perPage = min(100, max(1, $request->integer('per_page', 20)));
         $transactions = $query->paginate($perPage)->withQueryString();
 
-        $wallets = Wallet::where('couple_space_id', $space->id)->get();
+        $wallets = Wallet::where('couple_space_id', $space->id)
+            ->with('user:id,name,nickname')
+            ->get();
         $categories = Category::where(function ($q) use ($space) {
             $q->whereNull('couple_space_id')->orWhere('couple_space_id', $space->id);
         })->get();
+        $savingsMovements = SavingsContribution::query()
+            ->whereHas('goal', fn ($query) => $query->where('couple_space_id', $space->id))
+            ->with(['goal:id,name', 'wallet.user:id,name,nickname', 'user:id,name,nickname'])
+            ->latest('contributed_at')
+            ->limit(20)
+            ->get();
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -102,6 +112,7 @@ class TransactionController extends Controller
                 'filters' => $request->only(['search', 'scope', 'type', 'category_id', 'wallet_id', 'start_date', 'end_date']),
                 'wallets' => $wallets,
                 'categories' => $categories,
+                'savingsMovements' => $savingsMovements,
             ]);
         }
 
@@ -110,6 +121,7 @@ class TransactionController extends Controller
             'filters' => $request->only(['search', 'scope', 'type', 'category_id', 'wallet_id', 'start_date', 'end_date']),
             'wallets' => $wallets,
             'categories' => $categories,
+            'savingsMovements' => $savingsMovements,
         ]);
     }
 
@@ -140,28 +152,16 @@ class TransactionController extends Controller
     /**
      * Update transaction and recalculate wallet balances.
      */
-    public function update(Request $request, Transaction $transaction): JsonResponse|RedirectResponse|Response
+    public function update(StoreTransactionRequest $request, Transaction $transaction): JsonResponse|RedirectResponse|Response
     {
         $user = $request->user();
         $space = $user->currentCoupleSpace;
 
-        if (! $space || $transaction->couple_space_id !== $space->id) {
+        if (! $space || $transaction->couple_space_id !== $space->id || $transaction->user_id !== $user->id) {
             abort(403, 'Unauthorized access to this transaction.');
         }
 
-        $validated = $request->validate([
-            'title' => 'nullable|string|max:150',
-            'amount' => 'required|numeric|min:1',
-            'type' => 'required|in:expense,income,transfer',
-            'scope' => 'required|in:personal,shared',
-            'wallet_id' => 'required|exists:wallets,id',
-            'to_wallet_id' => 'nullable|required_if:type,transfer|exists:wallets,id',
-            'category_id' => 'nullable|exists:categories,id',
-            'transaction_date' => 'required|date',
-            'notes' => 'nullable|string|max:500',
-        ]);
-
-        $updated = $this->transactionService->updateTransaction($transaction, $validated);
+        $updated = $this->transactionService->updateTransaction($transaction, $request->validated());
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -181,7 +181,7 @@ class TransactionController extends Controller
         $user = $request->user();
         $space = $user->currentCoupleSpace;
 
-        if (! $space || $transaction->couple_space_id !== $space->id) {
+        if (! $space || $transaction->couple_space_id !== $space->id || $transaction->user_id !== $user->id) {
             abort(403, 'Unauthorized access to this transaction.');
         }
 
@@ -222,6 +222,17 @@ class TransactionController extends Controller
 
         if ($request->filled('type')) {
             $query->where('type', $request->input('type'));
+        }
+
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->input('category_id'));
+        }
+
+        if ($request->filled('wallet_id')) {
+            $query->where(function ($walletQuery) use ($request) {
+                $walletQuery->where('wallet_id', $request->input('wallet_id'))
+                    ->orWhere('to_wallet_id', $request->input('wallet_id'));
+            });
         }
 
         if ($request->filled('start_date')) {

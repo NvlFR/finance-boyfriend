@@ -5,10 +5,21 @@ namespace App\Http\Controllers;
 use App\Http\Requests\CoupleSpace\JoinCoupleSpaceRequest;
 use App\Http\Requests\CoupleSpace\StoreCoupleSpaceRequest;
 use App\Http\Requests\CoupleSpace\UpdateCoupleSpaceRequest;
+use App\Models\Budget;
+use App\Models\Category;
 use App\Models\CoupleSpace;
+use App\Models\SavingsGoal;
+use App\Models\Settlement;
+use App\Models\Subscription;
+use App\Models\Transaction;
+use App\Models\Trip;
+use App\Models\Wallet;
+use App\Models\Wishlist;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -89,16 +100,28 @@ class CoupleSpaceController extends Controller
     {
         $user = $request->user();
 
-        $space = CoupleSpace::create([
-            'name' => $request->validated('name'),
-            'invite_code' => CoupleSpace::generateInviteCode(),
-            'user_one_id' => $user->id,
-            'user_two_id' => null,
-            'status' => 'pending',
-            'anniversary_date' => $request->validated('anniversary_date'),
-        ]);
+        $space = DB::transaction(function () use ($request, $user): CoupleSpace {
+            $lockedUser = $user->newQuery()->whereKey($user->id)->lockForUpdate()->firstOrFail();
 
-        $user->update(['current_couple_space_id' => $space->id]);
+            if ($lockedUser->current_couple_space_id) {
+                throw ValidationException::withMessages([
+                    'name' => 'Kamu sudah memiliki ruang pasangan aktif.',
+                ]);
+            }
+
+            $space = CoupleSpace::create([
+                'name' => $request->validated('name'),
+                'invite_code' => CoupleSpace::generateInviteCode(),
+                'user_one_id' => $lockedUser->id,
+                'user_two_id' => null,
+                'status' => 'pending',
+                'anniversary_date' => $request->validated('anniversary_date'),
+            ]);
+
+            $lockedUser->update(['current_couple_space_id' => $space->id]);
+
+            return $space;
+        }, attempts: 3);
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -118,26 +141,51 @@ class CoupleSpaceController extends Controller
         $user = $request->user();
         $inviteCode = $request->validated('invite_code');
 
-        $space = CoupleSpace::where('invite_code', $inviteCode)->firstOrFail();
+        $space = DB::transaction(function () use ($inviteCode, $user): CoupleSpace {
+            $lockedUser = $user->newQuery()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $space = CoupleSpace::query()
+                ->where('invite_code', $inviteCode)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        if ($space->user_one_id === $user->id) {
-            return response()->json([
-                'message' => 'You cannot join your own couple space.',
-            ], 422);
-        }
+            if ($space->user_one_id === $lockedUser->id) {
+                throw ValidationException::withMessages([
+                    'invite_code' => 'Kamu tidak dapat bergabung ke ruang milikmu sendiri.',
+                ]);
+            }
 
-        if ($space->user_two_id !== null && $space->user_two_id !== $user->id) {
-            return response()->json([
-                'message' => 'This couple space is already full.',
-            ], 422);
-        }
+            if ($space->user_two_id !== null && $space->user_two_id !== $user->id) {
+                throw ValidationException::withMessages([
+                    'invite_code' => 'Ruang pasangan ini sudah penuh.',
+                ]);
+            }
 
-        $space->update([
-            'user_two_id' => $user->id,
-            'status' => 'active',
-        ]);
+            $oldSpace = $lockedUser->current_couple_space_id
+                ? CoupleSpace::query()->lockForUpdate()->find($lockedUser->current_couple_space_id)
+                : null;
 
-        $user->update(['current_couple_space_id' => $space->id]);
+            $personalSpace = null;
+
+            if ($oldSpace && $oldSpace->id !== $space->id) {
+                if ($oldSpace->status !== 'pending' || $oldSpace->user_one_id !== $lockedUser->id || $oldSpace->user_two_id !== null) {
+                    throw ValidationException::withMessages([
+                        'invite_code' => 'Keluar dari ruang pasangan aktif sebelum bergabung ke ruang lain.',
+                    ]);
+                }
+
+                $this->mergePersonalSpace($oldSpace, $space);
+                $personalSpace = $oldSpace;
+            }
+
+            $space->update([
+                'user_two_id' => $lockedUser->id,
+                'status' => 'active',
+            ]);
+            $lockedUser->update(['current_couple_space_id' => $space->id]);
+            $personalSpace?->delete();
+
+            return $space;
+        }, attempts: 3);
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -147,6 +195,19 @@ class CoupleSpaceController extends Controller
         }
 
         return redirect()->back()->with('success', 'Joined couple space successfully.');
+    }
+
+    private function mergePersonalSpace(CoupleSpace $source, CoupleSpace $destination): void
+    {
+        Category::where('couple_space_id', $source->id)->update(['couple_space_id' => $destination->id]);
+        Wallet::where('couple_space_id', $source->id)->update(['couple_space_id' => $destination->id]);
+        Transaction::where('couple_space_id', $source->id)->update(['couple_space_id' => $destination->id]);
+        Budget::where('couple_space_id', $source->id)->update(['couple_space_id' => $destination->id]);
+        Subscription::where('couple_space_id', $source->id)->update(['couple_space_id' => $destination->id]);
+        SavingsGoal::where('couple_space_id', $source->id)->update(['couple_space_id' => $destination->id]);
+        Wishlist::where('couple_space_id', $source->id)->update(['couple_space_id' => $destination->id]);
+        Trip::where('couple_space_id', $source->id)->update(['couple_space_id' => $destination->id]);
+        Settlement::where('couple_space_id', $source->id)->update(['couple_space_id' => $destination->id]);
     }
 
     /**

@@ -1,6 +1,5 @@
-const CACHE_NAME = 'couple-finance-v1';
+const CACHE_NAME = 'couple-finance-static-v2';
 const STATIC_ASSETS = [
-    '/',
     '/manifest.json',
     '/icons/icon-192.png',
     '/icons/icon-512.png',
@@ -75,24 +74,22 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Dynamic pages (Network first with cache fallback)
-    event.respondWith(
-        fetch(request)
-            .then((response) => {
-                if (response && response.status === 200) {
-                    const responseClone = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(request, responseClone);
-                    });
-                }
-                return response;
-            })
-            .catch(() => {
-                return caches.match(request).then((cached) => {
-                    if (cached) return cached;
-                    // Fallback to cached root
-                    return caches.match('/');
-                });
-            })
-    );
+    // Authenticated pages and Inertia responses must never be persisted in Cache Storage.
+    event.respondWith(fetch(request));
+});
+
+self.addEventListener('push', (event) => {
+    const payload = event.data?.json() || {};
+
+    event.waitUntil(self.registration.showNotification(payload.title || 'Couple Finance', {
+        body: payload.body || 'Ada kabar baru dari pasanganmu.',
+        icon: '/icons/icon-192.png',
+        badge: '/icons/icon-192.png',
+        data: { url: payload.url || '/trips' },
+    }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    event.waitUntil(self.clients.openWindow(event.notification.data?.url || '/trips'));
 });

@@ -2,6 +2,7 @@
 
 use App\Models\CoupleSpace;
 use App\Models\User;
+use App\Models\Wallet;
 
 test('authenticated user can view couple space index json', function () {
     $user = User::factory()->create();
@@ -121,4 +122,48 @@ test('non-member cannot update couple space', function () {
         ]);
 
     $response->assertForbidden();
+});
+
+test('user cannot create another couple space while one is active', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+
+    $this->actingAs($user)->postJson(route('couple-space.store'), [
+        'name' => 'Ruang Duplikat',
+    ])->assertUnprocessable()->assertJsonValidationErrorFor('name');
+
+    expect(CoupleSpace::where('user_one_id', $user->id)->count())->toBe(1);
+});
+
+test('user in an active space cannot join and move data into another space', function () {
+    $oldSpace = CoupleSpace::factory()->active()->create();
+    $user = $oldSpace->userOne;
+    $user->update(['current_couple_space_id' => $oldSpace->id]);
+    $wallet = Wallet::factory()->create(['couple_space_id' => $oldSpace->id, 'user_id' => $user->id]);
+    $targetSpace = CoupleSpace::factory()->create();
+
+    $this->actingAs($user)->postJson(route('couple-space.join'), [
+        'invite_code' => $targetSpace->invite_code,
+    ])->assertUnprocessable()->assertJsonValidationErrorFor('invite_code');
+
+    expect($wallet->fresh()->couple_space_id)->toBe($oldSpace->id)
+        ->and($user->fresh()->current_couple_space_id)->toBe($oldSpace->id)
+        ->and($targetSpace->fresh()->user_two_id)->toBeNull();
+});
+
+test('joining safely merges data from a personal pending space', function () {
+    $user = User::factory()->create();
+    $personalSpace = CoupleSpace::factory()->create(['user_one_id' => $user->id]);
+    $user->update(['current_couple_space_id' => $personalSpace->id]);
+    $wallet = Wallet::factory()->create(['couple_space_id' => $personalSpace->id, 'user_id' => $user->id]);
+    $targetSpace = CoupleSpace::factory()->create();
+
+    $this->actingAs($user)->postJson(route('couple-space.join'), [
+        'invite_code' => $targetSpace->invite_code,
+    ])->assertOk();
+
+    expect($wallet->fresh()->couple_space_id)->toBe($targetSpace->id)
+        ->and($user->fresh()->current_couple_space_id)->toBe($targetSpace->id);
+    $this->assertDatabaseMissing('couple_spaces', ['id' => $personalSpace->id]);
 });

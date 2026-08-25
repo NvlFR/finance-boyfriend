@@ -5,10 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\SavingsContribution;
 use App\Models\SavingsGoal;
 use App\Models\Wallet;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -30,7 +33,13 @@ class SavingsGoalController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $wallets = Wallet::where('couple_space_id', $space->id)->where('is_active', true)->get();
+        $wallets = Wallet::where('couple_space_id', $space->id)
+            ->where('is_active', true)
+            ->where(function ($query) use ($user) {
+                $query->where('user_id', $user->id)->orWhere('type', 'joint');
+            })
+            ->with('user:id,name,nickname')
+            ->get();
 
         $totalSaved = (float) $goals->sum('current_amount');
         $totalTarget = (float) $goals->sum('target_amount');
@@ -84,36 +93,83 @@ class SavingsGoalController extends Controller
 
         $validated = $request->validate([
             'amount' => 'required|numeric|min:1',
-            'wallet_id' => 'nullable|exists:wallets,id',
+            'wallet_id' => [
+                'nullable',
+                Rule::exists('wallets', 'id')->where(fn ($query) => $query
+                    ->where('couple_space_id', $space->id)
+                    ->where('is_active', true)
+                    ->where(fn ($walletQuery) => $walletQuery
+                        ->where('user_id', $user->id)
+                        ->orWhere('type', 'joint'))),
+            ],
             'notes' => 'nullable|string|max:255',
+            'client_reference' => 'nullable|string|max:64',
         ]);
 
-        DB::transaction(function () use ($user, $savingsGoal, $validated) {
-            $amount = (float) $validated['amount'];
+        $clientReference = $validated['client_reference'] ?? null;
 
-            // Deduct wallet balance if specified
-            if (! empty($validated['wallet_id'])) {
-                $wallet = Wallet::findOrFail($validated['wallet_id']);
-                $wallet->decrement('balance', $amount);
+        if ($clientReference && SavingsContribution::query()
+            ->where('user_id', $user->id)
+            ->where('client_reference', $clientReference)
+            ->exists()) {
+            return redirect()->back()->with('success', 'Setoran tabungan sudah tercatat.');
+        }
+
+        try {
+            DB::transaction(function () use ($user, $savingsGoal, $validated, $space, $clientReference) {
+                $amount = (float) $validated['amount'];
+                $lockedGoal = SavingsGoal::query()->whereKey($savingsGoal->id)->lockForUpdate()->firstOrFail();
+
+                if (! empty($validated['wallet_id'])) {
+                    $wallet = Wallet::query()
+                        ->where('couple_space_id', $space->id)
+                        ->where(function ($query) use ($user) {
+                            $query->where('user_id', $user->id)->orWhere('type', 'joint');
+                        })
+                        ->whereKey($validated['wallet_id'])
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
+                    if ((float) $wallet->balance < $amount) {
+                        throw ValidationException::withMessages([
+                            'amount' => 'Saldo dompet tidak mencukupi untuk setoran ini.',
+                        ]);
+                    }
+
+                    $wallet->decrement('balance', $amount);
+                }
+
+                SavingsContribution::create([
+                    'savings_goal_id' => $lockedGoal->id,
+                    'user_id' => $user->id,
+                    'wallet_id' => $validated['wallet_id'] ?? null,
+                    'amount' => $amount,
+                    'notes' => $validated['notes'] ?? null,
+                    'client_reference' => $clientReference,
+                    'contributed_at' => now(),
+                ]);
+
+                $lockedGoal->increment('current_amount', $amount);
+                $lockedGoal->refresh();
+
+                if ((float) $lockedGoal->current_amount >= (float) $lockedGoal->target_amount) {
+                    $lockedGoal->update(['status' => 'achieved']);
+                }
+            });
+        } catch (QueryException $exception) {
+            if ($clientReference && $exception->getCode() === '23000') {
+                $existingContribution = SavingsContribution::query()
+                    ->where('user_id', $user->id)
+                    ->where('client_reference', $clientReference)
+                    ->first();
+
+                if ($existingContribution) {
+                    return redirect()->back()->with('success', 'Setoran tabungan sudah tercatat.');
+                }
             }
 
-            // Create contribution log
-            SavingsContribution::create([
-                'savings_goal_id' => $savingsGoal->id,
-                'user_id' => $user->id,
-                'wallet_id' => $validated['wallet_id'] ?? null,
-                'amount' => $amount,
-                'notes' => $validated['notes'] ?? null,
-                'contributed_at' => now(),
-            ]);
-
-            // Update goal current amount
-            $savingsGoal->increment('current_amount', $amount);
-
-            if ((float) $savingsGoal->current_amount >= (float) $savingsGoal->target_amount) {
-                $savingsGoal->update(['status' => 'achieved']);
-            }
-        });
+            throw $exception;
+        }
 
         return redirect()->back()->with('success', 'Setoran tabungan berhasil dicatat!');
     }
@@ -135,6 +191,9 @@ class SavingsGoalController extends Controller
             'color' => 'nullable|string|max:20',
         ]);
 
+        $validated['status'] = (float) $savingsGoal->current_amount >= (float) $validated['target_amount']
+            ? 'achieved'
+            : 'in_progress';
         $savingsGoal->update($validated);
 
         return redirect()->back()->with('success', 'Target tabungan berhasil diperbarui!');
@@ -149,7 +208,24 @@ class SavingsGoalController extends Controller
             abort(403, 'Unauthorized.');
         }
 
-        $savingsGoal->delete();
+        DB::transaction(function () use ($savingsGoal): void {
+            $lockedGoal = SavingsGoal::query()->whereKey($savingsGoal->id)->lockForUpdate()->firstOrFail();
+            $refunds = $lockedGoal->contributions()
+                ->whereNotNull('wallet_id')
+                ->selectRaw('wallet_id, SUM(amount) as total_amount')
+                ->groupBy('wallet_id')
+                ->get();
+
+            foreach ($refunds as $refund) {
+                Wallet::query()
+                    ->where('couple_space_id', $lockedGoal->couple_space_id)
+                    ->whereKey($refund->wallet_id)
+                    ->lockForUpdate()
+                    ->first()?->increment('balance', (float) $refund->total_amount);
+            }
+
+            $lockedGoal->delete();
+        });
 
         return redirect()->back()->with('success', 'Target tabungan berhasil dihapus.');
     }

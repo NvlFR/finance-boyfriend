@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\SavingsGoal;
 use App\Models\Transaction;
 use App\Models\Wallet;
 use App\Services\SettlementService;
@@ -44,6 +45,9 @@ class DashboardController extends Controller
                 'settlementDebt' => null,
                 'monthlySpending' => 0,
                 'monthlyIncome' => 0,
+                'dailySpending' => 0,
+                'dailySpendingByUser' => ['user' => 0, 'partner' => 0],
+                'monthlySpendingByUser' => ['user' => 0, 'partner' => 0],
                 'categories' => $categories,
                 'dailyTrend' => [],
                 'categorySpending' => [],
@@ -58,16 +62,18 @@ class DashboardController extends Controller
         // Wallets
         $wallets = Wallet::where('couple_space_id', $space->id)
             ->where('is_active', true)
+            ->with('user:id,name,nickname')
             ->get();
 
         $userWallets = $wallets->where('user_id', $user->id);
         $partnerWallets = $partner ? $wallets->where('user_id', $partner->id) : collect();
         $jointWallets = $wallets->where('type', 'joint');
 
-        $totalNetWorth = (float) $wallets->sum('balance');
+        $savedInGoals = (float) SavingsGoal::where('couple_space_id', $space->id)->sum('current_amount');
+        $totalNetWorth = (float) $wallets->sum('balance') + $savedInGoals;
         $userNetWorth = (float) $userWallets->sum('balance');
         $partnerNetWorth = (float) $partnerWallets->sum('balance');
-        $jointNetWorth = (float) $jointWallets->sum('balance');
+        $jointNetWorth = (float) $jointWallets->sum('balance') + $savedInGoals;
 
         // Recent Transactions
         $recentTransactions = Transaction::where('couple_space_id', $space->id)
@@ -90,6 +96,19 @@ class DashboardController extends Controller
 
         $monthlySpending = (float) $monthTransactions->where('type', 'expense')->sum('amount');
         $monthlyIncome = (float) $monthTransactions->where('type', 'income')->sum('amount');
+        $todayExpenses = $monthTransactions
+            ->where('type', 'expense')
+            ->filter(fn (Transaction $transaction): bool => $transaction->transaction_date->isToday());
+        $dailySpending = (float) $todayExpenses->sum('amount');
+        $dailySpendingByUser = [
+            'user' => (float) $todayExpenses->where('user_id', $user->id)->sum('amount'),
+            'partner' => $partner ? (float) $todayExpenses->where('user_id', $partner->id)->sum('amount') : 0,
+        ];
+        $monthlyExpenses = $monthTransactions->where('type', 'expense');
+        $monthlySpendingByUser = [
+            'user' => (float) $monthlyExpenses->where('user_id', $user->id)->sum('amount'),
+            'partner' => $partner ? (float) $monthlyExpenses->where('user_id', $partner->id)->sum('amount') : 0,
+        ];
 
         // Scope Spending (Shared vs Personal)
         $sharedSpending = (float) $monthTransactions->where('type', 'expense')->where('scope', 'shared')->sum('amount');
@@ -177,6 +196,9 @@ class DashboardController extends Controller
             'settlementDebt' => $settlementDebt,
             'monthlySpending' => $monthlySpending,
             'monthlyIncome' => $monthlyIncome,
+            'dailySpending' => $dailySpending,
+            'dailySpendingByUser' => $dailySpendingByUser,
+            'monthlySpendingByUser' => $monthlySpendingByUser,
             'categories' => $categories,
             'dailyTrend' => $dailyTrend,
             'categorySpending' => $categorySpending,

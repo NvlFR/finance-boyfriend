@@ -115,7 +115,7 @@ function deleteSubscription(sub: SubscriptionItem) {
             <button
                 type="button"
                 @click="isCreateModalOpen = true"
-                class="flex items-center gap-1.5 rounded-full bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors"
+                class="flex min-h-11 items-center gap-1.5 rounded-full bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors"
             >
                 <Plus class="h-4 w-4" /> Tambah Langganan
             </button>
@@ -169,7 +169,7 @@ function deleteSubscription(sub: SubscriptionItem) {
                         <button
                             type="button"
                             @click="openEditModal(sub)"
-                            class="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 transition-colors"
+                            class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 transition-colors"
                             title="Edit Langganan"
                         >
                             <Edit2 class="h-4 w-4" />
@@ -178,7 +178,7 @@ function deleteSubscription(sub: SubscriptionItem) {
                         <button
                             type="button"
                             @click="deleteSubscription(sub)"
-                            class="rounded-lg p-1.5 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 transition-colors"
+                            class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 transition-colors"
                             title="Hapus Langganan"
                         >
                             <Trash2 class="h-4 w-4" />
@@ -203,7 +203,7 @@ function deleteSubscription(sub: SubscriptionItem) {
         >
             <div
                 @click.stop
-                class="w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 cursor-default"
+                class="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 cursor-default"
             >
                 <div class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                     <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Tambah Langganan Baru</h2>
@@ -310,7 +310,7 @@ function deleteSubscription(sub: SubscriptionItem) {
         >
             <div
                 @click.stop
-                class="w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 cursor-default"
+                class="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 cursor-default"
             >
                 <div class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                     <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Edit Langganan</h2>

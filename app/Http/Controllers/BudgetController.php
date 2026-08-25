@@ -9,6 +9,8 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -79,7 +81,7 @@ class BudgetController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:100',
             'limit_amount' => 'required|numeric|min:1',
-            'category_id' => 'nullable|exists:categories,id',
+            'category_id' => ['nullable', $this->categoryRule($space->id)],
             'scope' => 'nullable|in:shared,personal',
         ]);
 
@@ -108,7 +110,7 @@ class BudgetController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:100',
             'limit_amount' => 'required|numeric|min:1',
-            'category_id' => 'nullable|exists:categories,id',
+            'category_id' => ['nullable', $this->categoryRule($space->id)],
             'scope' => 'nullable|in:shared,personal',
         ]);
 
@@ -135,5 +137,13 @@ class BudgetController extends Controller
         $budget->delete();
 
         return redirect()->back()->with('success', 'Anggaran berhasil dihapus.');
+    }
+
+    private function categoryRule(int $spaceId): Exists
+    {
+        return Rule::exists('categories', 'id')->where(fn ($query) => $query
+            ->where(fn ($categoryQuery) => $categoryQuery
+                ->whereNull('couple_space_id')
+                ->orWhere('couple_space_id', $spaceId)));
     }
 }

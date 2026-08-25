@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Settlement\StoreSettlementRequest;
 use App\Models\Settlement;
+use App\Models\TransactionSplit;
 use App\Services\SettlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -42,6 +43,7 @@ class SettlementController extends Controller
                     'data' => [],
                     'links' => [],
                 ],
+                'unsettledItems' => [],
             ];
 
             if ($request->wantsJson()) {
@@ -53,15 +55,36 @@ class SettlementController extends Controller
 
         $space->load(['userOne', 'userTwo']);
         $unsettled = $this->settlementService->getUnsettledBalance($space);
+        $unsettledItems = TransactionSplit::query()
+            ->whereHas('transaction', fn ($query) => $query->where('couple_space_id', $space->id))
+            ->where('settled', false)
+            ->with([
+                'paidByUser:id,name,nickname',
+                'transaction:id,user_id,category_id,title,amount,transaction_date',
+                'transaction.category:id,name,color',
+            ])
+            ->latest('id')
+            ->get()
+            ->map(fn (TransactionSplit $split): array => [
+                'id' => $split->id,
+                'title' => $split->transaction->title ?: ($split->transaction->category?->name ?? 'Transaksi bersama'),
+                'amount' => $split->transaction->amount,
+                'transaction_date' => $split->transaction->transaction_date,
+                'paid_by_name' => $split->paidByUser?->nickname ?: $split->paidByUser?->name,
+                'user_one_amount' => $split->user_one_amount,
+                'user_two_amount' => $split->user_two_amount,
+                'split_type' => $split->split_type,
+            ]);
 
         $history = Settlement::where('couple_space_id', $space->id)
             ->with(['fromUser', 'toUser'])
             ->orderBy('settled_at', 'desc')
             ->orderBy('id', 'desc')
-            ->paginate((int) $request->input('per_page', 20));
+            ->paginate(min(100, max(1, $request->integer('per_page', 20))));
 
         $data = [
             'unsettled' => $unsettled,
+            'unsettledItems' => $unsettledItems,
             'history' => $history,
         ];
 

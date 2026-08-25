@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -39,6 +40,17 @@ class User extends Authenticatable implements PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
+
+    protected $fillable = [
+        'name',
+        'nickname',
+        'email',
+        'google_id',
+        'avatar_url',
+        'theme_color',
+        'current_couple_space_id',
+        'password',
+    ];
 
     /**
      * Get the attributes that should be cast.
@@ -89,30 +101,41 @@ class User extends Authenticatable implements PasskeyUser
      */
     public function getOrEnsureCoupleSpace(): CoupleSpace
     {
-        if ($this->current_couple_space_id && $this->currentCoupleSpace) {
-            return $this->currentCoupleSpace;
-        }
+        return DB::transaction(function (): CoupleSpace {
+            $lockedUser = static::query()->whereKey($this->id)->lockForUpdate()->firstOrFail();
 
-        $existing = CoupleSpace::where('user_one_id', $this->id)
-            ->orWhere('user_two_id', $this->id)
-            ->first();
+            if ($lockedUser->current_couple_space_id) {
+                return CoupleSpace::findOrFail($lockedUser->current_couple_space_id);
+            }
 
-        if ($existing) {
-            $this->update(['current_couple_space_id' => $existing->id]);
+            $existing = CoupleSpace::where('user_one_id', $lockedUser->id)
+                ->orWhere('user_two_id', $lockedUser->id)
+                ->first();
 
-            return $existing;
-        }
+            if ($existing) {
+                $lockedUser->update(['current_couple_space_id' => $existing->id]);
+                $this->setAttribute('current_couple_space_id', $existing->id);
 
-        $displayName = $this->nickname ?: explode(' ', $this->name)[0];
-        $space = CoupleSpace::create([
-            'name' => "Ruang {$displayName} & Pasangan",
-            'invite_code' => CoupleSpace::generateInviteCode(),
-            'user_one_id' => $this->id,
-            'status' => 'pending',
-        ]);
+                return $existing;
+            }
 
-        $this->update(['current_couple_space_id' => $space->id]);
+            $displayName = $lockedUser->nickname ?: explode(' ', $lockedUser->name)[0];
+            $space = CoupleSpace::create([
+                'name' => "Ruang {$displayName} & Pasangan",
+                'invite_code' => CoupleSpace::generateInviteCode(),
+                'user_one_id' => $lockedUser->id,
+                'status' => 'pending',
+            ]);
 
-        return $space;
+            $lockedUser->update(['current_couple_space_id' => $space->id]);
+            $this->setAttribute('current_couple_space_id', $space->id);
+
+            return $space;
+        }, attempts: 3);
+    }
+
+    public function nicknameOrName(): string
+    {
+        return $this->nickname ?: $this->name;
     }
 }

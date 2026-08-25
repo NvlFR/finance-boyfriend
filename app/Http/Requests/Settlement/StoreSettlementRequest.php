@@ -4,6 +4,7 @@ namespace App\Http\Requests\Settlement;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreSettlementRequest extends FormRequest
 {
@@ -22,8 +23,11 @@ class StoreSettlementRequest extends FormRequest
      */
     public function rules(): array
     {
+        $space = $this->user()?->currentCoupleSpace;
+        $memberIds = $space ? array_filter([$space->user_one_id, $space->user_two_id]) : [];
+
         return [
-            'to_user_id' => ['required', 'integer', 'exists:users,id'],
+            'to_user_id' => ['required', 'integer', Rule::in($memberIds)],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'payment_method' => ['required', 'string', 'max:50'],
             'notes' => ['nullable', 'string'],

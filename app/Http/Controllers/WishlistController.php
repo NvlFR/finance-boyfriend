@@ -30,6 +30,8 @@ class WishlistController extends Controller
 
         // For secret surprises, if the target is current user, we hide/blur title and price unless bought!
         $formattedWishlists = $wishlists->map(function ($item) use ($user) {
+            $item->setAttribute('can_manage', ! ($item->is_secret_surprise && $item->target_user_id === $user->id));
+
             if ($item->is_secret_surprise && $item->target_user_id === $user->id && ! $item->is_bought) {
                 $item->title = '🎁 Secret Surprise Gift for You!';
                 $item->estimated_price = '0.00';
@@ -59,7 +61,6 @@ class WishlistController extends Controller
             'url' => 'nullable|url|max:500',
             'notes' => 'nullable|string|max:500',
             'is_secret_surprise' => 'nullable|boolean',
-            'target_user_id' => 'nullable|exists:users,id',
         ]);
 
         $space->load(['userOne', 'userTwo']);
@@ -89,6 +90,7 @@ class WishlistController extends Controller
         if (! $space || $wishlist->couple_space_id !== $space->id) {
             abort(403, 'Unauthorized.');
         }
+        $this->authorizeSecretSurpriseManagement($wishlist, $user->id);
 
         $wishlist->update([
             'is_bought' => ! $wishlist->is_bought,
@@ -105,6 +107,7 @@ class WishlistController extends Controller
         if (! $space || $wishlist->couple_space_id !== $space->id) {
             abort(403, 'Unauthorized.');
         }
+        $this->authorizeSecretSurpriseManagement($wishlist, $user->id);
 
         $validated = $request->validate([
             'title' => 'required|string|max:150',
@@ -115,6 +118,10 @@ class WishlistController extends Controller
             'is_secret_surprise' => 'nullable|boolean',
         ]);
 
+        $space->loadMissing(['userOne', 'userTwo']);
+        $validated['target_user_id'] = ($validated['is_secret_surprise'] ?? false)
+            ? $space->getPartnerOf($user)?->id
+            : null;
         $wishlist->update($validated);
 
         return redirect()->back()->with('success', 'Wishlist berhasil diperbarui!');
@@ -128,9 +135,17 @@ class WishlistController extends Controller
         if (! $space || $wishlist->couple_space_id !== $space->id) {
             abort(403, 'Unauthorized.');
         }
+        $this->authorizeSecretSurpriseManagement($wishlist, $user->id);
 
         $wishlist->delete();
 
         return redirect()->back()->with('success', 'Wishlist berhasil dihapus.');
+    }
+
+    private function authorizeSecretSurpriseManagement(Wishlist $wishlist, int $userId): void
+    {
+        if ($wishlist->is_secret_surprise && $wishlist->target_user_id === $userId) {
+            abort(403, 'Kado kejutan hanya dapat dikelola oleh pembuatnya.');
+        }
     }
 }

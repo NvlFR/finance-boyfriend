@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { Heart, Flame, Sparkles, User, Settings, LogOut, Shield, ChevronDown } from '@lucide/vue';
+import { Heart, Flame, Sparkles, User, Settings, LogOut, Shield, ChevronDown, Navigation } from '@lucide/vue';
 import { useLogoutModal } from '@/composables/useLogoutModal';
 import type { CoupleSpace } from '@/types/finance';
 import type { User as AuthUser } from '@/types/auth';
@@ -88,7 +88,7 @@ function logout() {
                     <button
                         type="button"
                         @click="isMenuOpen = !isMenuOpen"
-                        class="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 py-1 pl-1.5 pr-2.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        class="flex min-h-11 items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 py-1 pl-1.5 pr-2.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
                     >
                         <div class="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-bold text-white">
                             {{ user.name.charAt(0) }}
@@ -120,6 +120,12 @@ function logout() {
                                 class="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
                             >
                                 <Shield class="h-4 w-4 text-amber-500" /> Password & Keamanan
+                            </Link>
+                            <Link
+                                href="/trips"
+                                class="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                            >
+                                <Navigation class="h-4 w-4 text-emerald-500" /> Radar Perjalanan
                             </Link>
                             <Link
                                 href="/couple-space"

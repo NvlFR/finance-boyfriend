@@ -6,7 +6,9 @@ use App\Models\CoupleSpace;
 use App\Models\Settlement;
 use App\Models\TransactionSplit;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SettlementService
 {
@@ -51,7 +53,18 @@ class SettlementService
             ->where('settled', false)
             ->get();
 
-        $userOneNet = 0.00; // Positive = userOne is owed money (creditor), Negative = userOne owes money (debtor)
+        return $this->calculateBalance($space, $splits);
+    }
+
+    /**
+     * @param  Collection<int, TransactionSplit>  $splits
+     * @return array<string, float|int|string|null>
+     */
+    private function calculateBalance(CoupleSpace $space, Collection $splits): array
+    {
+        $userOne = $space->userOne;
+        $userTwo = $space->userTwo;
+        $userOneNet = 0.00;
 
         foreach ($splits as $split) {
             if ($split->paid_by_user_id === $userOne->id) {
@@ -73,14 +86,12 @@ class SettlementService
         $amountOwed = 0.00;
 
         if ($userOneNet > 0) {
-            // User 2 owes User 1
             $debtorId = $userTwo->id;
             $debtorName = $userTwo->name;
             $creditorId = $userOne->id;
             $creditorName = $userOne->name;
             $amountOwed = $userOneNet;
         } elseif ($userOneNet < 0) {
-            // User 1 owes User 2
             $debtorId = $userOne->id;
             $debtorName = $userOne->name;
             $creditorId = $userTwo->id;
@@ -109,11 +120,37 @@ class SettlementService
     public function settle(CoupleSpace $space, User $fromUser, array $data): Settlement
     {
         return DB::transaction(function () use ($space, $fromUser, $data) {
+            $space->loadMissing(['userOne', 'userTwo']);
+            $splits = TransactionSplit::whereHas('transaction', function ($query) use ($space) {
+                $query->where('couple_space_id', $space->id);
+            })
+                ->where('settled', false)
+                ->lockForUpdate()
+                ->get();
+            $balance = $this->calculateBalance($space, $splits);
             $toUserId = (int) $data['to_user_id'];
             $amount = (float) $data['amount'];
             $paymentMethod = $data['payment_method'];
             $notes = $data['notes'] ?? null;
             $settledAt = $data['settled_at'] ?? now();
+
+            if ($balance['debtor_id'] !== $fromUser->id) {
+                throw ValidationException::withMessages([
+                    'amount' => 'Kamu tidak memiliki utang yang perlu dilunasi saat ini.',
+                ]);
+            }
+
+            if ($balance['creditor_id'] !== $toUserId) {
+                throw ValidationException::withMessages([
+                    'to_user_id' => 'Penerima pelunasan harus pasangan yang saat ini kamu utangi.',
+                ]);
+            }
+
+            if (abs((float) $balance['amount_owed'] - $amount) > 0.009) {
+                throw ValidationException::withMessages([
+                    'amount' => 'Nominal pelunasan harus sama dengan total utang saat ini.',
+                ]);
+            }
 
             $settlement = Settlement::create([
                 'couple_space_id' => $space->id,
@@ -125,12 +162,7 @@ class SettlementService
                 'settled_at' => $settledAt,
             ]);
 
-            // Mark unsettled splits as settled
-            TransactionSplit::whereHas('transaction', function ($query) use ($space) {
-                $query->where('couple_space_id', $space->id);
-            })
-                ->where('settled', false)
-                ->update(['settled' => true]);
+            TransactionSplit::whereKey($splits->modelKeys())->update(['settled' => true]);
 
             return $settlement->load(['fromUser', 'toUser']);
         });

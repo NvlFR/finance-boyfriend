@@ -7,6 +7,7 @@ use App\Models\Wallet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -48,16 +49,7 @@ class SubscriptionController extends Controller
         $user = $request->user();
         $space = $user->getOrEnsureCoupleSpace();
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:100',
-            'amount' => 'required|numeric|min:1',
-            'billing_cycle' => 'required|in:monthly,yearly',
-            'next_billing_date' => 'required|date',
-            'split_mode' => 'nullable|in:50_50,alternate,single',
-            'paid_by_user_id' => 'nullable|exists:users,id',
-            'wallet_id' => 'nullable|exists:wallets,id',
-            'color' => 'nullable|string|max:20',
-        ]);
+        $validated = $request->validate($this->rules($space->id, [$space->user_one_id, $space->user_two_id]));
 
         Subscription::create([
             'couple_space_id' => $space->id,
@@ -85,15 +77,8 @@ class SubscriptionController extends Controller
         }
 
         $validated = $request->validate([
-            'name' => 'required|string|max:100',
-            'amount' => 'required|numeric|min:1',
-            'billing_cycle' => 'required|in:monthly,yearly',
-            'next_billing_date' => 'required|date',
-            'split_mode' => 'nullable|in:50_50,alternate,single',
-            'paid_by_user_id' => 'nullable|exists:users,id',
-            'wallet_id' => 'nullable|exists:wallets,id',
-            'color' => 'nullable|string|max:20',
-            'is_active' => 'nullable|boolean',
+            ...$this->rules($space->id, [$space->user_one_id, $space->user_two_id]),
+            'is_active' => ['nullable', 'boolean'],
         ]);
 
         $subscription->update($validated);
@@ -113,5 +98,20 @@ class SubscriptionController extends Controller
         $subscription->delete();
 
         return redirect()->back()->with('success', 'Langganan berhasil dihapus.');
+    }
+
+    /** @param array<int, int|null> $memberIds */
+    private function rules(int $spaceId, array $memberIds): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:100'],
+            'amount' => ['required', 'numeric', 'min:1'],
+            'billing_cycle' => ['required', 'in:monthly,yearly'],
+            'next_billing_date' => ['required', 'date'],
+            'split_mode' => ['nullable', 'in:50_50,alternate,single'],
+            'paid_by_user_id' => ['nullable', Rule::in(array_filter($memberIds))],
+            'wallet_id' => ['nullable', Rule::exists('wallets', 'id')->where('couple_space_id', $spaceId)],
+            'color' => ['nullable', 'string', 'max:20'],
+        ];
     }
 }

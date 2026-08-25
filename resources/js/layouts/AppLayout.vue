@@ -20,7 +20,7 @@ const partner = computed(() => (page.props as any).partner as User | undefined);
 const wallets = computed(() => ((page.props as any).wallets || []) as Wallet[]);
 const categories = computed(() => ((page.props as any).categories || []) as Category[]);
 
-const { isOpen: isDrawerOpen } = useTransactionModal();
+const { isOpen: isDrawerOpen, defaults: transactionDefaults } = useTransactionModal();
 const isNavigating = ref(false);
 
 let removeStartListener: (() => void) | null = null;
@@ -43,7 +43,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="min-h-screen bg-zinc-50 text-zinc-900 antialiased pb-28 dark:bg-zinc-950 dark:text-zinc-100 selection:bg-rose-500 selection:text-white">
+    <div class="min-h-screen bg-zinc-50 text-zinc-900 antialiased pb-[calc(7rem+env(safe-area-inset-bottom))] dark:bg-zinc-950 dark:text-zinc-100 selection:bg-rose-500 selection:text-white">
         <!-- Top Loading Progress Bar (Glowing Gradient Line) -->
         <div
             v-if="isNavigating"
@@ -66,6 +66,7 @@ onUnmounted(() => {
             :categories="categories"
             :user="user"
             :partner="partner"
+            :defaults="transactionDefaults"
             @created="isDrawerOpen = false"
         />
 

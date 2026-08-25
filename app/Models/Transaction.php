@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $title
  * @property string|null $notes
  * @property string|null $receipt_image_path
+ * @property string|null $client_reference
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -39,6 +40,7 @@ use Illuminate\Support\Carbon;
     'title',
     'notes',
     'receipt_image_path',
+    'client_reference',
 ])]
 class Transaction extends Model
 {

@@ -81,3 +81,31 @@ test('user can delete a wishlist item', function () {
     $response->assertRedirect();
     $this->assertDatabaseMissing('wishlists', ['id' => $wishlist->id]);
 });
+
+test('secret surprise target cannot reveal modify or delete the gift', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $creator = $space->userOne;
+    $target = $space->userTwo;
+    $target->update(['current_couple_space_id' => $space->id]);
+    $wishlist = Wishlist::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $creator->id,
+        'target_user_id' => $target->id,
+        'title' => 'Hadiah Rahasia',
+        'is_secret_surprise' => true,
+        'is_bought' => false,
+    ]);
+
+    $this->actingAs($target)->getJson(route('wishlists.index'))
+        ->assertOk()
+        ->assertJsonPath('wishlists.0.title', '🎁 Secret Surprise Gift for You!')
+        ->assertJsonPath('wishlists.0.can_manage', false);
+
+    $this->actingAs($target)->patch(route('wishlists.toggle', $wishlist))->assertForbidden();
+    $this->actingAs($target)->put(route('wishlists.update', $wishlist), [
+        'title' => 'Bocor',
+    ])->assertForbidden();
+    $this->actingAs($target)->delete(route('wishlists.destroy', $wishlist))->assertForbidden();
+
+    expect($wishlist->fresh()->title)->toBe('Hadiah Rahasia');
+});

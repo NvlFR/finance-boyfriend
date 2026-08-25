@@ -33,18 +33,26 @@ class ProfileController extends Controller
     {
         $validated = $request->validated();
 
+        $user = $request->user();
+
         if ($request->hasFile('avatar')) {
             $path = $request->file('avatar')->store('avatars', 'public');
-            $request->user()->avatar_url = Storage::url($path);
+            $user->avatar_url = Storage::url($path);
         }
 
-        $request->user()->fill(collect($validated)->except(['avatar'])->toArray());
-
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        $user->name = $validated['name'];
+        if (array_key_exists('nickname', $validated)) {
+            $user->nickname = $validated['nickname'];
+        }
+        if (array_key_exists('theme_color', $validated)) {
+            $user->theme_color = $validated['theme_color'];
+        }
+        if ($user->email !== $validated['email']) {
+            $user->email = $validated['email'];
+            $user->email_verified_at = null;
         }
 
-        $request->user()->save();
+        $user->save();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Profile updated.')]);
 

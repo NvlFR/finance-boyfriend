@@ -9,6 +9,7 @@ use App\Http\Controllers\SavingsGoalController;
 use App\Http\Controllers\SettlementController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\TripController;
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\WishlistController;
 use Illuminate\Support\Facades\Route;
@@ -84,6 +85,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('budgets', [BudgetController::class, 'store'])->name('budgets.store');
     Route::put('budgets/{budget}', [BudgetController::class, 'update'])->name('budgets.update');
     Route::delete('budgets/{budget}', [BudgetController::class, 'destroy'])->name('budgets.destroy');
+
+    // Trips Live Tracker routes
+    Route::get('trips', [TripController::class, 'index'])->name('trips.index');
+    Route::post('trips', [TripController::class, 'store'])->name('trips.store');
+    Route::post('trips/{trip}/position', [TripController::class, 'updatePosition'])->name('trips.position');
+    Route::post('trips/{trip}/complete', [TripController::class, 'complete'])->name('trips.complete');
+    Route::post('push-subscriptions', [TripController::class, 'subscribePush'])->name('push.subscribe');
 });
 
 require __DIR__.'/settings.php';

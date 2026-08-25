@@ -52,6 +52,8 @@ test('index returns calculated unsettled balance and settlement history', functi
         ->assertJsonPath('unsettled.debtor_id', $userTwo->id)
         ->assertJsonPath('unsettled.creditor_id', $userOne->id)
         ->assertJsonPath('unsettled.amount_owed', 100000)
+        ->assertJsonPath('unsettledItems.0.amount', '200000.00')
+        ->assertJsonPath('unsettledItems.0.paid_by_name', $userOne->nickname ?: $userOne->name)
         ->assertJsonCount(1, 'history.data');
 });
 
@@ -103,4 +105,57 @@ test('storing settlement records payment and marks transaction splits as settled
     ]);
 
     expect($split->fresh()->settled)->toBeTrue();
+});
+
+test('settlement rejects partial amount and leaves splits unsettled', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $creditor = $space->userOne;
+    $debtor = $space->userTwo;
+    $debtor->update(['current_couple_space_id' => $space->id]);
+    $wallet = Wallet::factory()->create(['couple_space_id' => $space->id, 'user_id' => $creditor->id]);
+    $transaction = Transaction::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $creditor->id,
+        'wallet_id' => $wallet->id,
+        'scope' => 'shared',
+        'amount' => 200000,
+    ]);
+    $split = TransactionSplit::factory()->create([
+        'transaction_id' => $transaction->id,
+        'paid_by_user_id' => $creditor->id,
+        'user_one_amount' => 100000,
+        'user_two_amount' => 100000,
+        'settled' => false,
+    ]);
+
+    $this->actingAs($debtor)->postJson(route('settlements.store'), [
+        'to_user_id' => $creditor->id,
+        'amount' => 50000,
+        'payment_method' => 'Transfer',
+    ])->assertUnprocessable()->assertJsonValidationErrorFor('amount');
+
+    expect($split->fresh()->settled)->toBeFalse();
+    $this->assertDatabaseCount('settlements', 0);
+});
+
+test('creditor cannot settle debt in the reverse direction', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $creditor = $space->userOne;
+    $debtor = $space->userTwo;
+    $creditor->update(['current_couple_space_id' => $space->id]);
+    $wallet = Wallet::factory()->create(['couple_space_id' => $space->id, 'user_id' => $creditor->id]);
+    $transaction = Transaction::factory()->create(['couple_space_id' => $space->id, 'user_id' => $creditor->id, 'wallet_id' => $wallet->id, 'scope' => 'shared']);
+    TransactionSplit::factory()->create([
+        'transaction_id' => $transaction->id,
+        'paid_by_user_id' => $creditor->id,
+        'user_one_amount' => 50000,
+        'user_two_amount' => 50000,
+        'settled' => false,
+    ]);
+
+    $this->actingAs($creditor)->postJson(route('settlements.store'), [
+        'to_user_id' => $debtor->id,
+        'amount' => 50000,
+        'payment_method' => 'Tunai',
+    ])->assertUnprocessable()->assertJsonValidationErrorFor('amount');
 });

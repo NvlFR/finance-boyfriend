@@ -41,7 +41,10 @@ class HandleInertiaRequests extends Middleware
         $space = $user ? $user->currentCoupleSpace : null;
         $partner = ($space && $user) ? $space->getPartnerOf($user) : null;
 
-        $wallets = $space ? Wallet::where('couple_space_id', $space->id)->where('is_active', true)->get() : [];
+        $wallets = $space ? Wallet::where('couple_space_id', $space->id)
+            ->where('is_active', true)
+            ->with('user:id,name,nickname')
+            ->get(['id', 'couple_space_id', 'user_id', 'name', 'type', 'wallet_type', 'balance', 'currency', 'color', 'icon', 'is_active']) : [];
         $categories = $space ? Category::where(function ($q) use ($space) {
             $q->whereNull('couple_space_id')->orWhere('couple_space_id', $space->id);
         })->get() : Category::whereNull('couple_space_id')->get();

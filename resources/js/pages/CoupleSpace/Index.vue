@@ -21,6 +21,7 @@ import {
     ArrowUpRight,
     HelpCircle,
 } from '@lucide/vue';
+import InputError from '@/components/InputError.vue';
 import type { CoupleSpace } from '@/types/finance';
 import type { User } from '@/types/auth';
 
@@ -260,54 +261,96 @@ function submitEdit() {
                 </div>
             </div>
 
-            <!-- Quick Invite Share Card (If Partner Not Connected Yet) -->
+            <!-- Quick Invite Share & Input Form Card (If Partner Not Connected Yet) -->
             <div
                 v-if="!partner"
-                class="rounded-3xl border border-indigo-200/80 bg-white p-5 shadow-sm dark:border-indigo-900/50 dark:bg-zinc-900 space-y-4"
+                class="rounded-3xl border border-indigo-200/80 bg-white p-5 shadow-sm dark:border-indigo-900/50 dark:bg-zinc-900 space-y-5"
             >
-                <div class="flex items-start gap-3">
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-indigo-500 text-white shadow-sm">
-                        <Share2 class="h-5 w-5" />
-                    </div>
-                    <div>
-                        <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                            Undang Pasangan Bergabung
-                        </h3>
-                        <p class="text-xs text-zinc-500">
-                            Kirimkan kode pairing ini agar pasanganmu dapat menyambungkan akunnya
-                        </p>
-                    </div>
-                </div>
-
-                <div class="flex items-center justify-between rounded-2xl bg-indigo-50/70 p-3.5 border border-indigo-100 dark:bg-indigo-950/30 dark:border-indigo-900/40">
-                    <div>
-                        <span class="text-[11px] font-semibold text-zinc-500">Kode Pairing:</span>
-                        <p class="font-mono text-2xl font-black tracking-widest text-indigo-600 dark:text-indigo-400">
-                            {{ coupleSpace.invite_code }}
-                        </p>
+                <!-- Option 1: Share Your Code -->
+                <div class="space-y-3">
+                    <div class="flex items-start gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-indigo-500 text-white shadow-sm">
+                            <Share2 class="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                                1. Kode Pairing Kamu
+                            </h3>
+                            <p class="text-xs text-zinc-500">
+                                Kirimkan kode ini jika kamu yang meminta pasangan bergabung ke akunmu.
+                            </p>
+                        </div>
                     </div>
 
-                    <button
-                        type="button"
-                        @click="copyCode(coupleSpace.invite_code)"
-                        class="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-500 transition-all"
+                    <div class="flex items-center justify-between rounded-2xl bg-indigo-50/70 p-3.5 border border-indigo-100 dark:bg-indigo-950/30 dark:border-indigo-900/40">
+                        <div>
+                            <span class="text-[11px] font-semibold text-zinc-500">Kode Pairing Kamu:</span>
+                            <p class="font-mono text-2xl font-black tracking-widest text-indigo-600 dark:text-indigo-400">
+                                {{ coupleSpace.invite_code }}
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            @click="copyCode(coupleSpace.invite_code)"
+                            class="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-500 transition-all"
+                        >
+                            <Check v-if="copied" class="h-3.5 w-3.5" />
+                            <Copy v-else class="h-3.5 w-3.5" />
+                            <span>{{ copied ? 'Tersalin!' : 'Salin Kode' }}</span>
+                        </button>
+                    </div>
+
+                    <a
+                        :href="whatsappShareUrl"
+                        target="_blank"
+                        rel="noopener"
+                        class="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-xs font-bold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-500 transition-all"
                     >
-                        <Check v-if="copied" class="h-3.5 w-3.5" />
-                        <Copy v-else class="h-3.5 w-3.5" />
-                        <span>{{ copied ? 'Tersalin!' : 'Salin' }}</span>
-                    </button>
+                        <Send class="h-4 w-4" />
+                        <span>Kirim Kode ke WhatsApp Pasangan</span>
+                    </a>
                 </div>
 
-                <!-- WhatsApp Quick Share Button -->
-                <a
-                    :href="whatsappShareUrl"
-                    target="_blank"
-                    rel="noopener"
-                    class="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-xs font-bold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-500 transition-all"
-                >
-                    <Send class="h-4 w-4" />
-                    <span>Bagikan Kode ke WhatsApp Pasangan</span>
-                </a>
+                <div class="relative flex items-center justify-center">
+                    <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-zinc-200 dark:border-zinc-800"></div></div>
+                    <span class="relative bg-white px-3 text-[10px] font-extrabold uppercase text-zinc-400 dark:bg-zinc-900">ATAU</span>
+                </div>
+
+                <!-- Option 2: Enter Partner's Code -->
+                <div class="space-y-3">
+                    <div class="flex items-start gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-sm">
+                            <UserPlus class="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                                2. Punya Kode Dari Pasangan?
+                            </h3>
+                            <p class="text-xs text-zinc-500">
+                                Jika pasanganmu sudah mendaftar lebih dulu, masukkan kode pairing pasanganmu di bawah ini:
+                            </p>
+                        </div>
+                    </div>
+
+                    <form @submit.prevent="handleJoin" class="flex flex-col sm:flex-row gap-2">
+                        <input
+                            v-model="joinForm.invite_code"
+                            type="text"
+                            placeholder="Masukkan Kode Pairing Pasangan"
+                            required
+                            class="uppercase font-mono tracking-widest w-full rounded-2xl border border-zinc-200 bg-zinc-50 p-3 text-sm font-bold text-zinc-900 focus:border-rose-500 focus:ring-rose-500 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                        <button
+                            type="submit"
+                            :disabled="joinForm.processing"
+                            class="shrink-0 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-600 px-5 py-3 text-xs font-bold text-white shadow-md shadow-rose-500/20 hover:opacity-95 transition-all"
+                        >
+                            Hubungkan Pasangan 💕
+                        </button>
+                    </form>
+                    <InputError :message="joinForm.errors.invite_code" />
+                </div>
             </div>
 
             <!-- Joint Financial Stats Grid -->

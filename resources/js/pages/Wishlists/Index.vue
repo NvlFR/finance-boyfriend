@@ -14,6 +14,7 @@ type WishlistItem = {
     notes: string | null;
     is_secret_surprise: boolean;
     is_bought: boolean;
+    can_manage: boolean;
     user?: User;
 };
 
@@ -112,7 +113,7 @@ function deleteItem(item: WishlistItem) {
             <button
                 type="button"
                 @click="isCreateModalOpen = true"
-                class="flex items-center gap-1.5 rounded-full bg-rose-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-rose-600 transition-colors"
+                class="flex min-h-11 items-center gap-1.5 rounded-full bg-rose-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-rose-600 transition-colors"
             >
                 <Plus class="h-4 w-4" /> Tambah Item
             </button>
@@ -140,7 +141,7 @@ function deleteItem(item: WishlistItem) {
             <div
                 v-for="item in wishlists"
                 :key="item.id"
-                class="flex items-start justify-between rounded-3xl border p-4 shadow-sm transition-all dark:bg-zinc-900"
+                class="flex flex-col gap-2 rounded-3xl border p-4 shadow-sm transition-all dark:bg-zinc-900 sm:flex-row sm:items-start sm:justify-between"
                 :class="[
                     item.is_bought
                         ? 'border-emerald-500/30 bg-emerald-50/20 dark:border-emerald-500/20'
@@ -149,22 +150,23 @@ function deleteItem(item: WishlistItem) {
                             : 'border-zinc-200/80 bg-white dark:border-zinc-800',
                 ]"
             >
-                <div class="flex items-start gap-3 flex-1">
+                <div class="flex min-w-0 w-full items-start gap-3 flex-1">
                     <!-- Toggle Bought Checkbox -->
                     <button
+                        v-if="item.can_manage"
                         type="button"
                         @click="toggleBought(item)"
-                        class="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-all"
+                        class="mt-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-all"
                         :class="item.is_bought ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-zinc-300 hover:border-indigo-500 dark:border-zinc-700'"
                         title="Tandai sudah terbeli"
                     >
                         <Check v-if="item.is_bought" class="h-3.5 w-3.5 stroke-[3]" />
                     </button>
 
-                    <div class="space-y-1 flex-1">
-                        <div class="flex items-center gap-2">
+                    <div class="min-w-0 space-y-1 flex-1">
+                        <div class="flex flex-wrap items-center gap-2">
                             <h3
-                                class="text-sm font-bold text-zinc-900 dark:text-zinc-100"
+                                class="min-w-0 break-words text-sm font-bold text-zinc-900 dark:text-zinc-100"
                                 :class="{ 'line-through text-zinc-400 dark:text-zinc-500': item.is_bought }"
                             >
                                 {{ item.title }}
@@ -208,11 +210,11 @@ function deleteItem(item: WishlistItem) {
                     </div>
                 </div>
 
-                <div class="flex items-center gap-1">
+                <div v-if="item.can_manage" class="flex shrink-0 items-center gap-1 self-end sm:self-start">
                     <button
                         type="button"
                         @click="openEditModal(item)"
-                        class="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 transition-colors"
+                        class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 transition-colors"
                         title="Edit Wishlist"
                     >
                         <Edit2 class="h-4 w-4" />
@@ -221,7 +223,7 @@ function deleteItem(item: WishlistItem) {
                     <button
                         type="button"
                         @click="deleteItem(item)"
-                        class="rounded-lg p-1.5 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 transition-colors"
+                        class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 transition-colors"
                         title="Hapus Wishlist"
                     >
                         <Trash2 class="h-4 w-4" />
@@ -245,7 +247,7 @@ function deleteItem(item: WishlistItem) {
         >
             <div
                 @click.stop
-                class="w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 cursor-default"
+                class="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 cursor-default"
             >
                 <div class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                     <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Tambah Wishlist Baru</h2>
@@ -344,7 +346,7 @@ function deleteItem(item: WishlistItem) {
         >
             <div
                 @click.stop
-                class="w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 cursor-default"
+                class="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 cursor-default"
             >
                 <div class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
                     <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">Edit Wishlist</h2>

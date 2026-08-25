@@ -7,7 +7,9 @@ use App\Models\Transaction;
 use App\Models\TransactionSplit;
 use App\Models\User;
 use App\Models\Wallet;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 class TransactionService
@@ -19,62 +21,87 @@ class TransactionService
      */
     public function createTransaction(User $user, CoupleSpace $space, array $data): Transaction
     {
-        return DB::transaction(function () use ($user, $space, $data) {
-            $type = $data['type'];
-            $scope = $data['scope'];
-            $amount = (float) $data['amount'];
-            $walletId = (int) $data['wallet_id'];
-            $toWalletId = ! empty($data['to_wallet_id']) ? (int) $data['to_wallet_id'] : null;
+        $clientReference = $data['client_reference'] ?? null;
 
-            $sourceWallet = Wallet::where('couple_space_id', $space->id)
-                ->where('id', $walletId)
-                ->lockForUpdate()
-                ->firstOrFail();
+        if ($clientReference) {
+            $existingTransaction = $this->findByClientReference($user, $space, $clientReference);
 
-            $destWallet = null;
-            if ($type === 'transfer') {
-                if (! $toWalletId || $toWalletId === $walletId) {
-                    throw new InvalidArgumentException('Destination wallet must be provided and distinct for transfers.');
-                }
-                $destWallet = Wallet::where('couple_space_id', $space->id)
-                    ->where('id', $toWalletId)
+            if ($existingTransaction) {
+                return $existingTransaction;
+            }
+        }
+
+        try {
+            return DB::transaction(function () use ($user, $space, $data, $clientReference) {
+                $type = $data['type'];
+                $scope = $data['scope'];
+                $amount = (float) $data['amount'];
+                $walletId = (int) $data['wallet_id'];
+                $toWalletId = ! empty($data['to_wallet_id']) ? (int) $data['to_wallet_id'] : null;
+
+                $sourceWallet = Wallet::where('couple_space_id', $space->id)
+                    ->where('id', $walletId)
                     ->lockForUpdate()
                     ->firstOrFail();
+
+                $destWallet = null;
+                if ($type === 'transfer') {
+                    if (! $toWalletId || $toWalletId === $walletId) {
+                        throw new InvalidArgumentException('Destination wallet must be provided and distinct for transfers.');
+                    }
+                    $destWallet = Wallet::where('couple_space_id', $space->id)
+                        ->where('id', $toWalletId)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+                }
+
+                // Adjust balances
+                if ($type === 'expense') {
+                    $this->ensureSufficientBalance($sourceWallet, $amount);
+                    $sourceWallet->decrement('balance', $amount);
+                } elseif ($type === 'income') {
+                    $sourceWallet->increment('balance', $amount);
+                } elseif ($type === 'transfer') {
+                    $this->ensureSufficientBalance($sourceWallet, $amount);
+                    $sourceWallet->decrement('balance', $amount);
+                    $destWallet->increment('balance', $amount);
+                }
+
+                // Create Transaction
+                $transaction = Transaction::create([
+                    'couple_space_id' => $space->id,
+                    'user_id' => $user->id,
+                    'wallet_id' => $sourceWallet->id,
+                    'to_wallet_id' => $destWallet?->id,
+                    'category_id' => $type === 'transfer' ? null : ($data['category_id'] ?? null),
+                    'type' => $type,
+                    'scope' => $scope,
+                    'amount' => $amount,
+                    'transaction_date' => $data['transaction_date'] ?? now(),
+                    'title' => $data['title'] ?? null,
+                    'notes' => $data['notes'] ?? null,
+                    'receipt_image_path' => $data['receipt_image_path'] ?? null,
+                    'client_reference' => $clientReference,
+                ]);
+
+                // Handle Split for shared expenses or shared transactions
+                if ($scope === 'shared' && $type === 'expense') {
+                    $this->createSplitRecord($transaction, $user, $space, $data['split'] ?? []);
+                }
+
+                return $transaction->load(['wallet', 'toWallet', 'category', 'split', 'user']);
+            });
+        } catch (QueryException $exception) {
+            if ($clientReference && $exception->getCode() === '23000') {
+                $existingTransaction = $this->findByClientReference($user, $space, $clientReference);
+
+                if ($existingTransaction) {
+                    return $existingTransaction;
+                }
             }
 
-            // Adjust balances
-            if ($type === 'expense') {
-                $sourceWallet->decrement('balance', $amount);
-            } elseif ($type === 'income') {
-                $sourceWallet->increment('balance', $amount);
-            } elseif ($type === 'transfer') {
-                $sourceWallet->decrement('balance', $amount);
-                $destWallet->increment('balance', $amount);
-            }
-
-            // Create Transaction
-            $transaction = Transaction::create([
-                'couple_space_id' => $space->id,
-                'user_id' => $user->id,
-                'wallet_id' => $sourceWallet->id,
-                'to_wallet_id' => $destWallet?->id,
-                'category_id' => $data['category_id'] ?? null,
-                'type' => $type,
-                'scope' => $scope,
-                'amount' => $amount,
-                'transaction_date' => $data['transaction_date'] ?? now(),
-                'title' => $data['title'] ?? null,
-                'notes' => $data['notes'] ?? null,
-                'receipt_image_path' => $data['receipt_image_path'] ?? null,
-            ]);
-
-            // Handle Split for shared expenses or shared transactions
-            if ($scope === 'shared' && $type === 'expense') {
-                $this->createSplitRecord($transaction, $user, $space, $data['split'] ?? []);
-            }
-
-            return $transaction->load(['wallet', 'toWallet', 'category', 'split', 'user']);
-        });
+            throw $exception;
+        }
     }
 
     /**
@@ -90,12 +117,16 @@ class TransactionService
             // Revert original balances first
             $oldAmount = (float) $transaction->amount;
             $oldType = $transaction->type;
-            $oldSourceWallet = Wallet::where('id', $transaction->wallet_id)->lockForUpdate()->first();
+            $oldSourceWallet = Wallet::where('couple_space_id', $space->id)
+                ->where('id', $transaction->wallet_id)
+                ->lockForUpdate()
+                ->first();
 
             if ($oldSourceWallet) {
                 if ($oldType === 'expense') {
                     $oldSourceWallet->increment('balance', $oldAmount);
                 } elseif ($oldType === 'income') {
+                    $this->ensureSufficientBalance($oldSourceWallet, $oldAmount);
                     $oldSourceWallet->decrement('balance', $oldAmount);
                 } elseif ($oldType === 'transfer') {
                     $oldSourceWallet->increment('balance', $oldAmount);
@@ -103,8 +134,12 @@ class TransactionService
             }
 
             if ($oldType === 'transfer' && $transaction->to_wallet_id) {
-                $oldDestWallet = Wallet::where('id', $transaction->to_wallet_id)->lockForUpdate()->first();
+                $oldDestWallet = Wallet::where('couple_space_id', $space->id)
+                    ->where('id', $transaction->to_wallet_id)
+                    ->lockForUpdate()
+                    ->first();
                 if ($oldDestWallet) {
+                    $this->ensureSufficientBalance($oldDestWallet, $oldAmount);
                     $oldDestWallet->decrement('balance', $oldAmount);
                 }
             }
@@ -134,10 +169,12 @@ class TransactionService
 
             // Apply new balances
             if ($newType === 'expense') {
+                $this->ensureSufficientBalance($newSourceWallet, $newAmount);
                 $newSourceWallet->decrement('balance', $newAmount);
             } elseif ($newType === 'income') {
                 $newSourceWallet->increment('balance', $newAmount);
             } elseif ($newType === 'transfer') {
+                $this->ensureSufficientBalance($newSourceWallet, $newAmount);
                 $newSourceWallet->decrement('balance', $newAmount);
                 $newDestWallet->increment('balance', $newAmount);
             }
@@ -146,7 +183,9 @@ class TransactionService
             $transaction->update([
                 'wallet_id' => $newSourceWallet->id,
                 'to_wallet_id' => $newDestWallet?->id,
-                'category_id' => $data['category_id'] ?? $transaction->category_id,
+                'category_id' => $newType === 'transfer'
+                    ? null
+                    : (array_key_exists('category_id', $data) ? $data['category_id'] : $transaction->category_id),
                 'type' => $newType,
                 'scope' => $newScope,
                 'amount' => $newAmount,
@@ -157,8 +196,10 @@ class TransactionService
 
             // Update split record if shared expense
             if ($newScope === 'shared' && $newType === 'expense') {
-                $transaction->split()->delete();
-                $this->createSplitRecord($transaction, $transaction->user, $space, $data['split'] ?? []);
+                if (array_key_exists('split', $data) || ! $transaction->split) {
+                    $transaction->split()->delete();
+                    $this->createSplitRecord($transaction, $transaction->user, $space, $data['split'] ?? []);
+                }
             } elseif ($transaction->split) {
                 $transaction->split()->delete();
             }
@@ -176,7 +217,8 @@ class TransactionService
             $amount = (float) $transaction->amount;
             $type = $transaction->type;
 
-            $sourceWallet = Wallet::where('id', $transaction->wallet_id)
+            $sourceWallet = Wallet::where('couple_space_id', $transaction->couple_space_id)
+                ->where('id', $transaction->wallet_id)
                 ->lockForUpdate()
                 ->first();
 
@@ -184,6 +226,7 @@ class TransactionService
                 if ($type === 'expense') {
                     $sourceWallet->increment('balance', $amount);
                 } elseif ($type === 'income') {
+                    $this->ensureSufficientBalance($sourceWallet, $amount);
                     $sourceWallet->decrement('balance', $amount);
                 } elseif ($type === 'transfer') {
                     $sourceWallet->increment('balance', $amount);
@@ -191,10 +234,12 @@ class TransactionService
             }
 
             if ($type === 'transfer' && $transaction->to_wallet_id) {
-                $destWallet = Wallet::where('id', $transaction->to_wallet_id)
+                $destWallet = Wallet::where('couple_space_id', $transaction->couple_space_id)
+                    ->where('id', $transaction->to_wallet_id)
                     ->lockForUpdate()
                     ->first();
                 if ($destWallet) {
+                    $this->ensureSufficientBalance($destWallet, $amount);
                     $destWallet->decrement('balance', $amount);
                 }
             }
@@ -251,5 +296,24 @@ class TransactionService
             'split_type' => $splitType,
             'settled' => false,
         ]);
+    }
+
+    private function ensureSufficientBalance(Wallet $wallet, float $amount): void
+    {
+        if ((float) $wallet->balance < $amount) {
+            throw ValidationException::withMessages([
+                'amount' => "Saldo dompet {$wallet->name} tidak mencukupi.",
+            ]);
+        }
+    }
+
+    private function findByClientReference(User $user, CoupleSpace $space, string $clientReference): ?Transaction
+    {
+        return Transaction::query()
+            ->where('couple_space_id', $space->id)
+            ->where('user_id', $user->id)
+            ->where('client_reference', $clientReference)
+            ->with(['wallet', 'toWallet', 'category', 'split', 'user'])
+            ->first();
     }
 }

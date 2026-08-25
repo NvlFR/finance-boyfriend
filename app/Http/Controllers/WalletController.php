@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Wallet\StoreWalletRequest;
 use App\Http\Requests\Wallet\UpdateWalletRequest;
+use App\Models\SavingsContribution;
+use App\Models\Transaction;
 use App\Models\Wallet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -52,6 +54,7 @@ class WalletController extends Controller
 
         $wallets = Wallet::where('couple_space_id', $space->id)
             ->where('is_active', true)
+            ->with('user:id,name,nickname')
             ->get();
 
         $userOneWallets = $space->user_one_id
@@ -138,6 +141,10 @@ class WalletController extends Controller
             abort(403, 'Unauthorized access to this wallet.');
         }
 
+        if ($wallet->type === 'personal' && $wallet->user_id !== $user->id) {
+            abort(403, 'Dompet pribadi pasangan hanya dapat diubah oleh pemiliknya.');
+        }
+
         $data = array_filter($request->validated(), fn ($v) => $v !== null);
         $wallet->update($data);
 
@@ -163,14 +170,29 @@ class WalletController extends Controller
             abort(403, 'Unauthorized access to this wallet.');
         }
 
-        $wallet->delete();
+        if ($wallet->type === 'personal' && $wallet->user_id !== $user->id) {
+            abort(403, 'Dompet pribadi pasangan hanya dapat dihapus oleh pemiliknya.');
+        }
+
+        $hasTransactionHistory = Transaction::where('wallet_id', $wallet->id)
+            ->orWhere('to_wallet_id', $wallet->id)
+            ->exists();
+        $hasSavingsHistory = SavingsContribution::where('wallet_id', $wallet->id)->exists();
+
+        if ($hasTransactionHistory || $hasSavingsHistory) {
+            $wallet->update(['is_active' => false]);
+            $message = 'Dompet dinonaktifkan karena masih memiliki riwayat transaksi.';
+        } else {
+            $wallet->delete();
+            $message = 'Dompet berhasil dihapus.';
+        }
 
         if ($request->wantsJson()) {
             return response()->json([
-                'message' => 'Wallet deleted successfully.',
+                'message' => $message,
             ]);
         }
 
-        return redirect()->back()->with('success', 'Wallet deleted successfully.');
+        return redirect()->back()->with('success', $message);
     }
 }

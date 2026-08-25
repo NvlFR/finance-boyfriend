@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $wallet_id
  * @property string $amount
  * @property string|null $notes
+ * @property string|null $client_reference
  * @property Carbon $contributed_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -25,6 +26,7 @@ use Illuminate\Support\Carbon;
     'wallet_id',
     'amount',
     'notes',
+    'client_reference',
     'contributed_at',
 ])]
 class SavingsContribution extends Model

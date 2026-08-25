@@ -119,7 +119,7 @@ function handleLogout() {
                         >
                             <img
                                 v-if="avatarPreview || user.avatar_url"
-                                :src="avatarPreview || user.avatar_url"
+                                :src="avatarPreview || user.avatar_url || undefined"
                                 alt="Foto Profil"
                                 class="h-full w-full object-cover"
                             />
@@ -246,7 +246,7 @@ function handleLogout() {
                         >
                             <img
                                 v-if="avatarPreview || user.avatar_url"
-                                :src="avatarPreview || user.avatar_url"
+                                :src="avatarPreview || user.avatar_url || undefined"
                                 alt="Foto Profil"
                                 class="h-full w-full object-cover"
                             />

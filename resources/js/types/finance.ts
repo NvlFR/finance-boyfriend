@@ -13,7 +13,8 @@ export type CoupleSpace = {
     partner?: User | null;
 };
 
-export type WalletType = 'bank' | 'ewallet' | 'cash' | 'investment' | 'credit_card';
+export type WalletType =
+    'bank' | 'ewallet' | 'cash' | 'investment' | 'credit_card';
 
 export type Wallet = {
     id: number;
@@ -22,7 +23,7 @@ export type Wallet = {
     name: string;
     type: 'personal' | 'joint';
     wallet_type: WalletType;
-    account_number: string | null;
+    account_number?: string | null;
     balance: number | string;
     currency: string;
     color: string;
@@ -35,7 +36,7 @@ export type Category = {
     id: number;
     couple_space_id: number | null;
     name: string;
-    type: 'income' | 'expense';
+    type: 'income' | 'expense' | 'both';
     icon: string;
     color: string;
     is_default: boolean;
@@ -43,7 +44,8 @@ export type Category = {
 
 export type TransactionType = 'income' | 'expense' | 'transfer';
 export type TransactionScope = 'personal' | 'shared';
-export type SplitType = 'full_one' | 'full_two' | 'split_equal' | 'custom' | 'joint_fund';
+export type SplitType =
+    'full_one' | 'full_two' | 'split_equal' | 'custom' | 'joint_fund';
 
 export type TransactionSplit = {
     id: number;
@@ -70,11 +72,24 @@ export type Transaction = {
     title: string | null;
     notes: string | null;
     receipt_image_path: string | null;
+    client_reference?: string | null;
     wallet?: Wallet;
     to_wallet?: Wallet;
     category?: Category;
     user?: User;
     split?: TransactionSplit;
+};
+
+export type SavingsMovement = {
+    id: number;
+    user_id: number;
+    wallet_id: number | null;
+    amount: number | string;
+    notes: string | null;
+    contributed_at: string;
+    goal?: { id: number; name: string };
+    wallet?: Wallet;
+    user?: User;
 };
 
 export type Settlement = {
@@ -97,4 +112,36 @@ export type SettlementDebt = {
     debtor?: User;
     creditor?: User;
     message: string;
+};
+
+export type Trip = {
+    id: number;
+    couple_space_id: number;
+    user_id: number;
+    title: string;
+    origin_name: string | null;
+    destination_name: string | null;
+    origin_lat: number | null;
+    origin_lng: number | null;
+    destination_lat: number | null;
+    destination_lng: number | null;
+    current_lat: number | null;
+    current_lng: number | null;
+    speed: number;
+    max_speed: number;
+    total_distance_km: number;
+    status: 'active' | 'completed' | 'cancelled';
+    notes: string | null;
+    started_at: string;
+    ended_at: string | null;
+    user?: User;
+};
+
+export type TransactionDefaults = {
+    title?: string;
+    notes?: string;
+    scope?: TransactionScope;
+    type?: TransactionType;
+    wallet_id?: number;
+    category_id?: number | null;
 };

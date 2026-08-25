@@ -1,8 +1,13 @@
 export type User = {
     id: number;
     name: string;
+    nickname?: string | null;
     email: string;
     avatar?: string;
+    avatar_url?: string | null;
+    avatar_color?: string | null;
+    theme_color?: string | null;
+    current_couple_space_id?: number | null;
     email_verified_at: string | null;
     two_factor_enabled?: boolean;
     created_at: string;
