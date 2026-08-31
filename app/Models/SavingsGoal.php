@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\SavingsGoalFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -38,6 +39,7 @@ use Illuminate\Support\Carbon;
 ])]
 class SavingsGoal extends Model
 {
+    /** @use HasFactory<SavingsGoalFactory> */
     use HasFactory;
 
     /**

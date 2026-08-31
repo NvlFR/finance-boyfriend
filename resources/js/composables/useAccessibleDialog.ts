@@ -1,5 +1,5 @@
-import { nextTick, onBeforeUnmount, ref, watch  } from 'vue';
-import type {WatchSource} from 'vue';
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import type { WatchSource } from 'vue';
 
 const focusableSelector = [
     'a[href]',

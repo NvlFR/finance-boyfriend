@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
-import { ShieldCheck, KeyRound, Lock, Sparkles, CheckCircle2, Fingerprint } from '@lucide/vue';
+import { ShieldCheck, Lock, Sparkles, CheckCircle2 } from '@lucide/vue';
 import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import InputError from '@/components/InputError.vue';
 import type { Props as ManagePasskeysProps } from '@/components/ManagePasskeys.vue';
@@ -23,34 +23,49 @@ const props = defineProps<Props>();
 
     <div class="space-y-6">
         <!-- Security Header & Health Card -->
-        <div class="rounded-3xl border border-zinc-200/80 bg-gradient-to-br from-indigo-950 via-zinc-900 to-zinc-950 p-6 text-white shadow-xl dark:border-zinc-800">
+        <div
+            class="rounded-3xl border border-zinc-200/80 bg-gradient-to-br from-indigo-950 via-zinc-900 to-zinc-950 p-6 text-white shadow-xl dark:border-zinc-800"
+        >
             <div class="flex items-start justify-between">
                 <div class="flex items-center gap-3">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600/80 text-white shadow-md ring-2 ring-indigo-400/20">
+                    <div
+                        class="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600/80 text-white shadow-md ring-2 ring-indigo-400/20"
+                    >
                         <ShieldCheck class="h-6 w-6 text-indigo-200" />
                     </div>
                     <div>
                         <h2 class="text-base font-bold">Pusat Keamanan Akun</h2>
-                        <p class="text-xs text-zinc-400">Data keuangan dan transaksi kamu terproteksi</p>
+                        <p class="text-xs text-zinc-400">
+                            Data keuangan dan transaksi kamu terproteksi
+                        </p>
                     </div>
                 </div>
 
-                <span class="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 px-3 py-1 text-[11px] font-bold text-emerald-300">
+                <span
+                    class="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/20 px-3 py-1 text-[11px] font-bold text-emerald-300"
+                >
                     <CheckCircle2 class="h-3.5 w-3.5" /> Terlindungi
                 </span>
             </div>
         </div>
 
         <!-- Section 1: Update Password -->
-        <div class="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
-            <div class="flex items-center gap-2 border-b border-zinc-100 pb-3 dark:border-zinc-800">
+        <div
+            class="space-y-4 rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+        >
+            <div
+                class="flex items-center gap-2 border-b border-zinc-100 pb-3 dark:border-zinc-800"
+            >
                 <Lock class="h-4 w-4 text-indigo-500" />
                 <div>
-                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    <h3
+                        class="text-sm font-bold text-zinc-900 dark:text-zinc-100"
+                    >
                         Perbarui Kata Sandi
                     </h3>
                     <p class="text-xs text-zinc-500">
-                        Gunakan kombinasi minimal 8 karakter dengan huruf, angka, dan simbol
+                        Gunakan kombinasi minimal 8 karakter dengan huruf,
+                        angka, dan simbol
                     </p>
                 </div>
             </div>
@@ -70,7 +85,10 @@ const props = defineProps<Props>();
                 v-slot="{ errors, processing }"
             >
                 <div class="grid gap-1.5">
-                    <Label for="current_password" class="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                    <Label
+                        for="current_password"
+                        class="text-xs font-semibold text-zinc-600 dark:text-zinc-400"
+                    >
                         Kata Sandi Saat Ini
                     </Label>
                     <PasswordInput
@@ -84,7 +102,10 @@ const props = defineProps<Props>();
                 </div>
 
                 <div class="grid gap-1.5">
-                    <Label for="password" class="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                    <Label
+                        for="password"
+                        class="text-xs font-semibold text-zinc-600 dark:text-zinc-400"
+                    >
                         Kata Sandi Baru
                     </Label>
                     <PasswordInput
@@ -99,7 +120,10 @@ const props = defineProps<Props>();
                 </div>
 
                 <div class="grid gap-1.5">
-                    <Label for="password_confirmation" class="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                    <Label
+                        for="password_confirmation"
+                        class="text-xs font-semibold text-zinc-600 dark:text-zinc-400"
+                    >
                         Konfirmasi Kata Sandi Baru
                     </Label>
                     <PasswordInput
@@ -118,7 +142,7 @@ const props = defineProps<Props>();
                         type="submit"
                         :disabled="processing"
                         data-test="update-password-button"
-                        class="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-md shadow-indigo-500/20 hover:bg-indigo-500 transition-all disabled:opacity-50"
+                        class="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-md shadow-indigo-500/20 transition-all hover:bg-indigo-500 disabled:opacity-50"
                     >
                         <Sparkles class="h-4 w-4" />
                         <span>Simpan Kata Sandi Baru</span>
@@ -128,7 +152,9 @@ const props = defineProps<Props>();
         </div>
 
         <!-- Section 2: Two Factor Authentication -->
-        <div class="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div
+            class="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+        >
             <ManageTwoFactor
                 :canManageTwoFactor="canManageTwoFactor"
                 :requiresConfirmation="requiresConfirmation"
@@ -137,7 +163,9 @@ const props = defineProps<Props>();
         </div>
 
         <!-- Section 3: Passkeys / Biometrics -->
-        <div class="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div
+            class="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+        >
             <ManagePasskeys
                 :canManagePasskeys="canManagePasskeys"
                 :passkeys="passkeys"

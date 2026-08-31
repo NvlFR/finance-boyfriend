@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\BudgetFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -17,6 +18,12 @@ use Illuminate\Support\Carbon;
  * @property string $period
  * @property string $scope
  * @property int|null $user_id
+ * @property float $spent_amount
+ * @property float $percentage
+ * @property float $remaining_amount
+ * @property bool $is_overbudget
+ * @property-read Category|null $category
+ * @property-read User|null $user
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -31,6 +38,7 @@ use Illuminate\Support\Carbon;
 ])]
 class Budget extends Model
 {
+    /** @use HasFactory<BudgetFactory> */
     use HasFactory;
 
     /**

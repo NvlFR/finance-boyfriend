@@ -39,7 +39,7 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
         $space = $user ? $user->currentCoupleSpace : null;
-        $partner = ($space && $user) ? $space->getPartnerOf($user) : null;
+        $partner = $space ? $space->getPartnerOf($user) : null;
 
         $wallets = $space ? Wallet::where('couple_space_id', $space->id)
             ->where('is_active', true)

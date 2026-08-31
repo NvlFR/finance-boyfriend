@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\TransactionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -29,6 +30,11 @@ use Illuminate\Support\Carbon;
  * @property int|null $source_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read User $user
+ * @property-read Wallet $wallet
+ * @property-read Wallet|null $toWallet
+ * @property-read Category|null $category
+ * @property-read TransactionSplit|null $split
  */
 #[Fillable([
     'couple_space_id',
@@ -50,6 +56,7 @@ use Illuminate\Support\Carbon;
 ])]
 class Transaction extends Model
 {
+    /** @use HasFactory<TransactionFactory> */
     use HasFactory;
 
     /**

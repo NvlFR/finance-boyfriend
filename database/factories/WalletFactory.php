@@ -25,7 +25,7 @@ class WalletFactory extends Factory
             'name' => fake()->randomElement(['BCA Utama', 'Mandiri', 'GoPay', 'ShopeePay', 'Dompet Tunai']),
             'type' => 'personal',
             'wallet_type' => fake()->randomElement(['bank', 'ewallet', 'cash', 'investment', 'credit_card']),
-            'account_number' => fake()->optional()->bankAccountNumber(),
+            'account_number' => fake()->optional()->numerify('##############'),
             'balance' => fake()->randomFloat(2, 50000, 5000000),
             'currency' => 'IDR',
             'color' => fake()->safeHexColor(),

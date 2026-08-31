@@ -36,9 +36,11 @@ class SubscriptionController extends Controller
             })
             ->get();
 
-        $totalMonthlyCost = (float) $subs->where('is_active', true)->sum(function ($item) {
-            return $item->billing_cycle === 'yearly' ? ($item->amount / 12) : $item->amount;
-        });
+        $totalMonthlyCost = $subs->where('is_active', true)->sum(
+            fn (Subscription $subscription): float => $subscription->billing_cycle === 'yearly'
+                ? (float) $subscription->amount / 12
+                : (float) $subscription->amount
+        );
 
         $data = [
             'subscriptions' => $subs,
@@ -105,7 +107,10 @@ class SubscriptionController extends Controller
         return redirect()->back()->with('success', 'Langganan berhasil dihapus.');
     }
 
-    /** @param array<int, int|null> $memberIds */
+    /**
+     * @param  array<int, int|null>  $memberIds
+     * @return array<string, array<int, mixed>>
+     */
     private function rules(int $spaceId, array $memberIds, int $userId): array
     {
         return [

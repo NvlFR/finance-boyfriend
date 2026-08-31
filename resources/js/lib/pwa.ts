@@ -19,10 +19,16 @@ export function initializePwa() {
             navigator.serviceWorker
                 .register('/sw.js')
                 .then((registration) => {
-                    console.log('PWA ServiceWorker registered with scope: ', registration.scope);
+                    console.log(
+                        'PWA ServiceWorker registered with scope: ',
+                        registration.scope,
+                    );
                 })
                 .catch((err) => {
-                    console.warn('PWA ServiceWorker registration failed: ', err);
+                    console.warn(
+                        'PWA ServiceWorker registration failed: ',
+                        err,
+                    );
                 });
         });
     }
@@ -46,7 +52,9 @@ export function initializePwa() {
 }
 
 export async function promptPwaInstall(): Promise<boolean> {
-    if (!deferredPrompt.value) return false;
+    if (!deferredPrompt.value) {
+        return false;
+    }
 
     deferredPrompt.value.prompt();
     const { outcome } = await deferredPrompt.value.userChoice;

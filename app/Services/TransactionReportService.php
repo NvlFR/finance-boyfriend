@@ -96,7 +96,9 @@ class TransactionReportService
             ->values();
 
         $categorySummary = $expenses
-            ->groupBy(fn (Transaction $transaction): string => $transaction->category?->name ?? 'Tanpa Kategori')
+            ->groupBy(fn (Transaction $transaction): string => $transaction->category_id
+                ? $transaction->category->name
+                : 'Tanpa Kategori')
             ->map(function (Collection $categoryTransactions, string $name) use ($expense): array {
                 $total = (float) $categoryTransactions->sum('amount');
 
@@ -132,8 +134,10 @@ class TransactionReportService
             return [
                 'name' => $budget->name,
                 'period' => $budget->period === 'daily' ? 'Harian' : 'Bulanan',
-                'scope' => $budget->scope === 'shared' ? 'Bersama' : ($budget->user?->nickname ?: $budget->user?->name ?: 'Pribadi'),
-                'category' => $budget->category?->name ?? 'Semua kategori',
+                'scope' => $budget->scope === 'shared'
+                    ? 'Bersama'
+                    : ($budget->user_id ? ($budget->user->nickname ?: $budget->user->name) : 'Pribadi'),
+                'category' => $budget->category_id ? $budget->category->name : 'Semua kategori',
                 'limit' => $limit,
                 'spent' => $spent,
                 'remaining' => $limit - $spent,
@@ -216,7 +220,7 @@ class TransactionReportService
     }
 
     /**
-     * @return array<int, int|string>
+     * @return array<int, float|int|string>
      */
     private function reportRow(Transaction $transaction): array
     {
@@ -225,21 +229,21 @@ class TransactionReportService
 
         return [
             $transaction->id,
-            $transaction->transaction_date?->format('Y-m-d H:i') ?? '',
-            $transaction->title ?: ($transaction->category?->name ?? 'Transaksi'),
+            $transaction->transaction_date->format('Y-m-d H:i'),
+            $transaction->title ?: ($transaction->category_id ? $transaction->category->name : 'Transaksi'),
             match ($transaction->type) {
                 'income' => 'Pemasukan',
                 'expense' => 'Pengeluaran',
                 default => 'Transfer',
             },
             $transaction->scope === 'shared' ? 'Bersama' : 'Pribadi',
-            $transaction->category?->name ?? '-',
-            $transaction->wallet?->name ?? '-',
-            $transaction->toWallet?->name ?? '-',
+            $transaction->category_id ? $transaction->category->name : '-',
+            $transaction->wallet->name,
+            $transaction->to_wallet_id ? $transaction->toWallet->name : '-',
             $amount,
             $feeAmount,
             $transaction->type === 'transfer' ? $amount + $feeAmount : $amount,
-            $transaction->user?->name ?? '-',
+            $transaction->user->name,
             $transaction->notes ?? '',
         ];
     }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link, router } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import { LogOut, Settings } from '@lucide/vue';
 import {
     DropdownMenuGroup,
@@ -45,7 +45,7 @@ defineProps<Props>();
     <DropdownMenuItem :as-child="true">
         <button
             type="button"
-            class="flex w-full items-center px-2 py-1.5 text-xs text-rose-600 dark:text-rose-400 cursor-pointer"
+            class="flex w-full cursor-pointer items-center px-2 py-1.5 text-xs text-rose-600 dark:text-rose-400"
             @click="handleLogout"
             data-test="logout-button"
         >

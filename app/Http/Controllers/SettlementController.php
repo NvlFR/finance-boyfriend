@@ -67,7 +67,9 @@ class SettlementController extends Controller
             ->get()
             ->map(fn (TransactionSplit $split): array => [
                 'id' => $split->id,
-                'title' => $split->transaction->title ?: ($split->transaction->category?->name ?? 'Transaksi bersama'),
+                'title' => $split->transaction->title ?: ($split->transaction->category_id
+                    ? $split->transaction->category->name
+                    : 'Transaksi bersama'),
                 'amount' => $split->transaction->amount,
                 'transaction_date' => $split->transaction->transaction_date,
                 'paid_by_name' => $split->paidByUser?->nickname ?: $split->paidByUser?->name,

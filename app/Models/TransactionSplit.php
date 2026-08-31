@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\TransactionSplitFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -29,6 +30,7 @@ use Illuminate\Support\Carbon;
 ])]
 class TransactionSplit extends Model
 {
+    /** @use HasFactory<TransactionSplitFactory> */
     use HasFactory;
 
     /**

@@ -1,5 +1,5 @@
-import { ref } from 'vue';
 import { router } from '@inertiajs/vue3';
+import { ref } from 'vue';
 
 const isLogoutModalOpen = ref(false);
 const isLoggingOut = ref(false);
@@ -15,12 +15,16 @@ export function useLogoutModal() {
 
     function confirmLogout() {
         isLoggingOut.value = true;
-        router.post('/logout', {}, {
-            onFinish: () => {
-                isLoggingOut.value = false;
-                isLogoutModalOpen.value = false;
+        router.post(
+            '/logout',
+            {},
+            {
+                onFinish: () => {
+                    isLoggingOut.value = false;
+                    isLogoutModalOpen.value = false;
+                },
             },
-        });
+        );
     }
 
     return {

@@ -1,10 +1,19 @@
 <script setup lang="ts">
-import { ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { Heart, Flame, Sparkles, User, Settings, LogOut, Shield, ChevronDown, Navigation } from '@lucide/vue';
+import {
+    Heart,
+    Flame,
+    Sparkles,
+    User,
+    LogOut,
+    Shield,
+    ChevronDown,
+    Navigation,
+} from '@lucide/vue';
+import { ref } from 'vue';
 import { useLogoutModal } from '@/composables/useLogoutModal';
-import type { CoupleSpace } from '@/types/finance';
 import type { User as AuthUser } from '@/types/auth';
+import type { CoupleSpace } from '@/types/finance';
 
 defineProps<{
     user: AuthUser;
@@ -22,7 +31,9 @@ function logout() {
 </script>
 
 <template>
-    <header class="w-full border-b border-zinc-200/80 bg-white/80 px-4 py-3 backdrop-blur-md dark:border-zinc-800/80 dark:bg-zinc-950/80">
+    <header
+        class="w-full border-b border-zinc-200/80 bg-white/80 px-4 py-3 backdrop-blur-md dark:border-zinc-800/80 dark:bg-zinc-950/80"
+    >
         <div class="mx-auto flex max-w-5xl items-center justify-between">
             <!-- Left: Couple Brand & Avatars -->
             <div class="flex items-center gap-3">
@@ -35,7 +46,9 @@ function logout() {
                     </div>
 
                     <!-- Heart Connector -->
-                    <div class="z-10 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white shadow-sm">
+                    <div
+                        class="z-10 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white shadow-sm"
+                    >
                         <Heart class="h-3 w-3 fill-current" />
                     </div>
 
@@ -44,7 +57,10 @@ function logout() {
                         v-if="partner"
                         class="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-rose-500 text-xs font-bold text-white shadow-sm ring-1 ring-rose-500/20 dark:border-zinc-900"
                     >
-                        {{ partner.nickname?.charAt(0) || partner.name.charAt(0) }}
+                        {{
+                            partner.nickname?.charAt(0) ||
+                            partner.name.charAt(0)
+                        }}
                     </div>
                     <div
                         v-else
@@ -56,17 +72,22 @@ function logout() {
 
                 <div class="flex flex-col">
                     <div class="flex items-center gap-1.5">
-                        <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                        <span
+                            class="text-sm font-bold text-zinc-900 dark:text-zinc-100"
+                        >
                             {{ coupleSpace?.name || 'Couple Finance' }}
                         </span>
                     </div>
-                    <span v-if="partner" class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <span
+                        v-if="partner"
+                        class="text-[11px] text-zinc-500 dark:text-zinc-400"
+                    >
                         Keuangan Berdua & Split Bill
                     </span>
                     <Link
                         v-else
                         href="/couple-space"
-                        class="text-[11px] font-semibold text-rose-500 hover:underline flex items-center gap-1"
+                        class="flex items-center gap-1 text-[11px] font-semibold text-rose-500 hover:underline"
                     >
                         <Sparkles class="h-3 w-3" /> Hubungkan Pasangan
                     </Link>
@@ -77,7 +98,7 @@ function logout() {
             <div class="flex items-center gap-2">
                 <!-- Streak Badge -->
                 <div
-                    class="hidden sm:flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-500/20"
+                    class="hidden items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 sm:flex dark:bg-amber-500/20 dark:text-amber-400"
                 >
                     <Flame class="h-3.5 w-3.5 fill-current text-amber-500" />
                     <span>7 Hari</span>
@@ -88,12 +109,16 @@ function logout() {
                     <button
                         type="button"
                         @click="isMenuOpen = !isMenuOpen"
-                        class="flex min-h-11 items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 py-1 pl-1.5 pr-2.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        class="flex min-h-11 items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 py-1 pr-2.5 pl-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
                     >
-                        <div class="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-bold text-white">
+                        <div
+                            class="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-bold text-white"
+                        >
                             {{ user.name.charAt(0) }}
                         </div>
-                        <span class="max-w-[70px] truncate">{{ user.nickname || user.name.split(' ')[0] }}</span>
+                        <span class="max-w-[70px] truncate">{{
+                            user.nickname || user.name.split(' ')[0]
+                        }}</span>
                         <ChevronDown class="h-3.5 w-3.5 text-zinc-400" />
                     </button>
 
@@ -101,41 +126,55 @@ function logout() {
                     <div
                         v-if="isMenuOpen"
                         @click="isMenuOpen = false"
-                        class="absolute right-0 top-full mt-2 w-48 rounded-2xl border border-zinc-200 bg-white p-1.5 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 z-50 animate-in fade-in zoom-in-95 duration-100"
+                        class="absolute top-full right-0 z-50 mt-2 w-48 animate-in rounded-2xl border border-zinc-200 bg-white p-1.5 shadow-xl duration-100 zoom-in-95 fade-in dark:border-zinc-800 dark:bg-zinc-900"
                     >
-                        <div class="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800">
-                            <p class="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">{{ user.name }}</p>
-                            <p class="text-[10px] text-zinc-500 truncate">{{ user.email }}</p>
+                        <div
+                            class="border-b border-zinc-100 px-3 py-2 dark:border-zinc-800"
+                        >
+                            <p
+                                class="truncate text-xs font-bold text-zinc-900 dark:text-zinc-100"
+                            >
+                                {{ user.name }}
+                            </p>
+                            <p class="truncate text-[10px] text-zinc-500">
+                                {{ user.email }}
+                            </p>
                         </div>
 
-                        <div class="py-1 space-y-0.5">
+                        <div class="space-y-0.5 py-1">
                             <Link
                                 href="/settings/profile"
                                 class="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
                             >
-                                <User class="h-4 w-4 text-indigo-500" /> Edit Profil
+                                <User class="h-4 w-4 text-indigo-500" /> Edit
+                                Profil
                             </Link>
                             <Link
                                 href="/settings/security"
                                 class="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
                             >
-                                <Shield class="h-4 w-4 text-amber-500" /> Password & Keamanan
+                                <Shield class="h-4 w-4 text-amber-500" />
+                                Password & Keamanan
                             </Link>
                             <Link
                                 href="/trips"
                                 class="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
                             >
-                                <Navigation class="h-4 w-4 text-emerald-500" /> Radar Perjalanan
+                                <Navigation class="h-4 w-4 text-emerald-500" />
+                                Radar Perjalanan
                             </Link>
                             <Link
                                 href="/couple-space"
                                 class="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
                             >
-                                <Heart class="h-4 w-4 text-rose-500" /> Ruang Pasangan
+                                <Heart class="h-4 w-4 text-rose-500" /> Ruang
+                                Pasangan
                             </Link>
                         </div>
 
-                        <div class="border-t border-zinc-100 dark:border-zinc-800 pt-1">
+                        <div
+                            class="border-t border-zinc-100 pt-1 dark:border-zinc-800"
+                        >
                             <button
                                 type="button"
                                 @click="logout"

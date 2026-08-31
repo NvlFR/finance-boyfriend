@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
-import { ShieldCheck, ShieldAlert, KeyRound, Sparkles } from '@lucide/vue';
+import { ShieldCheck, ShieldAlert, Sparkles } from '@lucide/vue';
 import { onUnmounted, ref } from 'vue';
 import TwoFactorRecoveryCodes from '@/components/TwoFactorRecoveryCodes.vue';
 import TwoFactorSetupModal from '@/components/TwoFactorSetupModal.vue';
@@ -28,17 +28,24 @@ onUnmounted(() => clearTwoFactorAuthData());
 <template>
     <div v-if="canManageTwoFactor" class="space-y-4">
         <!-- Header -->
-        <div class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800">
+        <div
+            class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800"
+        >
             <div class="flex items-center gap-2.5">
-                <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
+                <div
+                    class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400"
+                >
                     <ShieldCheck class="h-5 w-5" />
                 </div>
                 <div>
-                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    <h3
+                        class="text-sm font-bold text-zinc-900 dark:text-zinc-100"
+                    >
                         Autentikasi Dua Langkah (2FA)
                     </h3>
                     <p class="text-xs text-zinc-500">
-                        Lindungi akun dengan verifikasi kode OTP dari aplikasi authenticator
+                        Lindungi akun dengan verifikasi kode OTP dari aplikasi
+                        authenticator
                     </p>
                 </div>
             </div>
@@ -59,12 +66,11 @@ onUnmounted(() => clearTwoFactorAuthData());
         </div>
 
         <!-- Inactive State -->
-        <div
-            v-if="!twoFactorEnabled"
-            class="space-y-3"
-        >
-            <p class="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                Saat 2FA diaktifkan, kamu akan diminta memasukkan 6 digit kode keamanan dari aplikasi seperti Google Authenticator atau Authy setiap kali login di perangkat baru.
+        <div v-if="!twoFactorEnabled" class="space-y-3">
+            <p class="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+                Saat 2FA diaktifkan, kamu akan diminta memasukkan 6 digit kode
+                keamanan dari aplikasi seperti Google Authenticator atau Authy
+                setiap kali login di perangkat baru.
             </p>
 
             <div>
@@ -72,7 +78,7 @@ onUnmounted(() => clearTwoFactorAuthData());
                     v-if="hasSetupData"
                     type="button"
                     @click="showSetupModal = true"
-                    class="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-indigo-500 transition-all"
+                    class="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md transition-all hover:bg-indigo-500"
                 >
                     <ShieldCheck class="h-4 w-4" />
                     <span>Lanjutkan Konfigurasi 2FA</span>
@@ -86,7 +92,7 @@ onUnmounted(() => clearTwoFactorAuthData());
                     <button
                         type="submit"
                         :disabled="processing"
-                        class="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-indigo-500 transition-all disabled:opacity-50"
+                        class="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md transition-all hover:bg-indigo-500 disabled:opacity-50"
                     >
                         <Sparkles class="h-4 w-4" />
                         <span>Aktifkan 2FA Sekarang</span>
@@ -97,8 +103,9 @@ onUnmounted(() => clearTwoFactorAuthData());
 
         <!-- Active State -->
         <div v-else class="space-y-4">
-            <p class="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                2FA aktif di akunmu. Simpan kode pemulihan darurat di tempat yang aman jika suatu saat kehilangan akses ke ponselmu.
+            <p class="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+                2FA aktif di akunmu. Simpan kode pemulihan darurat di tempat
+                yang aman jika suatu saat kehilangan akses ke ponselmu.
             </p>
 
             <div class="relative inline-block">
@@ -106,7 +113,7 @@ onUnmounted(() => clearTwoFactorAuthData());
                     <button
                         type="submit"
                         :disabled="processing"
-                        class="inline-flex items-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/50 transition-colors disabled:opacity-50"
+                        class="inline-flex items-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/50"
                     >
                         <ShieldAlert class="h-4 w-4" />
                         <span>Nonaktifkan 2FA</span>

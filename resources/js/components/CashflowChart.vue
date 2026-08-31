@@ -19,12 +19,12 @@ const maxVal = computed(() => {
     let max = 100000;
     props.data.forEach((d) => {
         if (d.expense > max) {
-max = d.expense;
-}
+            max = d.expense;
+        }
 
         if (d.income > max) {
-max = d.income;
-}
+            max = d.income;
+        }
     });
 
     return max;
@@ -39,8 +39,8 @@ const totalIncome = computed(() =>
 
 function getBarHeight(val: number): number {
     if (maxVal.value === 0) {
-return 4;
-}
+        return 4;
+    }
 
     return Math.max(4, Math.round((val / maxVal.value) * 120));
 }

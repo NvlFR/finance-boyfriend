@@ -37,4 +37,3 @@ initializeFlashToast();
 
 // This will register PWA Service Worker & install listeners...
 initializePwa();
-

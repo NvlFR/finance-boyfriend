@@ -69,14 +69,14 @@ class TransactionService
                 // Adjust balances
                 if ($type === 'expense') {
                     $this->ensureSufficientBalance($sourceWallet, $amount);
-                    $sourceWallet->decrement('balance', $amount);
+                    $this->decreaseBalance($sourceWallet, $amount);
                 } elseif ($type === 'income') {
-                    $sourceWallet->increment('balance', $amount);
+                    $this->increaseBalance($sourceWallet, $amount);
                 } elseif ($type === 'transfer') {
                     $sourceDebit = $this->addMoney($amount, $feeAmount);
                     $this->ensureSufficientBalance($sourceWallet, $sourceDebit);
-                    $sourceWallet->decrement('balance', $sourceDebit);
-                    $destWallet->increment('balance', $amount);
+                    $this->decreaseBalance($sourceWallet, $sourceDebit);
+                    $this->increaseBalance($destWallet, $amount);
                 }
 
                 // Create Transaction
@@ -142,12 +142,12 @@ class TransactionService
 
             if ($oldSourceWallet) {
                 if ($oldType === 'expense') {
-                    $oldSourceWallet->increment('balance', $oldAmount);
+                    $this->increaseBalance($oldSourceWallet, $oldAmount);
                 } elseif ($oldType === 'income') {
                     $this->ensureSufficientBalance($oldSourceWallet, $oldAmount);
-                    $oldSourceWallet->decrement('balance', $oldAmount);
+                    $this->decreaseBalance($oldSourceWallet, $oldAmount);
                 } elseif ($oldType === 'transfer') {
-                    $oldSourceWallet->increment('balance', $this->addMoney($oldAmount, $oldFeeAmount));
+                    $this->increaseBalance($oldSourceWallet, $this->addMoney($oldAmount, $oldFeeAmount));
                 }
             }
 
@@ -158,7 +158,7 @@ class TransactionService
                     ->first();
                 if ($oldDestWallet) {
                     $this->ensureSufficientBalance($oldDestWallet, $oldAmount);
-                    $oldDestWallet->decrement('balance', $oldAmount);
+                    $this->decreaseBalance($oldDestWallet, $oldAmount);
                 }
             }
 
@@ -202,14 +202,14 @@ class TransactionService
             // Apply new balances
             if ($newType === 'expense') {
                 $this->ensureSufficientBalance($newSourceWallet, $newAmount);
-                $newSourceWallet->decrement('balance', $newAmount);
+                $this->decreaseBalance($newSourceWallet, $newAmount);
             } elseif ($newType === 'income') {
-                $newSourceWallet->increment('balance', $newAmount);
+                $this->increaseBalance($newSourceWallet, $newAmount);
             } elseif ($newType === 'transfer') {
                 $newSourceDebit = $this->addMoney($newAmount, $newFeeAmount);
                 $this->ensureSufficientBalance($newSourceWallet, $newSourceDebit);
-                $newSourceWallet->decrement('balance', $newSourceDebit);
-                $newDestWallet->increment('balance', $newAmount);
+                $this->decreaseBalance($newSourceWallet, $newSourceDebit);
+                $this->increaseBalance($newDestWallet, $newAmount);
             }
 
             // Update Transaction
@@ -265,12 +265,12 @@ class TransactionService
 
             if ($sourceWallet) {
                 if ($type === 'expense') {
-                    $sourceWallet->increment('balance', $amount);
+                    $this->increaseBalance($sourceWallet, $amount);
                 } elseif ($type === 'income') {
                     $this->ensureSufficientBalance($sourceWallet, $amount);
-                    $sourceWallet->decrement('balance', $amount);
+                    $this->decreaseBalance($sourceWallet, $amount);
                 } elseif ($type === 'transfer') {
-                    $sourceWallet->increment('balance', $this->addMoney($amount, $feeAmount));
+                    $this->increaseBalance($sourceWallet, $this->addMoney($amount, $feeAmount));
                 }
             }
 
@@ -281,7 +281,7 @@ class TransactionService
                     ->first();
                 if ($destWallet) {
                     $this->ensureSufficientBalance($destWallet, $amount);
-                    $destWallet->decrement('balance', $amount);
+                    $this->decreaseBalance($destWallet, $amount);
                 }
             }
 
@@ -349,6 +349,24 @@ class TransactionService
                 'amount' => "Saldo dompet {$wallet->name} tidak mencukupi.",
             ]);
         }
+    }
+
+    private function increaseBalance(Wallet $wallet, string $amount): void
+    {
+        $wallet->balance = BigDecimal::of($wallet->balance)
+            ->plus($amount)
+            ->toScale(2)
+            ->__toString();
+        $wallet->save();
+    }
+
+    private function decreaseBalance(Wallet $wallet, string $amount): void
+    {
+        $wallet->balance = BigDecimal::of($wallet->balance)
+            ->minus($amount)
+            ->toScale(2)
+            ->__toString();
+        $wallet->save();
     }
 
     private function normalizeMoney(mixed $amount): string

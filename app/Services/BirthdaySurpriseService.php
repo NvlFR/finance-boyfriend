@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Throwable;
 
 class BirthdaySurpriseService
@@ -40,17 +41,36 @@ class BirthdaySurpriseService
     {
         $space = $creator->currentCoupleSpace()->with('userTwo')->firstOrFail();
         $recipient = $space->getPartnerOf($creator);
-        abort_unless($recipient, 422, 'Pasangan belum terhubung.');
+        abort_unless($recipient !== null, 422, 'Pasangan belum terhubung.');
 
-        $existing = $space->birthdaySurprise()->first();
-        $existingPhotos = $existing?->photos ?? [];
-        $keptPhotos = collect($data['kept_photos'] ?? [])
+        $existing = BirthdaySurprise::query()->where('couple_space_id', $space->id)->first();
+        $existingPhotos = $existing === null ? [] : ($existing->photos ?? []);
+        $keptPhotoInput = $data['kept_photos'] ?? [];
+        $keptPhotoInput = is_array($keptPhotoInput)
+            ? array_values(array_filter($keptPhotoInput, is_string(...)))
+            : [];
+        $keptPhotos = collect($keptPhotoInput)
             ->filter(fn (string $path): bool => in_array($path, $existingPhotos, true))
             ->unique()
             ->values();
-        $newPhotoPaths = collect($data['photos'] ?? [])
-            ->map(fn (UploadedFile $photo): string => $photo->store("birthday-surprises/{$space->id}", 'public'));
-        $startsAt = CarbonImmutable::createFromFormat('Y-m-d\TH:i', $data['starts_at'], self::DISPLAY_TIMEZONE)->utc();
+        $photoInput = $data['photos'] ?? [];
+        $photoInput = is_array($photoInput)
+            ? array_values(array_filter($photoInput, fn (mixed $photo): bool => $photo instanceof UploadedFile))
+            : [];
+        $newPhotoPaths = collect($photoInput)->map(function (UploadedFile $photo) use ($space): string {
+            $path = $photo->store("birthday-surprises/{$space->id}", 'public');
+
+            if ($path === false) {
+                throw new RuntimeException('Foto kejutan gagal disimpan.');
+            }
+
+            return $path;
+        });
+        $voucherInput = $data['vouchers'] ?? [];
+        $vouchers = is_array($voucherInput)
+            ? array_values(array_filter($voucherInput, is_string(...)))
+            : [];
+        $startsAt = CarbonImmutable::createFromFormat('Y-m-d\TH:i', (string) $data['starts_at'], self::DISPLAY_TIMEZONE)->utc();
 
         try {
             $surprise = DB::transaction(fn (): BirthdaySurprise => BirthdaySurprise::query()->updateOrCreate(
@@ -58,15 +78,15 @@ class BirthdaySurpriseService
                 [
                     'creator_user_id' => $creator->id,
                     'recipient_user_id' => $recipient->id,
-                    'opening_message' => $data['opening_message'],
-                    'appreciation_message' => $data['appreciation_message'],
-                    'love_letter' => $data['love_letter'],
-                    'closing_message' => $data['closing_message'],
+                    'opening_message' => (string) $data['opening_message'],
+                    'appreciation_message' => (string) $data['appreciation_message'],
+                    'love_letter' => (string) $data['love_letter'],
+                    'closing_message' => (string) $data['closing_message'],
                     'photos' => $keptPhotos->concat($newPhotoPaths)->values()->all(),
-                    'vouchers' => collect($data['vouchers'] ?? [])->filter()->values()->all(),
+                    'vouchers' => $vouchers,
                     'starts_at' => $startsAt,
                     'ends_at' => $startsAt->addDays(self::DURATION_DAYS),
-                    'is_enabled' => $data['is_enabled'],
+                    'is_enabled' => (bool) $data['is_enabled'],
                 ],
             ));
         } catch (Throwable $exception) {

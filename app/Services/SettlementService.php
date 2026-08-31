@@ -62,7 +62,17 @@ class SettlementService
 
     /**
      * @param  Collection<int, TransactionSplit>  $splits
-     * @return array<string, float|int|string|null>
+     * @return array{
+     *     net_balance: float,
+     *     debtor_id: int|null,
+     *     creditor_id: int|null,
+     *     debtor_name: string|null,
+     *     creditor_name: string|null,
+     *     amount_owed: float,
+     *     user_one_balance: float,
+     *     user_two_balance: float,
+     *     unsettled_splits_count: int
+     * }
      */
     private function calculateBalance(CoupleSpace $space, Collection $splits): array
     {

@@ -14,7 +14,11 @@ html {
 body {
     color: #18181b;
     font-family:
-        'Instrument Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+        'Instrument Sans',
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        sans-serif;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
 }

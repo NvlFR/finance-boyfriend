@@ -23,6 +23,7 @@ use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TransactionController extends Controller
@@ -226,6 +227,11 @@ class TransactionController extends Controller
 
         return response()->stream(function () use ($transactions) {
             $output = fopen('php://output', 'w');
+
+            if ($output === false) {
+                throw new RuntimeException('Tidak dapat membuka output laporan CSV.');
+            }
+
             fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
 
             fputcsv($output, ['ID', 'Tanggal', 'Judul Transaksi', 'Tipe', 'Cakupan', 'Kategori', 'Dompet Asal', 'Dompet Tujuan', 'Nominal (Rp)', 'Biaya Admin (Rp)', 'Total Potong Dompet Asal (Rp)', 'Dicatat Oleh', 'Catatan']);
@@ -237,17 +243,17 @@ class TransactionController extends Controller
 
                 fputcsv($output, [
                     $tx->id,
-                    $tx->transaction_date?->format('Y-m-d H:i') ?? '',
-                    $tx->title ?: ($tx->category?->name ?? 'Transaksi'),
+                    $tx->transaction_date->format('Y-m-d H:i'),
+                    $tx->title ?: ($tx->category_id ? $tx->category->name : 'Transaksi'),
                     $tx->type,
                     $tx->scope === 'shared' ? 'Bersama' : 'Pribadi',
-                    $tx->category?->name ?? '-',
-                    $tx->wallet?->name ?? '-',
-                    $tx->toWallet?->name ?? '-',
+                    $tx->category_id ? $tx->category->name : '-',
+                    $tx->wallet->name,
+                    $tx->to_wallet_id ? $tx->toWallet->name : '-',
                     $tx->amount,
                     $tx->fee_amount,
                     $sourceDebit,
-                    $tx->user?->name ?? '-',
+                    $tx->user->name,
                     $tx->notes ?? '',
                 ]);
             }

@@ -29,8 +29,8 @@ onMounted(() => {
 
 const shouldShow = computed(() => {
     if (isPwaInstalled.value || isDismissed.value) {
-return false;
-}
+        return false;
+    }
 
     return isPwaInstallable.value || (isIos.value && !isPwaInstalled.value);
 });

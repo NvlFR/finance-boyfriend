@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 class ProfileController extends Controller
 {
@@ -39,6 +40,11 @@ class ProfileController extends Controller
 
         if ($request->hasFile('avatar')) {
             $path = $request->file('avatar')->store('avatars', 'public');
+
+            if ($path === false) {
+                throw new RuntimeException('Foto profil gagal disimpan.');
+            }
+
             $user->avatar_url = Storage::url($path);
         }
 
@@ -69,6 +75,10 @@ class ProfileController extends Controller
         $user = $request->user();
         $previousAvatarUrl = $user->avatar_url;
         $path = $request->file('avatar')->store('avatars', 'public');
+
+        if ($path === false) {
+            throw new RuntimeException('Foto profil gagal disimpan.');
+        }
 
         $user->update(['avatar_url' => Storage::url($path)]);
 

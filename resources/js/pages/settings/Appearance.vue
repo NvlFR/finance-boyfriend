@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
 import { Head, usePage } from '@inertiajs/vue3';
-import { Sun, Moon, Monitor, Sparkles, Check, Heart, Shield, Palette, Eye, ArrowUpRight } from '@lucide/vue';
+import { Sun, Moon, Monitor, Check, Palette, Eye } from '@lucide/vue';
+import { ref, computed } from 'vue';
 import { useAppearance } from '@/composables/useAppearance';
 import type { User } from '@/types/auth';
 
@@ -63,17 +63,19 @@ const accentColors = [
 
         <!-- Section 1: Mode Tampilan Interaktif -->
         <div class="space-y-3">
-            <label class="block text-xs font-bold uppercase tracking-wider text-zinc-400">
+            <label
+                class="block text-xs font-bold tracking-wider text-zinc-400 uppercase"
+            >
                 Mode Tampilan
             </label>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <button
                     v-for="mode in themeModes"
                     :key="mode.value"
                     type="button"
                     @click="updateAppearance(mode.value)"
-                    class="relative flex flex-col items-start p-4 rounded-3xl border text-left transition-all group"
+                    class="group relative flex flex-col items-start rounded-3xl border p-4 text-left transition-all"
                     :class="[
                         appearance === mode.value
                             ? 'border-indigo-500 bg-indigo-50/50 shadow-md ring-2 ring-indigo-500/20 dark:border-indigo-500 dark:bg-indigo-950/20'
@@ -83,9 +85,21 @@ const accentColors = [
                     <div class="flex w-full items-center justify-between">
                         <div
                             class="flex h-10 w-10 items-center justify-center rounded-2xl border shadow-sm transition-transform group-hover:scale-105"
-                            :class="appearance === mode.value ? 'bg-indigo-600 text-white border-transparent' : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'"
+                            :class="
+                                appearance === mode.value
+                                    ? 'border-transparent bg-indigo-600 text-white'
+                                    : 'border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800'
+                            "
                         >
-                            <component :is="mode.icon" class="h-5 w-5" :class="appearance === mode.value ? 'text-white' : mode.color" />
+                            <component
+                                :is="mode.icon"
+                                class="h-5 w-5"
+                                :class="
+                                    appearance === mode.value
+                                        ? 'text-white'
+                                        : mode.color
+                                "
+                            />
                         </div>
 
                         <span
@@ -96,10 +110,14 @@ const accentColors = [
                         </span>
                     </div>
 
-                    <h3 class="mt-3 text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    <h3
+                        class="mt-3 text-sm font-bold text-zinc-900 dark:text-zinc-100"
+                    >
                         {{ mode.label }}
                     </h3>
-                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    <p
+                        class="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400"
+                    >
                         {{ mode.desc }}
                     </p>
                 </button>
@@ -108,40 +126,72 @@ const accentColors = [
 
         <!-- Section 2: Live Simulator Widget -->
         <div class="space-y-3">
-            <label class="block text-xs font-bold uppercase tracking-wider text-zinc-400">
+            <label
+                class="block text-xs font-bold tracking-wider text-zinc-400 uppercase"
+            >
                 Simulasi Live Preview Tampilan
             </label>
 
-            <div class="relative overflow-hidden rounded-3xl border border-zinc-200/80 bg-zinc-50/70 p-5 dark:border-zinc-800 dark:bg-zinc-900/40">
-                <div class="mb-3 flex items-center justify-between text-xs text-zinc-500">
+            <div
+                class="relative overflow-hidden rounded-3xl border border-zinc-200/80 bg-zinc-50/70 p-5 dark:border-zinc-800 dark:bg-zinc-900/40"
+            >
+                <div
+                    class="mb-3 flex items-center justify-between text-xs text-zinc-500"
+                >
                     <span class="flex items-center gap-1.5 font-medium">
-                        <Eye class="h-3.5 w-3.5 text-indigo-500" /> Preview Realtime di Mode {{ appearance === 'dark' ? 'Gelap' : (appearance === 'light' ? 'Terang' : 'Sistem') }}
+                        <Eye class="h-3.5 w-3.5 text-indigo-500" /> Preview
+                        Realtime di Mode
+                        {{
+                            appearance === 'dark'
+                                ? 'Gelap'
+                                : appearance === 'light'
+                                  ? 'Terang'
+                                  : 'Sistem'
+                        }}
                     </span>
-                    <span class="text-[11px] text-zinc-400">Responsif langsung</span>
+                    <span class="text-[11px] text-zinc-400"
+                        >Responsif langsung</span
+                    >
                 </div>
 
                 <!-- Mini Mockup Card -->
-                <div class="rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
+                <div
+                    class="space-y-3 rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+                >
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <div
-                                class="flex h-8 w-8 items-center justify-center rounded-full text-white text-xs font-bold shadow-sm"
+                                class="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm"
                                 :style="{ backgroundColor: previewAccent }"
                             >
-                                {{ user?.nickname?.charAt(0) || user?.name?.charAt(0) || 'R' }}
+                                {{
+                                    user?.nickname?.charAt(0) ||
+                                    user?.name?.charAt(0) ||
+                                    'R'
+                                }}
                             </div>
                             <div>
-                                <p class="text-xs font-bold text-zinc-900 dark:text-zinc-100">Total Kas Pasangan</p>
-                                <p class="text-[10px] text-zinc-400">Updated baru saja</p>
+                                <p
+                                    class="text-xs font-bold text-zinc-900 dark:text-zinc-100"
+                                >
+                                    Total Kas Pasangan
+                                </p>
+                                <p class="text-[10px] text-zinc-400">
+                                    Updated baru saja
+                                </p>
                             </div>
                         </div>
 
-                        <span class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
+                        <span
+                            class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400"
+                        >
                             +12% Bulan Ini
                         </span>
                     </div>
 
-                    <div class="text-xl font-extrabold text-zinc-900 dark:text-zinc-100">
+                    <div
+                        class="text-xl font-extrabold text-zinc-900 dark:text-zinc-100"
+                    >
                         Rp 28.500.000
                     </div>
 
@@ -153,7 +203,9 @@ const accentColors = [
                         >
                             + Catat Transaksi
                         </div>
-                        <div class="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] font-semibold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                        <div
+                            class="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] font-semibold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                        >
                             Lihat Tabungan
                         </div>
                     </div>
@@ -162,15 +214,20 @@ const accentColors = [
         </div>
 
         <!-- Section 3: Palet Warna Aksen -->
-        <div class="rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
+        <div
+            class="space-y-3 rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+        >
             <div class="flex items-center gap-2">
                 <Palette class="h-4 w-4 text-indigo-500" />
-                <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                <h3
+                    class="text-xs font-bold tracking-wider text-zinc-700 uppercase dark:text-zinc-300"
+                >
                     Warna Aksen Kencan
                 </h3>
             </div>
             <p class="text-xs text-zinc-500">
-                Pilih warna favoritmu untuk mensimulasikan kartu kencan dan profil:
+                Pilih warna favoritmu untuk mensimulasikan kartu kencan dan
+                profil:
             </p>
 
             <div class="flex flex-wrap gap-3 pt-1">
@@ -190,8 +247,13 @@ const accentColors = [
                         class="h-4 w-4 rounded-full shadow-sm"
                         :style="{ backgroundColor: color.value }"
                     />
-                    <span class="text-zinc-800 dark:text-zinc-200">{{ color.label }}</span>
-                    <Check v-if="previewAccent === color.value" class="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span class="text-zinc-800 dark:text-zinc-200">{{
+                        color.label
+                    }}</span>
+                    <Check
+                        v-if="previewAccent === color.value"
+                        class="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400"
+                    />
                 </button>
             </div>
         </div>

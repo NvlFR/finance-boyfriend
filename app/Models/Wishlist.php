@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\WishlistFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -39,6 +40,7 @@ use Illuminate\Support\Carbon;
 ])]
 class Wishlist extends Model
 {
+    /** @use HasFactory<WishlistFactory> */
     use HasFactory;
 
     /**
