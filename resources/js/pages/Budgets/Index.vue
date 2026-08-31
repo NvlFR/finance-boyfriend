@@ -28,6 +28,7 @@ type BudgetItem = {
     is_overbudget: boolean;
     category_id?: number;
     scope?: string;
+    period: 'daily' | 'monthly';
     category?: Category;
 };
 
@@ -65,14 +66,16 @@ const createForm = useForm({
     name: '',
     limit_amount: '' as string | number,
     category_id: props.categories?.[0]?.id || null,
-    scope: 'shared' as 'shared' | 'personal',
+    period: 'daily' as 'daily' | 'monthly',
+    scope: 'personal' as 'shared' | 'personal',
 });
 
 const editForm = useForm({
     name: '',
     limit_amount: '' as string | number,
     category_id: null as number | null,
-    scope: 'shared' as 'shared' | 'personal',
+    period: 'daily' as 'daily' | 'monthly',
+    scope: 'personal' as 'shared' | 'personal',
 });
 
 function openEditModal(budget: BudgetItem) {
@@ -81,7 +84,8 @@ function openEditModal(budget: BudgetItem) {
     editForm.name = budget.name;
     editForm.limit_amount = budget.limit_amount;
     editForm.category_id = budget.category_id || budget.category?.id || null;
-    editForm.scope = (budget.scope as any) || 'shared';
+    editForm.period = budget.period || 'daily';
+    editForm.scope = (budget.scope as 'shared' | 'personal') || 'personal';
     isEditModalOpen.value = true;
 }
 
@@ -155,10 +159,10 @@ function recordBudgetExpense(budget: BudgetItem) {
                 <h1
                     class="text-base font-bold text-zinc-900 dark:text-zinc-100"
                 >
-                    Anggaran Bulanan
+                    Kebutuhan Harian & Bulanan
                 </h1>
                 <p class="text-xs text-zinc-500">
-                    Kendalikan batas pengeluaran kencan & kebutuhan bersama
+                    Pasang batas sederhana untuk kebutuhan pribadi atau bersama
                 </p>
             </div>
 
@@ -199,6 +203,10 @@ function recordBudgetExpense(budget: BudgetItem) {
                             <p class="text-xs text-zinc-500">
                                 Kategori:
                                 {{ b.category?.name || 'Semua Pengeluaran' }} •
+                                {{
+                                    b.period === 'daily' ? 'Harian' : 'Bulanan'
+                                }}
+                                •
                                 {{
                                     b.scope === 'personal'
                                         ? 'Pribadi'
@@ -315,8 +323,8 @@ function recordBudgetExpense(budget: BudgetItem) {
                 v-if="budgets.length === 0"
                 class="rounded-3xl border border-dashed border-zinc-300 p-8 text-center text-zinc-500 dark:border-zinc-800"
             >
-                Belum ada anggaran bulanan. Buat batasan budget untuk menjaga
-                keuangan tetap sehat!
+                Belum ada batas kebutuhan. Mulai dari kebutuhan harian yang
+                paling sering keluar.
             </div>
         </div>
 
@@ -363,7 +371,7 @@ function recordBudgetExpense(budget: BudgetItem) {
                         <input
                             v-model="createForm.name"
                             type="text"
-                            placeholder="Contoh: Makan & Kencan, Belanja Bulanan"
+                            placeholder="Contoh: Uang Makan, Belanja Bulanan"
                             required
                             class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
                         />
@@ -371,14 +379,34 @@ function recordBudgetExpense(budget: BudgetItem) {
 
                     <div>
                         <label class="block text-xs font-medium text-zinc-500"
-                            >Batas Maksimal Bulanan (Rp)</label
+                            >Periode Kebutuhan</label
+                        >
+                        <select
+                            v-model="createForm.period"
+                            class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+                        >
+                            <option value="daily">Harian</option>
+                            <option value="monthly">Bulanan</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-zinc-500"
+                            >Batas Maksimal
+                            {{
+                                createForm.period === 'daily'
+                                    ? 'Harian'
+                                    : 'Bulanan'
+                            }}
+                            (Rp)</label
                         >
                         <input
                             v-model="createForm.limit_amount"
                             type="number"
                             placeholder="0"
                             required
-                            min="1000"
+                            min="1"
+                            step="1"
                             class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
                         />
                     </div>
@@ -412,11 +440,11 @@ function recordBudgetExpense(budget: BudgetItem) {
                             v-model="createForm.scope"
                             class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
                         >
-                            <option value="shared">
-                                Pengeluaran Bersama Pasangan
-                            </option>
                             <option value="personal">
                                 Pengeluaran Pribadi Kamu
+                            </option>
+                            <option value="shared">
+                                Pengeluaran Bersama Pasangan
                             </option>
                         </select>
                     </div>
@@ -488,13 +516,33 @@ function recordBudgetExpense(budget: BudgetItem) {
 
                     <div>
                         <label class="block text-xs font-medium text-zinc-500"
-                            >Batas Maksimal Bulanan (Rp)</label
+                            >Periode Kebutuhan</label
+                        >
+                        <select
+                            v-model="editForm.period"
+                            class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+                        >
+                            <option value="daily">Harian</option>
+                            <option value="monthly">Bulanan</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-zinc-500"
+                            >Batas Maksimal
+                            {{
+                                editForm.period === 'daily'
+                                    ? 'Harian'
+                                    : 'Bulanan'
+                            }}
+                            (Rp)</label
                         >
                         <input
                             v-model="editForm.limit_amount"
                             type="number"
                             required
-                            min="1000"
+                            min="1"
+                            step="1"
                             class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
                         />
                     </div>
@@ -528,11 +576,11 @@ function recordBudgetExpense(budget: BudgetItem) {
                             v-model="editForm.scope"
                             class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
                         >
-                            <option value="shared">
-                                Pengeluaran Bersama Pasangan
-                            </option>
                             <option value="personal">
                                 Pengeluaran Pribadi Kamu
+                            </option>
+                            <option value="shared">
+                                Pengeluaran Bersama Pasangan
                             </option>
                         </select>
                     </div>

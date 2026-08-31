@@ -41,8 +41,8 @@ const strokeDashOffsetArray = computed(() => {
 
 const sharedPercentage = computed(() => {
     if (!props.spendingByScope || props.monthlySpending === 0) {
-return 50;
-}
+        return 50;
+    }
 
     return Math.round(
         (props.spendingByScope.shared / props.monthlySpending) * 100,
@@ -51,8 +51,8 @@ return 50;
 
 const personalPercentage = computed(() => {
     if (!props.spendingByScope || props.monthlySpending === 0) {
-return 50;
-}
+        return 50;
+    }
 
     return 100 - sharedPercentage.value;
 });
@@ -82,7 +82,7 @@ function toggleSelectedCategory(category: CategorySpending): void {
                         Kategori Pengeluaran Bulan Ini
                     </h3>
                     <p class="text-[11px] text-zinc-500">
-                        Distribusi pengeluaran kencan & pribadi
+                        Distribusi pengeluaran bersama & pribadi
                     </p>
                 </div>
             </div>
@@ -207,7 +207,7 @@ function toggleSelectedCategory(category: CategorySpending): void {
             class="rounded-2xl border border-dashed border-zinc-200 p-6 text-center text-xs text-zinc-400 dark:border-zinc-800"
         >
             Belum ada data transaksi pengeluaran bulan ini. Catat transaksi
-            kencan untuk melihat grafik!
+            pengeluaran untuk melihat grafik!
         </div>
 
         <!-- Shared vs Personal Scope Progress Ratio -->
@@ -220,7 +220,7 @@ function toggleSelectedCategory(category: CategorySpending): void {
                     class="flex items-center gap-1.5 font-bold text-rose-600 dark:text-rose-400"
                 >
                     <Users class="h-3.5 w-3.5" />
-                    <span>Kencan Bersama ({{ sharedPercentage }}%)</span>
+                    <span>Bersama ({{ sharedPercentage }}%)</span>
                 </div>
                 <div
                     class="flex items-center gap-1.5 font-bold text-indigo-600 dark:text-indigo-400"

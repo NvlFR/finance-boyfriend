@@ -19,6 +19,7 @@ import {
     Navigation,
 } from '@lucide/vue';
 import { ref, computed } from 'vue';
+import BirthdaySurprise from '@/components/BirthdaySurprise.vue';
 import CashflowChart from '@/components/CashflowChart.vue';
 import CategoryDonutChart from '@/components/CategoryDonutChart.vue';
 import WalletCard from '@/components/WalletCard.vue';
@@ -27,6 +28,7 @@ import { index as settlementsIndex } from '@/routes/settlements';
 import { index as tripsIndex } from '@/routes/trips';
 import type { User } from '@/types/auth';
 import type {
+    BirthdaySurprisePayload,
     CoupleSpace,
     Wallet,
     Category,
@@ -60,12 +62,17 @@ const props = withDefaults(
         } | null;
         monthlySpending?: number;
         monthlyIncome?: number;
+        monthlyTransferFees?: number;
         dailySpending?: number;
         dailySpendingByUser?: {
             user: number;
             partner: number;
         };
         monthlySpendingByUser?: {
+            user: number;
+            partner: number;
+        };
+        monthlyIncomeByUser?: {
             user: number;
             partner: number;
         };
@@ -88,6 +95,7 @@ const props = withDefaults(
             personal: number;
         };
         upcomingSubscriptions?: any[];
+        birthdaySurprise?: BirthdaySurprisePayload | null;
         auth: {
             user: User;
         };
@@ -105,13 +113,16 @@ const props = withDefaults(
         recentTransactions: () => [],
         monthlySpending: 0,
         monthlyIncome: 0,
+        monthlyTransferFees: 0,
         dailySpending: 0,
         dailySpendingByUser: () => ({ user: 0, partner: 0 }),
         monthlySpendingByUser: () => ({ user: 0, partner: 0 }),
+        monthlyIncomeByUser: () => ({ user: 0, partner: 0 }),
         categories: () => [],
         dailyTrend: () => [],
         categorySpending: () => [],
         upcomingSubscriptions: () => [],
+        birthdaySurprise: null,
     },
 );
 
@@ -206,7 +217,7 @@ function formatCurrency(amount: number) {
                     {{
                         coupleSpace
                             ? coupleSpace.name
-                            : 'Kelola keuangan kencan berdua'
+                            : 'Kelola keuangan pribadi dan bersama'
                     }}
                 </p>
             </div>
@@ -227,6 +238,11 @@ function formatCurrency(amount: number) {
             </div>
         </div>
 
+        <BirthdaySurprise
+            v-if="birthdaySurprise"
+            :surprise="birthdaySurprise"
+        />
+
         <!-- First-Time Onboarding Prompt (If no Couple Space) -->
         <div
             v-if="!hasCoupleSpace"
@@ -243,7 +259,7 @@ function formatCurrency(amount: number) {
                         Selamat Datang di Couple Finance!
                     </h2>
                     <p class="text-xs text-zinc-600 dark:text-zinc-400">
-                        Kelola uang bareng, catat split bill kencan, dan
+                        Kelola uang pribadi, catat kebutuhan bersama, dan
                         wujudkan tabungan impian berdua secara transparan.
                     </p>
                 </div>
@@ -553,7 +569,7 @@ function formatCurrency(amount: number) {
                                 }}</span
                             >
                             ({{ settlementDebt.unsettled_splits_count }}
-                            transaksi kencan)
+                            transaksi bersama)
                         </p>
                     </div>
                 </div>
@@ -601,6 +617,13 @@ function formatCurrency(amount: number) {
                     class="mt-2 text-lg font-bold text-zinc-900 dark:text-zinc-100"
                 >
                     {{ formattedMonthlySpending }}
+                </p>
+                <p
+                    v-if="monthlyTransferFees > 0"
+                    class="mt-1 text-[10px] text-amber-600 dark:text-amber-400"
+                >
+                    Termasuk admin transfer
+                    {{ formatCurrency(monthlyTransferFees) }}
                 </p>
             </div>
         </div>
@@ -650,7 +673,12 @@ function formatCurrency(amount: number) {
                 <p
                     class="mt-1 text-sm font-black break-words text-zinc-900 dark:text-zinc-100"
                 >
-                    {{ formatCurrency(monthlySpendingByUser.user) }}
+                    <span class="block text-emerald-600 dark:text-emerald-400">
+                        Masuk {{ formatCurrency(monthlyIncomeByUser.user) }}
+                    </span>
+                    <span class="mt-1 block text-rose-600 dark:text-rose-400">
+                        Keluar {{ formatCurrency(monthlySpendingByUser.user) }}
+                    </span>
                 </p>
             </div>
             <div
@@ -669,7 +697,13 @@ function formatCurrency(amount: number) {
                 <p
                     class="mt-1 text-sm font-black break-words text-zinc-900 dark:text-zinc-100"
                 >
-                    {{ formatCurrency(monthlySpendingByUser.partner) }}
+                    <span class="block text-emerald-600 dark:text-emerald-400">
+                        Masuk {{ formatCurrency(monthlyIncomeByUser.partner) }}
+                    </span>
+                    <span class="mt-1 block text-rose-600 dark:text-rose-400">
+                        Keluar
+                        {{ formatCurrency(monthlySpendingByUser.partner) }}
+                    </span>
                 </p>
             </div>
         </div>
@@ -842,7 +876,7 @@ function formatCurrency(amount: number) {
                                     v-if="tx.scope === 'shared'"
                                     class="py-0.2 rounded bg-rose-500/10 px-1 text-[9px] font-medium text-rose-600 dark:text-rose-400"
                                 >
-                                    Kencan
+                                    Bersama
                                 </span>
                             </div>
                         </div>

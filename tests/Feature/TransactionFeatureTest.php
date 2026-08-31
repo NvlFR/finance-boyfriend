@@ -165,6 +165,38 @@ test('user can store transfer between wallets', function () {
         ->and($dest->fresh()->balance)->toBe('300000.00');
 });
 
+test('transfer fee is deducted only from source wallet with exact cents', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+    $source = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'balance' => 500000,
+    ]);
+    $destination = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'balance' => 100000,
+    ]);
+
+    $response = $this->actingAs($user)->postJson(route('transactions.store'), [
+        'wallet_id' => $source->id,
+        'to_wallet_id' => $destination->id,
+        'type' => 'transfer',
+        'scope' => 'personal',
+        'amount' => '100000.50',
+        'fee_amount' => '2500.25',
+        'transaction_date' => now()->toIso8601String(),
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonPath('transaction.fee_amount', '2500.25');
+
+    expect($source->fresh()->balance)->toBe('397499.25')
+        ->and($destination->fresh()->balance)->toBe('200000.50');
+});
+
 test('transfer never inherits an expense category and keeps its selected scope', function () {
     $space = CoupleSpace::factory()->active()->create();
     $user = $space->userOne;
@@ -340,7 +372,57 @@ test('user can export transactions to CSV', function () {
     $response->assertOk()
         ->assertHeader('content-type', 'text/csv; charset=UTF-8');
 
-    expect($response->streamedContent())->toContain('Exportable Dinner');
+    expect($response->streamedContent())
+        ->toContain('Exportable Dinner')
+        ->toContain('Biaya Admin (Rp)');
+});
+
+test('user can export filtered transactions to Excel and a complete HTML financial report', function () {
+    $space = CoupleSpace::factory()->active()->create(['name' => 'Ruang Keuangan']);
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+    $wallet = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+    ]);
+    Transaction::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'wallet_id' => $wallet->id,
+        'title' => 'Laporan Test',
+    ]);
+
+    $excel = $this->actingAs($user)->get(route('transactions.export.excel'));
+    $excel->assertOk()
+        ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    expect($excel->getContent())->toStartWith('PK');
+    $temporaryExcelPath = tempnam(sys_get_temp_dir(), 'excel-test-');
+    file_put_contents($temporaryExcelPath, $excel->getContent());
+    $archive = new ZipArchive;
+    expect($archive->open($temporaryExcelPath))->toBeTrue()
+        ->and($archive->getFromName('xl/worksheets/sheet1.xml'))->toContain('Laporan Test');
+    $archive->close();
+    unlink($temporaryExcelPath);
+
+    $pdf = $this->actingAs($user)->get(route('transactions.export.pdf'));
+    $pdf->assertOk()
+        ->assertHeader('content-type', 'text/html; charset=UTF-8')
+        ->assertSee('Laporan Keuangan Lengkap')
+        ->assertSee('Ringkasan Arus Kas')
+        ->assertSee('Posisi Keuangan')
+        ->assertSee('Anggaran Harian & Bulanan', false)
+        ->assertSee('Laporan Test');
+});
+
+test('transaction drawer defaults to personal scope and explains transfer fees', function () {
+    $drawer = file_get_contents(resource_path('js/components/TransactionDrawer.vue'));
+
+    expect($drawer)
+        ->toContain("scope: 'personal'")
+        ->toContain('fee_amount')
+        ->toContain('transferSourceDebit')
+        ->toContain('Biaya Admin')
+        ->not->toContain('Kencan Bersama');
 });
 
 test('transaction cannot use wallet from another couple space', function () {

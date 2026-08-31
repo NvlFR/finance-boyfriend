@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
  * @property string $type
  * @property string $scope
  * @property string $amount
+ * @property string $fee_amount
  * @property Carbon $transaction_date
  * @property string|null $title
  * @property string|null $notes
@@ -38,6 +39,7 @@ use Illuminate\Support\Carbon;
     'type',
     'scope',
     'amount',
+    'fee_amount',
     'transaction_date',
     'title',
     'notes',
@@ -51,12 +53,21 @@ class Transaction extends Model
     use HasFactory;
 
     /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'scope' => 'personal',
+        'fee_amount' => 0,
+    ];
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
             'amount' => 'decimal:2',
+            'fee_amount' => 'decimal:2',
             'transaction_date' => 'datetime',
         ];
     }

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Transaction;
 
 use App\Models\Category;
 use App\Models\Wallet;
+use Brick\Math\BigDecimal;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -43,7 +44,8 @@ class StoreTransactionRequest extends FormRequest
             ],
             'type' => ['required', 'in:income,expense,transfer'],
             'scope' => ['required', 'in:personal,shared'],
-            'amount' => ['required', 'numeric', 'min:0.01'],
+            'amount' => ['required', 'numeric', 'decimal:0,2', 'min:0.01'],
+            'fee_amount' => ['nullable', 'numeric', 'decimal:0,2', 'min:0'],
             'transaction_date' => ['required', 'date'],
             'title' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
@@ -65,7 +67,11 @@ class StoreTransactionRequest extends FormRequest
     {
         if ($this->input('type') === 'transfer') {
             $this->merge(['category_id' => null]);
+
+            return;
         }
+
+        $this->merge(['fee_amount' => 0]);
     }
 
     /**
@@ -100,10 +106,11 @@ class StoreTransactionRequest extends FormRequest
                 }
 
                 if ($this->input('split.split_type') === 'custom') {
-                    $splitTotal = (float) $this->input('split.user_one_amount', 0)
-                        + (float) $this->input('split.user_two_amount', 0);
+                    $splitTotal = BigDecimal::of((string) $this->input('split.user_one_amount', 0))
+                        ->plus((string) $this->input('split.user_two_amount', 0));
+                    $amount = BigDecimal::of((string) $this->input('amount'));
 
-                    if (abs($splitTotal - (float) $this->input('amount')) > 0.009) {
+                    if (! $splitTotal->isEqualTo($amount)) {
                         $validator->errors()->add('split', 'Total pembagian harus sama dengan nominal transaksi.');
                     }
                 }

@@ -10,6 +10,8 @@ use App\Models\TransactionSplit;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\Wishlist;
+use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -38,7 +40,10 @@ class TransactionService
             return DB::transaction(function () use ($user, $space, $data, $clientReference) {
                 $type = $data['type'];
                 $scope = $data['scope'];
-                $amount = (float) $data['amount'];
+                $amount = $this->normalizeMoney($data['amount']);
+                $feeAmount = $type === 'transfer'
+                    ? $this->normalizeMoney($data['fee_amount'] ?? 0)
+                    : '0.00';
                 $walletId = (int) $data['wallet_id'];
                 $toWalletId = ! empty($data['to_wallet_id']) ? (int) $data['to_wallet_id'] : null;
 
@@ -68,8 +73,9 @@ class TransactionService
                 } elseif ($type === 'income') {
                     $sourceWallet->increment('balance', $amount);
                 } elseif ($type === 'transfer') {
-                    $this->ensureSufficientBalance($sourceWallet, $amount);
-                    $sourceWallet->decrement('balance', $amount);
+                    $sourceDebit = $this->addMoney($amount, $feeAmount);
+                    $this->ensureSufficientBalance($sourceWallet, $sourceDebit);
+                    $sourceWallet->decrement('balance', $sourceDebit);
                     $destWallet->increment('balance', $amount);
                 }
 
@@ -83,6 +89,7 @@ class TransactionService
                     'type' => $type,
                     'scope' => $scope,
                     'amount' => $amount,
+                    'fee_amount' => $feeAmount,
                     'transaction_date' => $data['transaction_date'] ?? now(),
                     'title' => $data['title'] ?? null,
                     'notes' => $data['notes'] ?? null,
@@ -125,7 +132,8 @@ class TransactionService
             $space = $transaction->coupleSpace;
 
             // Revert original balances first
-            $oldAmount = (float) $transaction->amount;
+            $oldAmount = $this->normalizeMoney($transaction->amount);
+            $oldFeeAmount = $this->normalizeMoney($transaction->fee_amount);
             $oldType = $transaction->type;
             $oldSourceWallet = Wallet::where('couple_space_id', $space->id)
                 ->where('id', $transaction->wallet_id)
@@ -139,7 +147,7 @@ class TransactionService
                     $this->ensureSufficientBalance($oldSourceWallet, $oldAmount);
                     $oldSourceWallet->decrement('balance', $oldAmount);
                 } elseif ($oldType === 'transfer') {
-                    $oldSourceWallet->increment('balance', $oldAmount);
+                    $oldSourceWallet->increment('balance', $this->addMoney($oldAmount, $oldFeeAmount));
                 }
             }
 
@@ -157,7 +165,12 @@ class TransactionService
             // Prepare new values
             $newType = $data['type'] ?? $transaction->type;
             $newScope = $data['scope'] ?? $transaction->scope;
-            $newAmount = isset($data['amount']) ? (float) $data['amount'] : (float) $transaction->amount;
+            $newAmount = isset($data['amount'])
+                ? $this->normalizeMoney($data['amount'])
+                : $this->normalizeMoney($transaction->amount);
+            $newFeeAmount = $newType === 'transfer'
+                ? $this->normalizeMoney($data['fee_amount'] ?? $transaction->fee_amount)
+                : '0.00';
             $newWalletId = isset($data['wallet_id']) ? (int) $data['wallet_id'] : $transaction->wallet_id;
             $newToWalletId = ! empty($data['to_wallet_id']) ? (int) $data['to_wallet_id'] : null;
 
@@ -193,8 +206,9 @@ class TransactionService
             } elseif ($newType === 'income') {
                 $newSourceWallet->increment('balance', $newAmount);
             } elseif ($newType === 'transfer') {
-                $this->ensureSufficientBalance($newSourceWallet, $newAmount);
-                $newSourceWallet->decrement('balance', $newAmount);
+                $newSourceDebit = $this->addMoney($newAmount, $newFeeAmount);
+                $this->ensureSufficientBalance($newSourceWallet, $newSourceDebit);
+                $newSourceWallet->decrement('balance', $newSourceDebit);
                 $newDestWallet->increment('balance', $newAmount);
             }
 
@@ -208,6 +222,7 @@ class TransactionService
                 'type' => $newType,
                 'scope' => $newScope,
                 'amount' => $newAmount,
+                'fee_amount' => $newFeeAmount,
                 'transaction_date' => $data['transaction_date'] ?? $transaction->transaction_date,
                 'title' => $data['title'] ?? $transaction->title,
                 'notes' => $data['notes'] ?? $transaction->notes,
@@ -239,7 +254,8 @@ class TransactionService
         }
 
         DB::transaction(function () use ($transaction) {
-            $amount = (float) $transaction->amount;
+            $amount = $this->normalizeMoney($transaction->amount);
+            $feeAmount = $this->normalizeMoney($transaction->fee_amount);
             $type = $transaction->type;
 
             $sourceWallet = Wallet::where('couple_space_id', $transaction->couple_space_id)
@@ -254,7 +270,7 @@ class TransactionService
                     $this->ensureSufficientBalance($sourceWallet, $amount);
                     $sourceWallet->decrement('balance', $amount);
                 } elseif ($type === 'transfer') {
-                    $sourceWallet->increment('balance', $amount);
+                    $sourceWallet->increment('balance', $this->addMoney($amount, $feeAmount));
                 }
             }
 
@@ -280,36 +296,39 @@ class TransactionService
      */
     protected function createSplitRecord(Transaction $transaction, User $user, CoupleSpace $space, array $splitData): TransactionSplit
     {
-        $amount = (float) $transaction->amount;
+        $amount = $this->normalizeMoney($transaction->amount);
         $paidByUserId = ! empty($splitData['paid_by_user_id']) ? (int) $splitData['paid_by_user_id'] : $user->id;
         $splitType = $splitData['split_type'] ?? 'split_equal';
 
-        $userOneAmount = 0.00;
-        $userTwoAmount = 0.00;
+        $userOneAmount = '0.00';
+        $userTwoAmount = '0.00';
 
         switch ($splitType) {
             case 'full_one':
                 $userOneAmount = $amount;
-                $userTwoAmount = 0.00;
+                $userTwoAmount = '0.00';
                 break;
             case 'full_two':
-                $userOneAmount = 0.00;
+                $userOneAmount = '0.00';
                 $userTwoAmount = $amount;
                 break;
             case 'custom':
-                $userOneAmount = isset($splitData['user_one_amount']) ? (float) $splitData['user_one_amount'] : ($amount / 2);
-                $userTwoAmount = isset($splitData['user_two_amount']) ? (float) $splitData['user_two_amount'] : ($amount - $userOneAmount);
+                $userOneAmount = isset($splitData['user_one_amount'])
+                    ? $this->normalizeMoney($splitData['user_one_amount'])
+                    : BigDecimal::of($amount)->dividedBy(2, 2, RoundingMode::Down)->__toString();
+                $userTwoAmount = isset($splitData['user_two_amount'])
+                    ? $this->normalizeMoney($splitData['user_two_amount'])
+                    : BigDecimal::of($amount)->minus($userOneAmount)->__toString();
                 break;
             case 'joint_fund':
-                $userOneAmount = 0.00;
-                $userTwoAmount = 0.00;
+                $userOneAmount = '0.00';
+                $userTwoAmount = '0.00';
                 break;
             case 'split_equal':
             default:
                 $splitType = 'split_equal';
-                $half = round($amount / 2, 2);
-                $userOneAmount = $half;
-                $userTwoAmount = round($amount - $half, 2);
+                $userOneAmount = BigDecimal::of($amount)->dividedBy(2, 2, RoundingMode::Down)->__toString();
+                $userTwoAmount = BigDecimal::of($amount)->minus($userOneAmount)->__toString();
                 break;
         }
 
@@ -323,13 +342,25 @@ class TransactionService
         ]);
     }
 
-    private function ensureSufficientBalance(Wallet $wallet, float $amount): void
+    private function ensureSufficientBalance(Wallet $wallet, string $amount): void
     {
-        if ((float) $wallet->balance < $amount) {
+        if (BigDecimal::of($wallet->balance)->isLessThan($amount)) {
             throw ValidationException::withMessages([
                 'amount' => "Saldo dompet {$wallet->name} tidak mencukupi.",
             ]);
         }
+    }
+
+    private function normalizeMoney(mixed $amount): string
+    {
+        return BigDecimal::of((string) $amount)
+            ->toScale(2, RoundingMode::HalfUp)
+            ->__toString();
+    }
+
+    private function addMoney(string $amount, string $additionalAmount): string
+    {
+        return BigDecimal::of($amount)->plus($additionalAmount)->__toString();
     }
 
     private function findByClientReference(User $user, CoupleSpace $space, string $clientReference): ?Transaction

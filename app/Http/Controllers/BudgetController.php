@@ -31,14 +31,15 @@ class BudgetController extends Controller
             ->with(['category', 'user'])
             ->get();
 
-        $startOfMonth = Carbon::now()->startOfMonth();
-        $endOfMonth = Carbon::now()->endOfMonth();
+        $budgetsWithSpent = $budgets->map(function (Budget $budget) use ($space) {
+            [$periodStart, $periodEnd] = $budget->period === 'daily'
+                ? [Carbon::now()->startOfDay(), Carbon::now()->endOfDay()]
+                : [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()];
 
-        // Calculate actual spent per budget this month
-        $budgetsWithSpent = $budgets->map(function ($budget) use ($space, $startOfMonth, $endOfMonth) {
             $query = Transaction::where('couple_space_id', $space->id)
                 ->where('type', 'expense')
-                ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth]);
+                ->whereBetween('transaction_date', [$periodStart, $periodEnd])
+                ->where('scope', $budget->scope);
 
             if ($budget->category_id) {
                 $query->where('category_id', $budget->category_id);
@@ -83,19 +84,22 @@ class BudgetController extends Controller
             'limit_amount' => 'required|numeric|min:1',
             'category_id' => ['nullable', $this->categoryRule($space->id)],
             'scope' => 'nullable|in:shared,personal',
+            'period' => 'required|in:daily,monthly',
         ]);
+
+        $scope = $validated['scope'] ?? 'personal';
 
         Budget::create([
             'couple_space_id' => $space->id,
-            'user_id' => ($validated['scope'] ?? 'shared') === 'personal' ? $user->id : null,
+            'user_id' => $scope === 'personal' ? $user->id : null,
             'category_id' => $validated['category_id'] ?? null,
             'name' => $validated['name'],
             'limit_amount' => $validated['limit_amount'],
-            'period' => 'monthly',
-            'scope' => $validated['scope'] ?? 'shared',
+            'period' => $validated['period'],
+            'scope' => $scope,
         ]);
 
-        return redirect()->back()->with('success', 'Anggaran bulanan berhasil dibuat!');
+        return redirect()->back()->with('success', 'Anggaran berhasil dibuat!');
     }
 
     public function update(Request $request, Budget $budget): JsonResponse|RedirectResponse
@@ -103,7 +107,7 @@ class BudgetController extends Controller
         $user = $request->user();
         $space = $user->currentCoupleSpace;
 
-        if (! $space || $budget->couple_space_id !== $space->id) {
+        if (! $space || $budget->couple_space_id !== $space->id || ($budget->scope === 'personal' && $budget->user_id !== $user->id)) {
             abort(403, 'Unauthorized.');
         }
 
@@ -112,14 +116,18 @@ class BudgetController extends Controller
             'limit_amount' => 'required|numeric|min:1',
             'category_id' => ['nullable', $this->categoryRule($space->id)],
             'scope' => 'nullable|in:shared,personal',
+            'period' => 'required|in:daily,monthly',
         ]);
+
+        $scope = $validated['scope'] ?? 'personal';
 
         $budget->update([
             'name' => $validated['name'],
             'limit_amount' => $validated['limit_amount'],
             'category_id' => $validated['category_id'] ?? null,
-            'scope' => $validated['scope'] ?? 'shared',
-            'user_id' => ($validated['scope'] ?? 'shared') === 'personal' ? $user->id : null,
+            'period' => $validated['period'],
+            'scope' => $scope,
+            'user_id' => $scope === 'personal' ? $user->id : null,
         ]);
 
         return redirect()->back()->with('success', 'Anggaran berhasil diperbarui!');
@@ -130,7 +138,7 @@ class BudgetController extends Controller
         $user = $request->user();
         $space = $user->currentCoupleSpace;
 
-        if (! $space || $budget->couple_space_id !== $space->id) {
+        if (! $space || $budget->couple_space_id !== $space->id || ($budget->scope === 'personal' && $budget->user_id !== $user->id)) {
             abort(403, 'Unauthorized.');
         }
 

@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\SavingsGoal;
 use App\Models\Transaction;
 use App\Models\Wallet;
+use App\Services\BirthdaySurpriseService;
 use App\Services\SettlementService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -15,7 +16,8 @@ use Inertia\Response;
 class DashboardController extends Controller
 {
     public function __construct(
-        protected SettlementService $settlementService
+        protected SettlementService $settlementService,
+        protected BirthdaySurpriseService $birthdaySurpriseService,
     ) {}
 
     /**
@@ -45,14 +47,17 @@ class DashboardController extends Controller
                 'settlementDebt' => null,
                 'monthlySpending' => 0,
                 'monthlyIncome' => 0,
+                'monthlyTransferFees' => 0,
                 'dailySpending' => 0,
                 'dailySpendingByUser' => ['user' => 0, 'partner' => 0],
                 'monthlySpendingByUser' => ['user' => 0, 'partner' => 0],
+                'monthlyIncomeByUser' => ['user' => 0, 'partner' => 0],
                 'categories' => $categories,
                 'dailyTrend' => [],
                 'categorySpending' => [],
                 'spendingByScope' => ['shared' => 0, 'personal' => 0],
                 'upcomingSubscriptions' => [],
+                'birthdaySurprise' => null,
             ]);
         }
 
@@ -94,25 +99,42 @@ class DashboardController extends Controller
             ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
             ->get();
 
-        $monthlySpending = (float) $monthTransactions->where('type', 'expense')->sum('amount');
+        $monthlyTransferFees = (float) $monthTransactions->where('type', 'transfer')->sum('fee_amount');
+        $monthlySpending = (float) $monthTransactions->where('type', 'expense')->sum('amount') + $monthlyTransferFees;
         $monthlyIncome = (float) $monthTransactions->where('type', 'income')->sum('amount');
+        $todayTransactions = $monthTransactions
+            ->filter(fn (Transaction $transaction): bool => $transaction->transaction_date->isToday());
         $todayExpenses = $monthTransactions
             ->where('type', 'expense')
             ->filter(fn (Transaction $transaction): bool => $transaction->transaction_date->isToday());
-        $dailySpending = (float) $todayExpenses->sum('amount');
+        $todayTransferFees = $todayTransactions->where('type', 'transfer')->sum('fee_amount');
+        $dailySpending = (float) $todayExpenses->sum('amount') + (float) $todayTransferFees;
         $dailySpendingByUser = [
-            'user' => (float) $todayExpenses->where('user_id', $user->id)->sum('amount'),
-            'partner' => $partner ? (float) $todayExpenses->where('user_id', $partner->id)->sum('amount') : 0,
+            'user' => (float) $todayExpenses->where('user_id', $user->id)->sum('amount')
+                + (float) $todayTransactions->where('type', 'transfer')->where('user_id', $user->id)->sum('fee_amount'),
+            'partner' => $partner
+                ? (float) $todayExpenses->where('user_id', $partner->id)->sum('amount')
+                    + (float) $todayTransactions->where('type', 'transfer')->where('user_id', $partner->id)->sum('fee_amount')
+                : 0,
         ];
         $monthlyExpenses = $monthTransactions->where('type', 'expense');
         $monthlySpendingByUser = [
-            'user' => (float) $monthlyExpenses->where('user_id', $user->id)->sum('amount'),
-            'partner' => $partner ? (float) $monthlyExpenses->where('user_id', $partner->id)->sum('amount') : 0,
+            'user' => (float) $monthlyExpenses->where('user_id', $user->id)->sum('amount')
+                + (float) $monthTransactions->where('type', 'transfer')->where('user_id', $user->id)->sum('fee_amount'),
+            'partner' => $partner
+                ? (float) $monthlyExpenses->where('user_id', $partner->id)->sum('amount')
+                    + (float) $monthTransactions->where('type', 'transfer')->where('user_id', $partner->id)->sum('fee_amount')
+                : 0,
+        ];
+        $monthlyIncomes = $monthTransactions->where('type', 'income');
+        $monthlyIncomeByUser = [
+            'user' => (float) $monthlyIncomes->where('user_id', $user->id)->sum('amount'),
+            'partner' => $partner ? (float) $monthlyIncomes->where('user_id', $partner->id)->sum('amount') : 0,
         ];
 
         // Scope Spending (Shared vs Personal)
         $sharedSpending = (float) $monthTransactions->where('type', 'expense')->where('scope', 'shared')->sum('amount');
-        $personalSpending = (float) $monthTransactions->where('type', 'expense')->where('scope', 'personal')->sum('amount');
+        $personalSpending = (float) $monthTransactions->where('type', 'expense')->where('scope', 'personal')->sum('amount') + $monthlyTransferFees;
         $spendingByScope = [
             'shared' => $sharedSpending,
             'personal' => $personalSpending,
@@ -131,6 +153,10 @@ class DashboardController extends Controller
                 ->where('type', 'expense')
                 ->whereDate('transaction_date', $dateStr)
                 ->sum('amount');
+            $dayExpense += (float) Transaction::where('couple_space_id', $space->id)
+                ->where('type', 'transfer')
+                ->whereDate('transaction_date', $dateStr)
+                ->sum('fee_amount');
 
             $dayIncome = (float) Transaction::where('couple_space_id', $space->id)
                 ->where('type', 'income')
@@ -173,6 +199,17 @@ class DashboardController extends Controller
             usort($categorySpending, fn ($a, $b) => $b['total'] <=> $a['total']);
         }
 
+        if ($monthlyTransferFees > 0) {
+            $categorySpending[] = [
+                'id' => -1,
+                'name' => 'Biaya Admin Transfer',
+                'color' => '#F59E0B',
+                'total' => $monthlyTransferFees,
+                'percentage' => round(($monthlyTransferFees / $monthlySpending) * 100),
+            ];
+            usort($categorySpending, fn ($a, $b) => $b['total'] <=> $a['total']);
+        }
+
         // Subscriptions due in next 7 days
         $upcomingSubscriptions = $space->subscriptions()
             ->where('is_active', true)
@@ -196,14 +233,17 @@ class DashboardController extends Controller
             'settlementDebt' => $settlementDebt,
             'monthlySpending' => $monthlySpending,
             'monthlyIncome' => $monthlyIncome,
+            'monthlyTransferFees' => $monthlyTransferFees,
             'dailySpending' => $dailySpending,
             'dailySpendingByUser' => $dailySpendingByUser,
             'monthlySpendingByUser' => $monthlySpendingByUser,
+            'monthlyIncomeByUser' => $monthlyIncomeByUser,
             'categories' => $categories,
             'dailyTrend' => $dailyTrend,
             'categorySpending' => $categorySpending,
             'spendingByScope' => $spendingByScope,
             'upcomingSubscriptions' => $upcomingSubscriptions,
+            'birthdaySurprise' => $this->birthdaySurpriseService->activeFor($user),
         ]);
     }
 }

@@ -119,11 +119,12 @@ function createClientReference(): string {
 
 const form = useForm({
     type: 'expense' as 'expense' | 'income' | 'transfer',
-    scope: 'shared' as 'personal' | 'shared',
+    scope: 'personal' as 'personal' | 'shared',
     wallet_id: sourceWallets.value[0]?.id || ('' as unknown as number),
     to_wallet_id: null as number | null,
     category_id: effectiveCategories.value[0]?.id || null,
     amount: '' as string | number,
+    fee_amount: 0 as string | number,
     transaction_date: localDateTimeInputValue(),
     title: '',
     notes: '',
@@ -145,12 +146,11 @@ watch(
             form.client_reference = createClientReference();
             form.transaction_date = localDateTimeInputValue();
             form.type = props.defaults.type || 'expense';
-            form.scope = props.partner
-                ? props.defaults.scope || 'shared'
-                : 'personal';
+            form.scope = props.defaults.scope || 'personal';
             form.title = props.defaults.title || '';
             form.notes = props.defaults.notes || '';
             form.amount = props.defaults.amount || '';
+            form.fee_amount = 0;
             form.source_type = props.defaults.source_type || null;
             form.source_id = props.defaults.source_id || null;
             form.split.paid_by_user_id = effectiveUser.value?.id || 0;
@@ -214,8 +214,13 @@ watch(
     (type) => {
         if (type === 'transfer') {
             form.category_id = null;
+            form.scope = 'personal';
 
             return;
+        }
+
+        if (type === 'income') {
+            form.scope = 'personal';
         }
 
         if (
@@ -291,6 +296,10 @@ const selectedToWallet = computed(() => {
     );
 });
 
+const transferSourceDebit = computed(
+    () => Number(form.amount || 0) + Number(form.fee_amount || 0),
+);
+
 function addQuickAmount(val: number) {
     const current = Number(form.amount) || 0;
     form.amount = current + val;
@@ -354,7 +363,7 @@ function submit() {
                             Catat Transaksi
                         </h2>
                         <p class="text-[11px] text-zinc-500">
-                            Pemasukan, pengeluaran, atau transfer kencan
+                            Catat arus uang tanpa langkah yang tidak perlu
                         </p>
                     </div>
                 </div>
@@ -442,6 +451,7 @@ function submit() {
                             placeholder="0"
                             required
                             min="1"
+                            step="1"
                             class="w-full bg-transparent py-2 pr-2 pl-12 text-3xl font-black tracking-tight text-zinc-900 focus:outline-none dark:text-zinc-100"
                         />
                     </div>
@@ -462,24 +472,15 @@ function submit() {
                 </div>
 
                 <!-- Scope (Shared vs Personal) -->
-                <div v-if="partner" class="space-y-1.5">
+                <div
+                    v-if="partner && form.type === 'expense'"
+                    class="space-y-1.5"
+                >
                     <label
                         class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300"
                         >Cakupan Transaksi</label
                     >
                     <div class="grid grid-cols-2 gap-2">
-                        <button
-                            type="button"
-                            @click="form.scope = 'shared'"
-                            class="flex items-center justify-center gap-2 rounded-2xl border p-2.5 text-xs font-bold transition-all"
-                            :class="
-                                form.scope === 'shared'
-                                    ? 'border-rose-500 bg-rose-500/10 text-rose-600 shadow-sm dark:border-rose-500/50 dark:text-rose-400'
-                                    : 'border-zinc-200 text-zinc-600 dark:border-zinc-800 dark:text-zinc-400'
-                            "
-                        >
-                            <Users class="h-4 w-4" /> Kencan Bersama
-                        </button>
                         <button
                             type="button"
                             @click="form.scope = 'personal'"
@@ -490,7 +491,19 @@ function submit() {
                                     : 'border-zinc-200 text-zinc-600 dark:border-zinc-800 dark:text-zinc-400'
                             "
                         >
-                            <UserIcon class="h-4 w-4" /> Pribadi Sendiri
+                            <UserIcon class="h-4 w-4" /> Pribadi
+                        </button>
+                        <button
+                            type="button"
+                            @click="form.scope = 'shared'"
+                            class="flex items-center justify-center gap-2 rounded-2xl border p-2.5 text-xs font-bold transition-all"
+                            :class="
+                                form.scope === 'shared'
+                                    ? 'border-rose-500 bg-rose-500/10 text-rose-600 shadow-sm dark:border-rose-500/50 dark:text-rose-400'
+                                    : 'border-zinc-200 text-zinc-600 dark:border-zinc-800 dark:text-zinc-400'
+                            "
+                        >
+                            <Users class="h-4 w-4" /> Bersama
                         </button>
                     </div>
                 </div>
@@ -778,6 +791,54 @@ function submit() {
                                 </span>
                             </div>
                         </button>
+                    </div>
+
+                    <div
+                        class="rounded-2xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/60 dark:bg-amber-950/30"
+                    >
+                        <label
+                            for="transaction-fee"
+                            class="text-xs font-bold text-zinc-800 dark:text-zinc-200"
+                        >
+                            Biaya Admin
+                            <span class="font-normal text-zinc-500"
+                                >(opsional)</span
+                            >
+                        </label>
+                        <div class="relative mt-1.5">
+                            <span
+                                class="absolute top-1/2 left-3 -translate-y-1/2 text-xs font-bold text-zinc-500"
+                                >Rp</span
+                            >
+                            <input
+                                id="transaction-fee"
+                                v-model="form.fee_amount"
+                                type="number"
+                                min="0"
+                                step="1"
+                                inputmode="numeric"
+                                class="min-h-11 w-full rounded-xl border border-amber-200 bg-white py-2 pr-3 pl-9 text-sm font-bold text-zinc-900 focus:border-amber-500 focus:outline-none dark:border-amber-900 dark:bg-zinc-900 dark:text-zinc-100"
+                            />
+                        </div>
+                        <p
+                            class="mt-2 text-[11px] leading-4 text-zinc-600 dark:text-zinc-400"
+                        >
+                            Tujuan menerima Rp
+                            {{
+                                Number(form.amount || 0).toLocaleString(
+                                    'id-ID',
+                                )
+                            }}. Saldo
+                            {{ selectedWallet?.name || 'asal' }} berkurang Rp
+                            {{ transferSourceDebit.toLocaleString('id-ID') }}.
+                        </p>
+                        <p
+                            v-if="selectedToWallet?.wallet_type === 'cash'"
+                            class="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400"
+                        >
+                            Tarik tunai dicatat sebagai transfer dari rekening
+                            ke dompet Uang Tunai.
+                        </p>
                     </div>
                 </div>
 

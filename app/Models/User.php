@@ -96,6 +96,18 @@ class User extends Authenticatable implements PasskeyUser
         return $this->hasMany(Transaction::class);
     }
 
+    /** @return HasMany<BirthdaySurprise, $this> */
+    public function createdBirthdaySurprises(): HasMany
+    {
+        return $this->hasMany(BirthdaySurprise::class, 'creator_user_id');
+    }
+
+    /** @return HasMany<BirthdaySurprise, $this> */
+    public function receivedBirthdaySurprises(): HasMany
+    {
+        return $this->hasMany(BirthdaySurprise::class, 'recipient_user_id');
+    }
+
     /**
      * Get active couple space or automatically create one for user.
      */

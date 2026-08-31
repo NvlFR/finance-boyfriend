@@ -14,6 +14,7 @@ import {
     Landmark,
     Target,
     Repeat,
+    Gift,
 } from '@lucide/vue';
 import { ref, computed } from 'vue';
 import FormErrorSummary from '@/components/FormErrorSummary.vue';
@@ -34,6 +35,7 @@ const props = defineProps<{
     coupleSpace?: CoupleSpace | null;
     partner?: User | null;
     stats?: Stats;
+    canManageBirthdaySurprise?: boolean;
     auth: {
         user: User;
     };
@@ -342,6 +344,35 @@ function submitEdit() {
                     </div>
                 </div>
             </div>
+
+            <Link
+                v-if="canManageBirthdaySurprise && partner"
+                href="/birthday-surprise/settings"
+                class="group flex items-center gap-4 overflow-hidden rounded-3xl border border-rose-200 bg-gradient-to-r from-rose-50 via-fuchsia-50 to-indigo-50 p-5 shadow-sm transition hover:border-rose-300 hover:shadow-md dark:border-rose-900/60 dark:from-rose-950/40 dark:via-fuchsia-950/30 dark:to-indigo-950/30"
+            >
+                <div
+                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-fuchsia-600 text-white shadow-lg shadow-rose-500/20 transition group-hover:scale-105"
+                >
+                    <Gift class="h-6 w-6" />
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p
+                        class="text-[10px] font-black tracking-widest text-rose-500 uppercase"
+                    >
+                        Hanya terlihat di akunmu
+                    </p>
+                    <h2
+                        class="truncate text-sm font-black text-zinc-900 dark:text-white"
+                    >
+                        Atur Surprise untuk
+                        {{ partner.nickname || partner.name }}
+                    </h2>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                        Pilih foto, tulis pesan, dan tentukan jam tayang.
+                    </p>
+                </div>
+                <span class="text-lg text-rose-500">›</span>
+            </Link>
 
             <!-- Quick Invite Share & Input Form Card (If Partner Not Connected Yet) -->
             <div

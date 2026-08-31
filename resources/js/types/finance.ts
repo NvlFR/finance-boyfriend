@@ -68,6 +68,7 @@ export type Transaction = {
     type: TransactionType;
     scope: TransactionScope;
     amount: number | string;
+    fee_amount: number | string;
     transaction_date: string;
     title: string | null;
     notes: string | null;
@@ -151,4 +152,20 @@ export type TransactionDefaults = {
     split_type?: SplitType;
     source_type?: 'subscription' | 'wishlist' | 'budget';
     source_id?: number;
+};
+
+export type BirthdaySurprisePayload = {
+    id: number;
+    startsAt: string;
+    endsAt: string;
+    recipientName: string;
+    recipientAvatarUrl: string | null;
+    senderName: string;
+    senderAvatarUrl: string | null;
+    openingMessage: string;
+    appreciationMessage: string;
+    loveLetter: string;
+    closingMessage: string;
+    photos: string[];
+    vouchers: string[];
 };

@@ -1,0 +1,54 @@
+@import 'tailwindcss' source(none);
+
+@source '../views/reports/**/*.blade.php';
+
+@page {
+    size: A4 portrait;
+    margin: 12mm;
+}
+
+html {
+    background: #eef2ff;
+}
+
+body {
+    color: #18181b;
+    font-family:
+        'Instrument Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+}
+
+.report-sheet {
+    box-shadow: 0 24px 70px rgb(15 23 42 / 14%);
+}
+
+.report-section,
+.report-card,
+.report-table-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+@media print {
+    html,
+    body {
+        background: white;
+    }
+
+    .report-sheet {
+        max-width: none;
+        min-height: auto;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .report-table thead {
+        display: table-header-group;
+    }
+
+    .report-table tfoot {
+        display: table-footer-group;
+    }
+}

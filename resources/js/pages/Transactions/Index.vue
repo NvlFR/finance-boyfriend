@@ -8,6 +8,8 @@ import {
     Edit2,
     Search,
     Download,
+    FileSpreadsheet,
+    FileText,
     X,
     Sparkles,
     Coins,
@@ -29,6 +31,10 @@ import {
     index as transactionsIndex,
     update as transactionUpdate,
 } from '@/routes/transactions';
+import {
+    excel as transactionExportExcel,
+    pdf as transactionExportPdf,
+} from '@/routes/transactions/export';
 import type { User } from '@/types/auth';
 import type {
     Transaction,
@@ -83,17 +89,20 @@ const selectedScope = ref(props.filters?.scope || '');
 const selectedType = ref(props.filters?.type || '');
 const selectedWalletId = ref(props.filters?.wallet_id || '');
 const selectedCategoryId = ref(props.filters?.category_id || '');
+const selectedStartDate = ref(props.filters?.start_date || '');
+const selectedEndDate = ref(props.filters?.end_date || '');
 
 const editForm = useForm({
     title: '',
     amount: '' as string | number,
     type: 'expense' as 'expense' | 'income' | 'transfer',
-    scope: 'shared' as 'personal' | 'shared',
+    scope: 'personal' as 'personal' | 'shared',
     wallet_id: null as number | null,
     to_wallet_id: null as number | null,
     category_id: null as number | null,
     transaction_date: '',
     notes: '',
+    fee_amount: 0 as string | number,
 });
 
 function applyFilters() {
@@ -105,6 +114,8 @@ function applyFilters() {
             type: selectedType.value || undefined,
             wallet_id: selectedWalletId.value || undefined,
             category_id: selectedCategoryId.value || undefined,
+            start_date: selectedStartDate.value || undefined,
+            end_date: selectedEndDate.value || undefined,
         },
         {
             preserveState: true,
@@ -120,6 +131,8 @@ function resetFilters() {
     selectedType.value = '';
     selectedWalletId.value = '';
     selectedCategoryId.value = '';
+    selectedStartDate.value = '';
+    selectedEndDate.value = '';
     applyFilters();
 }
 
@@ -128,8 +141,8 @@ function openEditModal(tx: Transaction) {
     editingTransaction.value = tx;
     editForm.title = tx.title || '';
     editForm.amount = tx.amount;
-    editForm.type = tx.type as any;
-    editForm.scope = tx.scope as any;
+    editForm.type = tx.type;
+    editForm.scope = tx.scope;
     editForm.wallet_id = tx.wallet_id;
     editForm.to_wallet_id = tx.to_wallet_id || null;
     editForm.category_id = tx.category_id || null;
@@ -137,6 +150,7 @@ function openEditModal(tx: Transaction) {
         ? tx.transaction_date.slice(0, 10)
         : '';
     editForm.notes = tx.notes || '';
+    editForm.fee_amount = tx.fee_amount || 0;
     isEditModalOpen.value = true;
 }
 
@@ -171,16 +185,38 @@ function confirmDeleteTransaction(): void {
     });
 }
 
+const exportQuery = computed(() => ({
+    search: search.value || undefined,
+    scope: selectedScope.value || undefined,
+    type: selectedType.value || undefined,
+    wallet_id: selectedWalletId.value || undefined,
+    category_id: selectedCategoryId.value || undefined,
+    start_date: selectedStartDate.value || undefined,
+    end_date: selectedEndDate.value || undefined,
+}));
+
 function exportCsv() {
     window.location.href = transactionExport.url({
         query: {
-            search: search.value || undefined,
-            scope: selectedScope.value || undefined,
-            type: selectedType.value || undefined,
-            wallet_id: selectedWalletId.value || undefined,
-            category_id: selectedCategoryId.value || undefined,
+            ...exportQuery.value,
         },
     });
+}
+
+function exportExcel() {
+    window.location.href = transactionExportExcel.url({
+        query: { ...exportQuery.value },
+    });
+}
+
+function exportPdf() {
+    window.open(
+        transactionExportPdf.url({
+            query: { ...exportQuery.value, print: 1 },
+        }),
+        '_blank',
+        'noopener,noreferrer',
+    );
 }
 </script>
 
@@ -199,21 +235,33 @@ function exportCsv() {
                     Riwayat Transaksi
                 </h1>
                 <p class="text-xs text-zinc-500">
-                    Daftar arus kas pribadi dan pengeluaran kencan bersama
+                    Semua pemasukan, pengeluaran, dan perpindahan uang
                 </p>
             </div>
 
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
                 <button
                     type="button"
-                    @click="exportCsv"
+                    @click="exportExcel"
                     class="inline-flex min-h-11 items-center gap-1.5 rounded-2xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                    title="Download Rekap CSV"
+                    title="Download laporan Excel"
                 >
-                    <Download
+                    <FileSpreadsheet
                         class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"
                     />
-                    <span>Export CSV</span>
+                    <span>Excel</span>
+                </button>
+
+                <button
+                    type="button"
+                    @click="exportPdf"
+                    class="inline-flex min-h-11 items-center gap-1.5 rounded-2xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    title="Buka laporan lengkap dan simpan sebagai PDF"
+                >
+                    <FileText
+                        class="h-3.5 w-3.5 text-rose-600 dark:text-rose-400"
+                    />
+                    <span>Laporan PDF</span>
                 </button>
 
                 <button
@@ -263,7 +311,7 @@ function exportCsv() {
             <!-- Expanded Filters -->
             <div
                 v-if="showFilters"
-                class="grid grid-cols-1 gap-2.5 border-t border-zinc-100 pt-2 text-xs sm:grid-cols-4 dark:border-zinc-800"
+                class="grid grid-cols-1 gap-2.5 border-t border-zinc-100 pt-2 text-xs sm:grid-cols-3 dark:border-zinc-800"
             >
                 <!-- Scope Filter -->
                 <div>
@@ -277,9 +325,35 @@ function exportCsv() {
                         class="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-2.5 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                     >
                         <option value="">Semua Cakupan</option>
-                        <option value="shared">Kencan / Bersama</option>
+                        <option value="shared">Bersama</option>
                         <option value="personal">Pribadi</option>
                     </select>
+                </div>
+
+                <div>
+                    <label
+                        class="mb-1 block text-[11px] font-semibold text-zinc-500"
+                        >Mulai Tanggal</label
+                    >
+                    <input
+                        v-model="selectedStartDate"
+                        @change="applyFilters"
+                        type="date"
+                        class="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-2.5 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    />
+                </div>
+
+                <div>
+                    <label
+                        class="mb-1 block text-[11px] font-semibold text-zinc-500"
+                        >Sampai Tanggal</label
+                    >
+                    <input
+                        v-model="selectedEndDate"
+                        @change="applyFilters"
+                        type="date"
+                        class="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-2.5 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    />
                 </div>
 
                 <!-- Type Filter -->
@@ -347,7 +421,16 @@ function exportCsv() {
                     </select>
                 </div>
 
-                <div class="flex justify-end gap-2 pt-1 sm:col-span-4">
+                <div
+                    class="flex items-center justify-between gap-2 pt-1 sm:col-span-3"
+                >
+                    <button
+                        type="button"
+                        @click="exportCsv"
+                        class="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                    >
+                        <Download class="h-3.5 w-3.5" /> CSV
+                    </button>
                     <button
                         type="button"
                         @click="resetFilters"
@@ -482,7 +565,7 @@ function exportCsv() {
                                 v-if="tx.scope === 'shared'"
                                 class="py-0.2 rounded-full bg-rose-500/10 px-2 text-[10px] font-bold text-rose-600 dark:bg-rose-500/20 dark:text-rose-400"
                             >
-                                Kencan Bersama
+                                Bersama
                             </span>
                             <span
                                 v-if="tx.source_type"
@@ -521,6 +604,20 @@ function exportCsv() {
                             }}</span
                         >
                         <p class="text-[10px] whitespace-nowrap text-zinc-400">
+                            <span
+                                v-if="
+                                    tx.type === 'transfer' &&
+                                    Number(tx.fee_amount) > 0
+                                "
+                            >
+                                Admin Rp
+                                {{
+                                    Number(tx.fee_amount).toLocaleString(
+                                        'id-ID',
+                                    )
+                                }}
+                                •
+                            </span>
                             {{
                                 new Date(
                                     tx.transaction_date,
@@ -624,23 +721,11 @@ function exportCsv() {
 
                 <form @submit.prevent="submitEdit" class="mt-4 space-y-4">
                     <!-- Scope -->
-                    <div>
+                    <div v-if="editForm.type === 'expense'">
                         <label class="block text-xs font-medium text-zinc-500"
                             >Cakupan</label
                         >
                         <div class="mt-1 grid grid-cols-2 gap-2">
-                            <button
-                                type="button"
-                                @click="editForm.scope = 'shared'"
-                                class="rounded-xl border p-2 text-xs font-medium transition-all"
-                                :class="
-                                    editForm.scope === 'shared'
-                                        ? 'border-rose-500 bg-rose-500/10 text-rose-600'
-                                        : 'border-zinc-200 dark:border-zinc-800'
-                                "
-                            >
-                                Kencan / Bersama
-                            </button>
                             <button
                                 type="button"
                                 @click="editForm.scope = 'personal'"
@@ -652,6 +737,18 @@ function exportCsv() {
                                 "
                             >
                                 Pribadi
+                            </button>
+                            <button
+                                type="button"
+                                @click="editForm.scope = 'shared'"
+                                class="rounded-xl border p-2 text-xs font-medium transition-all"
+                                :class="
+                                    editForm.scope === 'shared'
+                                        ? 'border-rose-500 bg-rose-500/10 text-rose-600'
+                                        : 'border-zinc-200 dark:border-zinc-800'
+                                "
+                            >
+                                Bersama
                             </button>
                         </div>
                     </div>
@@ -679,8 +776,25 @@ function exportCsv() {
                             type="number"
                             required
                             min="1"
+                            step="1"
                             class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
                         />
+                    </div>
+
+                    <div v-if="editForm.type === 'transfer'">
+                        <label class="block text-xs font-medium text-zinc-500"
+                            >Biaya Admin (Rp)</label
+                        >
+                        <input
+                            v-model="editForm.fee_amount"
+                            type="number"
+                            min="0"
+                            step="1"
+                            class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+                        />
+                        <p class="mt-1 text-[11px] text-zinc-500">
+                            Dompet asal dipotong nominal transfer + biaya admin.
+                        </p>
                     </div>
 
                     <!-- Visual Wallet Selector -->

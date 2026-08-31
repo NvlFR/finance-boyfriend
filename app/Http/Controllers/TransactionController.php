@@ -3,14 +3,24 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Transaction\StoreTransactionRequest;
+use App\Models\Budget;
 use App\Models\Category;
 use App\Models\SavingsContribution;
+use App\Models\SavingsGoal;
+use App\Models\Subscription;
 use App\Models\Transaction;
 use App\Models\Wallet;
+use App\Services\SettlementService;
+use App\Services\TransactionReportService;
 use App\Services\TransactionService;
+use Brick\Math\BigDecimal;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Collection;
+use Illuminate\View\View;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -18,7 +28,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class TransactionController extends Controller
 {
     public function __construct(
-        protected TransactionService $transactionService
+        protected TransactionService $transactionService,
+        protected TransactionReportService $transactionReportService,
+        protected SettlementService $settlementService,
     ) {}
 
     /**
@@ -201,49 +213,8 @@ class TransactionController extends Controller
      */
     public function export(Request $request): StreamedResponse
     {
-        $user = $request->user();
-        $space = $user->getOrEnsureCoupleSpace();
-
-        $query = Transaction::where('couple_space_id', $space->id)
-            ->with(['wallet', 'category', 'user'])
-            ->orderBy('transaction_date', 'desc');
-
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                    ->orWhere('notes', 'like', "%{$search}%");
-            });
-        }
-
-        if ($request->filled('scope')) {
-            $query->where('scope', $request->input('scope'));
-        }
-
-        if ($request->filled('type')) {
-            $query->where('type', $request->input('type'));
-        }
-
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->input('category_id'));
-        }
-
-        if ($request->filled('wallet_id')) {
-            $query->where(function ($walletQuery) use ($request) {
-                $walletQuery->where('wallet_id', $request->input('wallet_id'))
-                    ->orWhere('to_wallet_id', $request->input('wallet_id'));
-            });
-        }
-
-        if ($request->filled('start_date')) {
-            $query->whereDate('transaction_date', '>=', $request->input('start_date'));
-        }
-
-        if ($request->filled('end_date')) {
-            $query->whereDate('transaction_date', '<=', $request->input('end_date'));
-        }
-
-        $transactions = $query->get();
+        $space = $request->user()->getOrEnsureCoupleSpace();
+        $transactions = $this->filteredExportTransactions($request, $space->id);
 
         $headers = [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -255,21 +226,27 @@ class TransactionController extends Controller
 
         return response()->stream(function () use ($transactions) {
             $output = fopen('php://output', 'w');
-            // Add UTF-8 BOM for Excel compatibility
             fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
 
-            fputcsv($output, ['ID', 'Tanggal', 'Judul Transaksi', 'Tipe', 'Cakupan', 'Kategori', 'Dompet', 'Nominal (Rp)', 'Dicatat Oleh', 'Catatan']);
+            fputcsv($output, ['ID', 'Tanggal', 'Judul Transaksi', 'Tipe', 'Cakupan', 'Kategori', 'Dompet Asal', 'Dompet Tujuan', 'Nominal (Rp)', 'Biaya Admin (Rp)', 'Total Potong Dompet Asal (Rp)', 'Dicatat Oleh', 'Catatan']);
 
             foreach ($transactions as $tx) {
+                $sourceDebit = $tx->type === 'transfer'
+                    ? BigDecimal::of($tx->amount)->plus($tx->fee_amount)->toScale(2)->__toString()
+                    : $tx->amount;
+
                 fputcsv($output, [
                     $tx->id,
-                    $tx->transaction_date ? date('Y-m-d', strtotime($tx->transaction_date)) : '',
+                    $tx->transaction_date?->format('Y-m-d H:i') ?? '',
                     $tx->title ?: ($tx->category?->name ?? 'Transaksi'),
                     $tx->type,
-                    $tx->scope === 'shared' ? 'Kencan/Bersama' : 'Pribadi',
+                    $tx->scope === 'shared' ? 'Bersama' : 'Pribadi',
                     $tx->category?->name ?? '-',
                     $tx->wallet?->name ?? '-',
+                    $tx->toWallet?->name ?? '-',
                     $tx->amount,
+                    $tx->fee_amount,
+                    $sourceDebit,
                     $tx->user?->name ?? '-',
                     $tx->notes ?? '',
                 ]);
@@ -277,5 +254,111 @@ class TransactionController extends Controller
 
             fclose($output);
         }, 200, $headers);
+    }
+
+    public function exportExcel(Request $request): HttpResponse
+    {
+        $space = $request->user()->getOrEnsureCoupleSpace();
+        $transactions = $this->filteredExportTransactions($request, $space->id);
+
+        return response($this->transactionReportService->excel($transactions), 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="laporan-transaksi-'.now()->format('Y-m-d').'.xlsx"',
+            'Cache-Control' => 'no-store, no-cache',
+        ]);
+    }
+
+    public function exportPdf(Request $request): View
+    {
+        $space = $request->user()->getOrEnsureCoupleSpace();
+        $space->load(['userOne', 'userTwo']);
+        $transactions = $this->filteredExportTransactions($request, $space->id);
+        $budgetTransactions = Transaction::query()
+            ->where('couple_space_id', $space->id)
+            ->where('type', 'expense')
+            ->whereBetween('transaction_date', [now()->startOfMonth(), now()->endOfMonth()])
+            ->get();
+        $wallets = Wallet::query()
+            ->where('couple_space_id', $space->id)
+            ->where('is_active', true)
+            ->with('user:id,name,nickname')
+            ->get();
+        $budgets = Budget::query()
+            ->where('couple_space_id', $space->id)
+            ->with(['category:id,name', 'user:id,name,nickname'])
+            ->get();
+        $savingsGoals = SavingsGoal::query()
+            ->where('couple_space_id', $space->id)
+            ->orderByDesc('current_amount')
+            ->get();
+        $subscriptions = Subscription::query()
+            ->where('couple_space_id', $space->id)
+            ->where('is_active', true)
+            ->with(['paidByUser:id,name,nickname', 'wallet:id,name'])
+            ->orderBy('next_billing_date')
+            ->get();
+        $filters = $request->only(['search', 'scope', 'type', 'category_id', 'wallet_id', 'start_date', 'end_date']);
+
+        return view('reports.financial', $this->transactionReportService->financialReport(
+            $space,
+            $transactions,
+            $budgetTransactions,
+            $wallets,
+            $budgets,
+            $savingsGoals,
+            $subscriptions,
+            $this->settlementService->getUnsettledBalance($space),
+            $filters,
+        ));
+    }
+
+    /**
+     * @return Collection<int, Transaction>
+     */
+    private function filteredExportTransactions(Request $request, int $spaceId): Collection
+    {
+        $query = Transaction::query()
+            ->where('couple_space_id', $spaceId)
+            ->with(['wallet', 'toWallet', 'category', 'user'])
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('id');
+
+        $this->applyFilters($query, $request);
+
+        return $query->get();
+    }
+
+    /**
+     * @param  Builder<Transaction>  $query
+     */
+    private function applyFilters(Builder $query, Request $request): void
+    {
+        if ($request->filled('search')) {
+            $search = $request->string('search')->toString();
+            $query->where(fn (Builder $searchQuery) => $searchQuery
+                ->where('title', 'like', "%{$search}%")
+                ->orWhere('notes', 'like', "%{$search}%"));
+        }
+
+        foreach (['scope', 'type', 'category_id'] as $filter) {
+            if ($request->filled($filter)) {
+                $query->where($filter, $request->input($filter));
+            }
+        }
+
+        if ($request->filled('wallet_id')) {
+            $walletId = $request->integer('wallet_id');
+            $query->where(fn (Builder $walletQuery) => $walletQuery
+                ->where('wallet_id', $walletId)
+                ->orWhere('to_wallet_id', $walletId));
+        }
+
+        if ($request->filled('start_date')) {
+            $query->whereDate('transaction_date', '>=', $request->date('start_date'));
+        }
+
+        if ($request->filled('end_date')) {
+            $query->whereDate('transaction_date', '<=', $request->date('end_date'));
+        }
     }
 }

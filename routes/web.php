@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\BirthdaySurpriseController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CoupleSpaceController;
@@ -30,6 +31,9 @@ Route::get('auth/google/callback', [GoogleAuthController::class, 'callback'])->n
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    Route::get('birthday-surprise/settings', [BirthdaySurpriseController::class, 'edit'])->name('birthday-surprise.edit');
+    Route::post('birthday-surprise/settings', [BirthdaySurpriseController::class, 'update'])->name('birthday-surprise.update');
+
     // Couple Space routes
     Route::get('couple-space', [CoupleSpaceController::class, 'index'])->name('couple-space.index');
     Route::post('couple-space', [CoupleSpaceController::class, 'store'])->name('couple-space.store');
@@ -46,6 +50,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Transaction routes
     Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
     Route::get('transactions/export', [TransactionController::class, 'export'])->name('transactions.export');
+    Route::get('transactions/export/excel', [TransactionController::class, 'exportExcel'])->name('transactions.export.excel');
+    Route::get('transactions/export/pdf', [TransactionController::class, 'exportPdf'])->name('transactions.export.pdf');
     Route::post('transactions', [TransactionController::class, 'store'])->name('transactions.store');
     Route::put('transactions/{transaction}', [TransactionController::class, 'update'])->name('transactions.update');
     Route::delete('transactions/{transaction}', [TransactionController::class, 'destroy'])->name('transactions.destroy');

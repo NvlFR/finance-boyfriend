@@ -157,7 +157,7 @@ function confirmDeleteCategory(): void {
             <h2
                 class="text-xs font-bold tracking-wider text-rose-500 uppercase"
             >
-                Kategori Pengeluaran & Kencan
+                Kategori Pemasukan & Pengeluaran
             </h2>
 
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">

@@ -16,6 +16,7 @@ test('user can view and create category budgets', function () {
         'name' => 'Makan Kencan Bulanan',
         'limit_amount' => 2500000,
         'scope' => 'shared',
+        'period' => 'monthly',
     ]);
 
     $response->assertRedirect();
@@ -40,6 +41,7 @@ test('user can update a budget', function () {
     $response = $this->actingAs($user)->put(route('budgets.update', $budget), [
         'name' => 'Revised Budget',
         'limit_amount' => 1500000,
+        'period' => 'monthly',
     ]);
 
     $response->assertRedirect();
@@ -48,6 +50,49 @@ test('user can update a budget', function () {
         'name' => 'Revised Budget',
         'limit_amount' => 1500000,
     ]);
+});
+
+test('daily budget only counts todays personal expenses', function () {
+    $user = User::factory()->create();
+    $space = CoupleSpace::factory()->create(['user_one_id' => $user->id]);
+    $user->update(['current_couple_space_id' => $space->id]);
+    $wallet = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+    ]);
+    $budget = $space->budgets()->create([
+        'name' => 'Kebutuhan Harian',
+        'limit_amount' => 100000,
+        'period' => 'daily',
+        'scope' => 'personal',
+        'user_id' => $user->id,
+    ]);
+
+    Transaction::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'wallet_id' => $wallet->id,
+        'type' => 'expense',
+        'scope' => 'personal',
+        'amount' => 25000,
+        'transaction_date' => now(),
+    ]);
+    Transaction::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'wallet_id' => $wallet->id,
+        'type' => 'expense',
+        'scope' => 'personal',
+        'amount' => 50000,
+        'transaction_date' => now()->subDay(),
+    ]);
+
+    $this->actingAs($user)
+        ->getJson(route('budgets.index'))
+        ->assertOk()
+        ->assertJsonPath('budgets.0.id', $budget->id)
+        ->assertJsonPath('budgets.0.spent_amount', 25000)
+        ->assertJsonPath('budgets.0.remaining_amount', 75000);
 });
 
 test('user can delete a budget', function () {
@@ -88,6 +133,7 @@ test('budget percentage reports actual overage above one hundred percent', funct
         'user_id' => $user->id,
         'wallet_id' => $wallet->id,
         'type' => 'expense',
+        'scope' => 'shared',
         'amount' => 150000,
         'transaction_date' => now(),
     ]);

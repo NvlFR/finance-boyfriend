@@ -55,13 +55,14 @@ class CoupleSpaceController extends Controller
             'coupleSpace' => $space,
             'partner' => $space ? $space->getPartnerOf($user) : null,
             'stats' => $stats,
+            'canManageBirthdaySurprise' => $space?->canManageBirthdaySurprise($user) ?? false,
         ]);
     }
 
     /**
      * Show specific couple space or current space.
      */
-    public function show(Request $request, ?CoupleSpace $coupleSpace = null): JsonResponse|Response
+    public function show(Request $request, ?CoupleSpace $coupleSpace = null): JsonResponse|RedirectResponse|Response
     {
         $user = $request->user();
         $space = $coupleSpace && $coupleSpace->exists ? $coupleSpace : $user->currentCoupleSpace;
