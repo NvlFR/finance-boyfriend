@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\Investment;
 use App\Models\SavingsGoal;
 use App\Models\Transaction;
 use App\Models\Wallet;
@@ -15,6 +16,9 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
+    /** @var list<string> */
+    private const CHART_PERIODS = ['7d', '30d', 'month'];
+
     public function __construct(
         protected SettlementService $settlementService,
         protected BirthdaySurpriseService $birthdaySurpriseService,
@@ -27,6 +31,7 @@ class DashboardController extends Controller
     {
         $user = $request->user();
         $space = $user->currentCoupleSpace;
+        [$chartPeriod, $chartPeriodLabel, $chartStartDate, $chartEndDate] = $this->resolveChartPeriod($request);
 
         if (! $space) {
             $categories = Category::whereNull('couple_space_id')->get();
@@ -56,6 +61,10 @@ class DashboardController extends Controller
                 'dailyTrend' => [],
                 'categorySpending' => [],
                 'spendingByScope' => ['shared' => 0, 'personal' => 0],
+                'chartPeriod' => $chartPeriod,
+                'chartPeriodLabel' => $chartPeriodLabel,
+                'chartSpendingTotal' => 0,
+                'chartSpendingByScope' => ['shared' => 0, 'personal' => 0],
                 'upcomingSubscriptions' => [],
                 'birthdaySurprise' => null,
             ]);
@@ -74,11 +83,36 @@ class DashboardController extends Controller
         $partnerWallets = $partner ? $wallets->where('user_id', $partner->id) : collect();
         $jointWallets = $wallets->where('type', 'joint');
 
-        $savedInGoals = (float) SavingsGoal::where('couple_space_id', $space->id)->sum('current_amount');
-        $totalNetWorth = (float) $wallets->sum('balance') + $savedInGoals;
-        $userNetWorth = (float) $userWallets->sum('balance');
-        $partnerNetWorth = (float) $partnerWallets->sum('balance');
-        $jointNetWorth = (float) $jointWallets->sum('balance') + $savedInGoals;
+        $savingsGoals = SavingsGoal::query()
+            ->where('couple_space_id', $space->id)
+            ->get(['created_by_user_id', 'scope', 'current_amount']);
+        $savedInGoals = (float) $savingsGoals->sum('current_amount');
+        $userPersonalSavings = (float) $savingsGoals
+            ->where('scope', 'personal')
+            ->where('created_by_user_id', $user->id)
+            ->sum('current_amount');
+        $partnerPersonalSavings = $partner
+            ? (float) $savingsGoals
+                ->where('scope', 'personal')
+                ->where('created_by_user_id', $partner->id)
+                ->sum('current_amount')
+            : 0;
+        $sharedSavings = (float) $savingsGoals->where('scope', 'shared')->sum('current_amount');
+        $investments = Investment::query()
+            ->where('couple_space_id', $space->id)
+            ->where('is_active', true)
+            ->get(['user_id', 'scope', 'quantity', 'current_price']);
+        $investmentValue = static fn (Investment $investment): float => (float) $investment->quantity * (float) $investment->current_price;
+        $userInvestmentValue = $investments->where('user_id', $user->id)->sum($investmentValue);
+        $partnerInvestmentValue = $partner
+            ? $investments->where('user_id', $partner->id)->sum($investmentValue)
+            : 0;
+        $jointInvestmentValue = $investments->where('scope', 'shared')->sum($investmentValue);
+        $totalInvestmentValue = $investments->sum($investmentValue);
+        $totalNetWorth = (float) $wallets->sum('balance') + $savedInGoals + $totalInvestmentValue;
+        $userNetWorth = (float) $userWallets->sum('balance') + $userPersonalSavings + $userInvestmentValue;
+        $partnerNetWorth = (float) $partnerWallets->sum('balance') + $partnerPersonalSavings + $partnerInvestmentValue;
+        $jointNetWorth = (float) $jointWallets->sum('balance') + $sharedSavings + $jointInvestmentValue;
 
         // Recent Transactions
         $recentTransactions = Transaction::where('couple_space_id', $space->id)
@@ -140,28 +174,27 @@ class DashboardController extends Controller
             'personal' => $personalSpending,
         ];
 
-        // 7-Day Cashflow Trend
+        $chartTransactions = Transaction::query()
+            ->where('couple_space_id', $space->id)
+            ->whereBetween('transaction_date', [
+                $chartStartDate->copy()->startOfDay(),
+                $chartEndDate->copy()->endOfDay(),
+            ])
+            ->get();
+        $chartTransactionsByDate = $chartTransactions->groupBy(
+            fn (Transaction $transaction): string => $transaction->transaction_date->toDateString()
+        );
+
+        // Cashflow Trend
         $dailyTrend = [];
         $indonesianDays = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
         $indonesianMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
-        for ($i = 6; $i >= 0; $i--) {
-            $date = Carbon::today()->subDays($i);
-            $dateStr = $date->toDateString();
-
-            $dayExpense = (float) Transaction::where('couple_space_id', $space->id)
-                ->where('type', 'expense')
-                ->whereDate('transaction_date', $dateStr)
-                ->sum('amount');
-            $dayExpense += (float) Transaction::where('couple_space_id', $space->id)
-                ->where('type', 'transfer')
-                ->whereDate('transaction_date', $dateStr)
-                ->sum('fee_amount');
-
-            $dayIncome = (float) Transaction::where('couple_space_id', $space->id)
-                ->where('type', 'income')
-                ->whereDate('transaction_date', $dateStr)
-                ->sum('amount');
+        for ($date = $chartStartDate->copy(); $date->lte($chartEndDate); $date->addDay()) {
+            $dayTransactions = $chartTransactionsByDate->get($date->toDateString(), collect());
+            $dayExpense = (float) $dayTransactions->where('type', 'expense')->sum('amount')
+                + (float) $dayTransactions->where('type', 'transfer')->sum('fee_amount');
+            $dayIncome = (float) $dayTransactions->where('type', 'income')->sum('amount');
 
             $dailyTrend[] = [
                 'date' => $date->format('d').' '.$indonesianMonths[$date->month - 1],
@@ -171,21 +204,27 @@ class DashboardController extends Controller
             ];
         }
 
-        // Category Spending Breakdown (Current Month)
+        // Category Spending Breakdown (Selected Chart Period)
         $categories = Category::where(function ($q) use ($space) {
             $q->whereNull('couple_space_id')
                 ->orWhere('couple_space_id', $space->id);
         })->get();
 
         $categorySpending = [];
-        $expensesWithCategories = $monthTransactions->where('type', 'expense');
+        $expensesWithCategories = $chartTransactions->where('type', 'expense');
+        $chartTransferFees = (float) $chartTransactions->where('type', 'transfer')->sum('fee_amount');
+        $chartSpendingTotal = (float) $expensesWithCategories->sum('amount') + $chartTransferFees;
+        $chartSpendingByScope = [
+            'shared' => (float) $expensesWithCategories->where('scope', 'shared')->sum('amount'),
+            'personal' => (float) $expensesWithCategories->where('scope', 'personal')->sum('amount') + $chartTransferFees,
+        ];
 
-        if ($monthlySpending > 0) {
+        if ($chartSpendingTotal > 0) {
             $grouped = $expensesWithCategories->groupBy('category_id');
             foreach ($grouped as $catId => $txs) {
                 $cat = $categories->firstWhere('id', $catId);
                 $total = (float) $txs->sum('amount');
-                $percentage = round(($total / $monthlySpending) * 100);
+                $percentage = round(($total / $chartSpendingTotal) * 100);
 
                 $categorySpending[] = [
                     'id' => $catId ?: 0,
@@ -199,13 +238,13 @@ class DashboardController extends Controller
             usort($categorySpending, fn ($a, $b) => $b['total'] <=> $a['total']);
         }
 
-        if ($monthlyTransferFees > 0) {
+        if ($chartTransferFees > 0) {
             $categorySpending[] = [
                 'id' => -1,
                 'name' => 'Biaya Admin Transfer',
                 'color' => '#F59E0B',
-                'total' => $monthlyTransferFees,
-                'percentage' => round(($monthlyTransferFees / $monthlySpending) * 100),
+                'total' => $chartTransferFees,
+                'percentage' => round(($chartTransferFees / $chartSpendingTotal) * 100),
             ];
             usort($categorySpending, fn ($a, $b) => $b['total'] <=> $a['total']);
         }
@@ -242,8 +281,33 @@ class DashboardController extends Controller
             'dailyTrend' => $dailyTrend,
             'categorySpending' => $categorySpending,
             'spendingByScope' => $spendingByScope,
+            'chartPeriod' => $chartPeriod,
+            'chartPeriodLabel' => $chartPeriodLabel,
+            'chartSpendingTotal' => $chartSpendingTotal,
+            'chartSpendingByScope' => $chartSpendingByScope,
             'upcomingSubscriptions' => $upcomingSubscriptions,
             'birthdaySurprise' => $this->birthdaySurpriseService->activeFor($user),
         ]);
+    }
+
+    /**
+     * @return array{string, string, Carbon, Carbon}
+     */
+    private function resolveChartPeriod(Request $request): array
+    {
+        $chartPeriod = (string) $request->query('chart_period', '7d');
+
+        if (! in_array($chartPeriod, self::CHART_PERIODS, true)) {
+            $chartPeriod = '7d';
+        }
+
+        $chartEndDate = Carbon::today();
+        [$chartPeriodLabel, $chartStartDate] = match ($chartPeriod) {
+            '30d' => ['30 Hari', $chartEndDate->copy()->subDays(29)],
+            'month' => ['Bulan Ini', $chartEndDate->copy()->startOfMonth()],
+            default => ['7 Hari', $chartEndDate->copy()->subDays(6)],
+        };
+
+        return [$chartPeriod, $chartPeriodLabel, $chartStartDate, $chartEndDate];
     }
 }

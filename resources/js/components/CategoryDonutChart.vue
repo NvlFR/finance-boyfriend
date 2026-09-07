@@ -12,7 +12,8 @@ interface CategorySpending {
 
 const props = defineProps<{
     categories: CategorySpending[];
-    monthlySpending: number;
+    totalSpending: number;
+    periodLabel: string;
     spendingByScope?: {
         shared: number;
         personal: number;
@@ -40,17 +41,17 @@ const strokeDashOffsetArray = computed(() => {
 });
 
 const sharedPercentage = computed(() => {
-    if (!props.spendingByScope || props.monthlySpending === 0) {
+    if (!props.spendingByScope || props.totalSpending === 0) {
         return 50;
     }
 
     return Math.round(
-        (props.spendingByScope.shared / props.monthlySpending) * 100,
+        (props.spendingByScope.shared / props.totalSpending) * 100,
     );
 });
 
 const personalPercentage = computed(() => {
-    if (!props.spendingByScope || props.monthlySpending === 0) {
+    if (!props.spendingByScope || props.totalSpending === 0) {
         return 50;
     }
 
@@ -79,7 +80,7 @@ function toggleSelectedCategory(category: CategorySpending): void {
                     <h3
                         class="text-sm font-bold text-zinc-900 dark:text-zinc-100"
                     >
-                        Kategori Pengeluaran Bulan Ini
+                        Kategori Pengeluaran {{ periodLabel }}
                     </h3>
                     <p class="text-[11px] text-zinc-500">
                         Distribusi pengeluaran bersama & pribadi
@@ -90,7 +91,7 @@ function toggleSelectedCategory(category: CategorySpending): void {
             <span
                 class="text-xs font-extrabold text-zinc-900 dark:text-zinc-100"
             >
-                Rp {{ monthlySpending.toLocaleString('id-ID') }}
+                Rp {{ totalSpending.toLocaleString('id-ID') }}
             </span>
         </div>
 
@@ -206,13 +207,13 @@ function toggleSelectedCategory(category: CategorySpending): void {
             v-else
             class="rounded-2xl border border-dashed border-zinc-200 p-6 text-center text-xs text-zinc-400 dark:border-zinc-800"
         >
-            Belum ada data transaksi pengeluaran bulan ini. Catat transaksi
-            pengeluaran untuk melihat grafik!
+            Belum ada pengeluaran untuk periode {{ periodLabel.toLowerCase() }}.
+            Catat transaksi pengeluaran untuk melihat grafik!
         </div>
 
         <!-- Shared vs Personal Scope Progress Ratio -->
         <div
-            v-if="spendingByScope && monthlySpending > 0"
+            v-if="spendingByScope && totalSpending > 0"
             class="space-y-2 border-t border-zinc-100 pt-3 dark:border-zinc-800"
         >
             <div class="flex items-center justify-between text-xs">

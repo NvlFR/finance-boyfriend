@@ -2,6 +2,7 @@
 
 use App\Models\Category;
 use App\Models\CoupleSpace;
+use App\Models\Investment;
 use App\Models\SavingsContribution;
 use App\Models\SavingsGoal;
 use App\Models\Transaction;
@@ -391,6 +392,14 @@ test('user can export filtered transactions to Excel and a complete HTML financi
         'wallet_id' => $wallet->id,
         'title' => 'Laporan Test',
     ]);
+    Investment::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'name' => 'Emas Laporan',
+        'quantity' => 2,
+        'average_buy_price' => 900000,
+        'current_price' => 1000000,
+    ]);
 
     $excel = $this->actingAs($user)->get(route('transactions.export.excel'));
     $excel->assertOk()
@@ -411,6 +420,7 @@ test('user can export filtered transactions to Excel and a complete HTML financi
         ->assertSee('Ringkasan Arus Kas')
         ->assertSee('Posisi Keuangan')
         ->assertSee('Anggaran Harian & Bulanan', false)
+        ->assertSee('Emas Laporan')
         ->assertSee('Laporan Test');
 });
 

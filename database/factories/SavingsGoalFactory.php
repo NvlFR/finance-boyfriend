@@ -22,6 +22,7 @@ class SavingsGoalFactory extends Factory
         return [
             'couple_space_id' => CoupleSpace::factory(),
             'created_by_user_id' => User::factory(),
+            'scope' => 'shared',
             'name' => fake()->words(3, true),
             'target_amount' => 10000000,
             'current_amount' => 0,

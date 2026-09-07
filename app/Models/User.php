@@ -96,6 +96,18 @@ class User extends Authenticatable implements PasskeyUser
         return $this->hasMany(Transaction::class);
     }
 
+    /** @return HasMany<Investment, $this> */
+    public function investments(): HasMany
+    {
+        return $this->hasMany(Investment::class);
+    }
+
+    /** @return HasMany<InvestmentTransaction, $this> */
+    public function investmentTransactions(): HasMany
+    {
+        return $this->hasMany(InvestmentTransaction::class);
+    }
+
     /** @return HasMany<BirthdaySurprise, $this> */
     public function createdBirthdaySurprises(): HasMany
     {

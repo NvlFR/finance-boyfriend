@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import {
     Heart,
     Plus,
@@ -15,7 +15,6 @@ import {
     Gift,
     Repeat,
     PieChart,
-    Tag,
     Navigation,
 } from '@lucide/vue';
 import { ref, computed } from 'vue';
@@ -24,6 +23,7 @@ import CashflowChart from '@/components/CashflowChart.vue';
 import CategoryDonutChart from '@/components/CategoryDonutChart.vue';
 import WalletCard from '@/components/WalletCard.vue';
 import { useTransactionModal } from '@/composables/useTransactionModal';
+import { dashboard as dashboardRoute } from '@/routes';
 import { index as settlementsIndex } from '@/routes/settlements';
 import { index as tripsIndex } from '@/routes/trips';
 import type { User } from '@/types/auth';
@@ -34,6 +34,8 @@ import type {
     Category,
     Transaction,
 } from '@/types/finance';
+
+type ChartPeriod = '7d' | '30d' | 'month';
 
 const props = withDefaults(
     defineProps<{
@@ -94,6 +96,13 @@ const props = withDefaults(
             shared: number;
             personal: number;
         };
+        chartPeriod?: ChartPeriod;
+        chartPeriodLabel?: string;
+        chartSpendingTotal?: number;
+        chartSpendingByScope?: {
+            shared: number;
+            personal: number;
+        };
         upcomingSubscriptions?: any[];
         birthdaySurprise?: BirthdaySurprisePayload | null;
         auth: {
@@ -121,13 +130,23 @@ const props = withDefaults(
         categories: () => [],
         dailyTrend: () => [],
         categorySpending: () => [],
+        chartPeriod: '7d',
+        chartPeriodLabel: '7 Hari',
+        chartSpendingTotal: 0,
+        chartSpendingByScope: () => ({ shared: 0, personal: 0 }),
         upcomingSubscriptions: () => [],
         birthdaySurprise: null,
     },
 );
 
 const activeTab = ref<'all' | 'mine' | 'partner' | 'joint'>('all');
+const isChartFiltering = ref(false);
 const { openModal } = useTransactionModal();
+const chartPeriods: Array<{ label: string; value: ChartPeriod }> = [
+    { label: '7 Hari', value: '7d' },
+    { label: '30 Hari', value: '30d' },
+    { label: 'Bulan Ini', value: 'month' },
+];
 
 const displayedWallets = computed(() => {
     switch (activeTab.value) {
@@ -183,6 +202,36 @@ const formattedMonthlyIncome = computed(() => {
 
 function formatCurrency(amount: number) {
     return 'Rp ' + Number(amount).toLocaleString('id-ID');
+}
+
+function selectChartPeriod(period: ChartPeriod): void {
+    if (period === props.chartPeriod || isChartFiltering.value) {
+        return;
+    }
+
+    router.get(
+        dashboardRoute.url(),
+        { chart_period: period },
+        {
+            only: [
+                'chartPeriod',
+                'chartPeriodLabel',
+                'dailyTrend',
+                'categorySpending',
+                'chartSpendingTotal',
+                'chartSpendingByScope',
+            ],
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+            onStart: () => {
+                isChartFiltering.value = true;
+            },
+            onFinish: () => {
+                isChartFiltering.value = false;
+            },
+        },
+    );
 }
 </script>
 
@@ -460,19 +509,19 @@ function formatCurrency(amount: number) {
                 >
             </Link>
 
-            <!-- Categories -->
+            <!-- Investments -->
             <Link
-                href="/categories"
-                class="flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-200/80 bg-white p-3 shadow-sm transition-all hover:border-purple-300 dark:border-zinc-800 dark:bg-zinc-900"
+                href="/investments"
+                class="flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-200/80 bg-white p-3 shadow-sm transition-all hover:border-sky-300 dark:border-zinc-800 dark:bg-zinc-900"
             >
                 <div
-                    class="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400"
+                    class="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400"
                 >
-                    <Tag class="h-5 w-5" />
+                    <TrendingUp class="h-5 w-5" />
                 </div>
                 <span
                     class="text-[10px] font-bold text-zinc-800 dark:text-zinc-200"
-                    >Kategori</span
+                    >Investasi</span
                 >
             </Link>
 
@@ -708,14 +757,66 @@ function formatCurrency(amount: number) {
             </div>
         </div>
 
-        <!-- 📊 Interactive Financial Charts (7-Day Cashflow Trend & Monthly Category Donut) -->
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <CashflowChart :data="dailyTrend || []" />
-            <CategoryDonutChart
-                :categories="categorySpending || []"
-                :monthly-spending="monthlySpending"
-                :spending-by-scope="spendingByScope"
-            />
+        <!-- 📊 Interactive Financial Charts -->
+        <div class="space-y-3">
+            <div
+                class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+                <div>
+                    <h2
+                        class="text-sm font-bold text-zinc-900 dark:text-zinc-100"
+                    >
+                        Analisis Keuangan
+                    </h2>
+                    <p class="mt-0.5 text-[11px] text-zinc-500">
+                        Pilih periode untuk kedua grafik
+                    </p>
+                </div>
+
+                <div
+                    role="group"
+                    aria-label="Pilih periode grafik"
+                    class="grid grid-cols-3 gap-1 rounded-2xl bg-zinc-100 p-1 dark:bg-zinc-800"
+                >
+                    <button
+                        v-for="period in chartPeriods"
+                        :key="period.value"
+                        type="button"
+                        :disabled="isChartFiltering"
+                        :aria-pressed="chartPeriod === period.value"
+                        class="min-h-11 rounded-xl px-3 text-xs font-bold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-wait"
+                        :class="
+                            chartPeriod === period.value
+                                ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-700 dark:text-indigo-300'
+                                : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100'
+                        "
+                        @click="selectChartPeriod(period.value)"
+                    >
+                        {{ period.label }}
+                    </button>
+                </div>
+            </div>
+
+            <p v-if="isChartFiltering" class="sr-only" aria-live="polite">
+                Memuat data grafik...
+            </p>
+
+            <div
+                class="grid grid-cols-1 gap-4 transition-opacity md:grid-cols-2"
+                :class="isChartFiltering ? 'opacity-60' : 'opacity-100'"
+                :aria-busy="isChartFiltering"
+            >
+                <CashflowChart
+                    :data="dailyTrend || []"
+                    :period-label="chartPeriodLabel"
+                />
+                <CategoryDonutChart
+                    :categories="categorySpending || []"
+                    :total-spending="chartSpendingTotal"
+                    :period-label="chartPeriodLabel"
+                    :spending-by-scope="chartSpendingByScope"
+                />
+            </div>
         </div>
 
         <!-- Wallets Section -->

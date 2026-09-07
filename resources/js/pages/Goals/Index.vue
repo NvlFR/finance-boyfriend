@@ -10,6 +10,9 @@ import {
     X,
     Edit2,
     Trash2,
+    UserRound,
+    UsersRound,
+    LockKeyhole,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
@@ -26,6 +29,8 @@ import type { Wallet, Category } from '@/types/finance';
 
 type Goal = {
     id: number;
+    created_by_user_id: number;
+    scope: 'personal' | 'shared';
     name: string;
     target_amount: string | number;
     current_amount: string | number;
@@ -56,6 +61,7 @@ const selectedGoal = ref<Goal | null>(null);
 const editingGoal = ref<Goal | null>(null);
 const goalToDelete = ref<Goal | null>(null);
 const isDeleting = ref(false);
+const activeScope = ref<'all' | 'personal' | 'shared'>('all');
 const isAnyModalOpen = computed(
     () =>
         isCreateModalOpen.value ||
@@ -75,6 +81,7 @@ const { dialogRef, handleDialogKeydown } = useAccessibleDialog(
 );
 
 const createForm = useForm({
+    scope: 'personal' as 'personal' | 'shared',
     name: '',
     target_amount: '' as string | number,
     target_date: '',
@@ -112,10 +119,68 @@ const colors = [
     '#14B8A6',
 ];
 
+const visibleGoals = computed(() => {
+    if (activeScope.value === 'all') {
+        return props.goals;
+    }
+
+    return props.goals.filter((goal) => goal.scope === activeScope.value);
+});
+
+const visibleTotalSaved = computed(() =>
+    visibleGoals.value.reduce(
+        (total, goal) => total + Number(goal.current_amount),
+        0,
+    ),
+);
+const visibleTotalTarget = computed(() =>
+    visibleGoals.value.reduce(
+        (total, goal) => total + Number(goal.target_amount),
+        0,
+    ),
+);
+const personalGoalsCount = computed(
+    () => props.goals.filter((goal) => goal.scope === 'personal').length,
+);
+const sharedGoalsCount = computed(
+    () => props.goals.filter((goal) => goal.scope === 'shared').length,
+);
+const availableContributionWallets = computed(() => {
+    if (selectedGoal.value?.scope !== 'personal') {
+        return props.wallets;
+    }
+
+    return props.wallets.filter(
+        (wallet) =>
+            wallet.type === 'personal' && wallet.user_id === props.auth.user.id,
+    );
+});
+
+function canManageGoal(goal: Goal): boolean {
+    return (
+        goal.scope === 'shared' ||
+        goal.created_by_user_id === props.auth.user.id
+    );
+}
+
+function ownerLabel(goal: Goal): string {
+    if (goal.scope === 'shared') {
+        return 'Bersama';
+    }
+
+    if (goal.created_by_user_id === props.auth.user.id) {
+        return 'Pribadi Kamu';
+    }
+
+    return `Pribadi ${goal.created_by_user?.nickname || goal.created_by_user?.name || 'Pasangan'}`;
+}
+
 function openContributeModal(goal: Goal) {
     contributeForm.clearErrors();
     selectedGoal.value = goal;
     contributeForm.amount = '';
+    contributeForm.wallet_id =
+        availableContributionWallets.value[0]?.id || null;
     contributeForm.client_reference = createClientReference();
     isContributeModalOpen.value = true;
 }
@@ -131,9 +196,12 @@ function openEditModal(goal: Goal) {
 }
 
 function submitCreate() {
+    const createdScope = createForm.scope;
+
     createForm.post(goalStore.url(), {
         preserveScroll: true,
         onSuccess: () => {
+            activeScope.value = createdScope;
             createForm.reset();
             isCreateModalOpen.value = false;
         },
@@ -142,6 +210,7 @@ function submitCreate() {
 
 function openCreateModal(): void {
     createForm.clearErrors();
+    createForm.scope = activeScope.value === 'shared' ? 'shared' : 'personal';
     isCreateModalOpen.value = true;
 }
 
@@ -192,7 +261,7 @@ function confirmDeleteGoal(): void {
 </script>
 
 <template>
-    <Head title="Tabungan Bersama - Couple Finance" />
+    <Head title="Tabungan - Couple Finance" />
 
     <div class="space-y-6">
         <!-- Top Bar Action -->
@@ -203,10 +272,10 @@ function confirmDeleteGoal(): void {
                 <h1
                     class="text-base font-bold text-zinc-900 dark:text-zinc-100"
                 >
-                    Tabungan Bersama (Goals)
+                    Tabungan
                 </h1>
                 <p class="text-xs text-zinc-500">
-                    Rencanakan dana liburan, nikah, dan rumah impian
+                    Pisahkan target pribadi dan impian bersama
                 </p>
             </div>
 
@@ -232,13 +301,13 @@ function confirmDeleteGoal(): void {
                     <div
                         class="text-2xl font-extrabold tracking-tight sm:text-3xl"
                     >
-                        Rp {{ Number(total_saved).toLocaleString('id-ID') }}
+                        Rp {{ visibleTotalSaved.toLocaleString('id-ID') }}
                     </div>
                 </div>
                 <div class="text-right">
                     <span class="text-xs text-zinc-400">Total Target</span>
                     <p class="text-sm font-semibold text-zinc-200">
-                        Rp {{ Number(total_target).toLocaleString('id-ID') }}
+                        Rp {{ visibleTotalTarget.toLocaleString('id-ID') }}
                     </p>
                 </div>
             </div>
@@ -248,11 +317,13 @@ function confirmDeleteGoal(): void {
                     <span>Kemajuan Keseluruhan</span>
                     <span class="font-bold text-white">
                         {{
-                            total_target > 0
+                            visibleTotalTarget > 0
                                 ? Math.min(
                                       100,
                                       Math.round(
-                                          (total_saved / total_target) * 100,
+                                          (visibleTotalSaved /
+                                              visibleTotalTarget) *
+                                              100,
                                       ),
                                   )
                                 : 0
@@ -265,17 +336,63 @@ function confirmDeleteGoal(): void {
                     <div
                         class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-rose-500 transition-all duration-500"
                         :style="{
-                            width: `${total_target > 0 ? Math.min(100, Math.round((total_saved / total_target) * 100)) : 0}%`,
+                            width: `${visibleTotalTarget > 0 ? Math.min(100, Math.round((visibleTotalSaved / visibleTotalTarget) * 100)) : 0}%`,
                         }"
                     />
                 </div>
             </div>
         </div>
 
+        <div
+            role="group"
+            aria-label="Filter jenis tabungan"
+            class="grid grid-cols-3 gap-1 rounded-2xl bg-zinc-100 p-1 dark:bg-zinc-800"
+        >
+            <button
+                type="button"
+                :aria-pressed="activeScope === 'all'"
+                class="min-h-11 rounded-xl px-2 text-xs font-bold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                :class="
+                    activeScope === 'all'
+                        ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-700 dark:text-indigo-300'
+                        : 'text-zinc-500 dark:text-zinc-400'
+                "
+                @click="activeScope = 'all'"
+            >
+                Semua ({{ goals.length }})
+            </button>
+            <button
+                type="button"
+                :aria-pressed="activeScope === 'personal'"
+                class="min-h-11 rounded-xl px-2 text-xs font-bold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                :class="
+                    activeScope === 'personal'
+                        ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-700 dark:text-indigo-300'
+                        : 'text-zinc-500 dark:text-zinc-400'
+                "
+                @click="activeScope = 'personal'"
+            >
+                Pribadi ({{ personalGoalsCount }})
+            </button>
+            <button
+                type="button"
+                :aria-pressed="activeScope === 'shared'"
+                class="min-h-11 rounded-xl px-2 text-xs font-bold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                :class="
+                    activeScope === 'shared'
+                        ? 'bg-white text-rose-600 shadow-sm dark:bg-zinc-700 dark:text-rose-300'
+                        : 'text-zinc-500 dark:text-zinc-400'
+                "
+                @click="activeScope = 'shared'"
+            >
+                Bersama ({{ sharedGoalsCount }})
+            </button>
+        </div>
+
         <!-- Goals Grid -->
         <div class="space-y-4">
             <div
-                v-for="goal in goals"
+                v-for="goal in visibleGoals"
                 :key="goal.id"
                 class="relative overflow-hidden rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
             >
@@ -289,12 +406,29 @@ function confirmDeleteGoal(): void {
                         >
                             <Target class="h-6 w-6" />
                         </div>
-                        <div>
-                            <h3
-                                class="text-base font-bold text-zinc-900 dark:text-zinc-100"
-                            >
-                                {{ goal.name }}
-                            </h3>
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <h3
+                                    class="text-base font-bold break-words text-zinc-900 dark:text-zinc-100"
+                                >
+                                    {{ goal.name }}
+                                </h3>
+                                <span
+                                    class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                                    :class="
+                                        goal.scope === 'shared'
+                                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                            : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                                    "
+                                >
+                                    <UsersRound
+                                        v-if="goal.scope === 'shared'"
+                                        class="h-3 w-3"
+                                    />
+                                    <UserRound v-else class="h-3 w-3" />
+                                    {{ ownerLabel(goal) }}
+                                </span>
+                            </div>
                             <p class="text-xs text-zinc-500">
                                 Target:
                                 {{
@@ -320,6 +454,7 @@ function confirmDeleteGoal(): void {
                         </span>
 
                         <button
+                            v-if="canManageGoal(goal)"
                             type="button"
                             @click="openEditModal(goal)"
                             class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
@@ -329,6 +464,7 @@ function confirmDeleteGoal(): void {
                         </button>
 
                         <button
+                            v-if="canManageGoal(goal)"
                             type="button"
                             @click="deleteGoal(goal)"
                             class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
@@ -392,21 +528,28 @@ function confirmDeleteGoal(): void {
                     </span>
 
                     <button
+                        v-if="canManageGoal(goal)"
                         type="button"
                         @click="openContributeModal(goal)"
                         class="flex min-h-11 items-center gap-1 rounded-xl bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-900/50"
                     >
                         <Coins class="h-3.5 w-3.5" /> + Setor Tabungan
                     </button>
+                    <span
+                        v-else
+                        class="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-zinc-400"
+                    >
+                        <LockKeyhole class="h-3.5 w-3.5" /> Hanya pemilik
+                    </span>
                 </div>
             </div>
 
             <div
-                v-if="goals.length === 0"
+                v-if="visibleGoals.length === 0"
                 class="rounded-3xl border border-dashed border-zinc-300 p-8 text-center text-zinc-500 dark:border-zinc-800"
             >
-                Belum ada target tabungan bersama. Klik tombol "Buat Target"
-                untuk memulai!
+                Belum ada target tabungan di pilihan ini. Klik tombol "Buat
+                Target" untuk memulai!
             </div>
         </div>
 
@@ -446,6 +589,54 @@ function confirmDeleteGoal(): void {
                 </div>
 
                 <form @submit.prevent="submitCreate" class="mt-4 space-y-4">
+                    <fieldset>
+                        <legend class="block text-xs font-medium text-zinc-500">
+                            Jenis Tabungan
+                        </legend>
+                        <div class="mt-2 grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                class="min-h-20 rounded-2xl border p-3 text-left transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                                :class="
+                                    createForm.scope === 'personal'
+                                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500/20 dark:bg-indigo-950/40 dark:text-indigo-300'
+                                        : 'border-zinc-200 text-zinc-600 dark:border-zinc-700 dark:text-zinc-300'
+                                "
+                                :aria-pressed="createForm.scope === 'personal'"
+                                @click="createForm.scope = 'personal'"
+                            >
+                                <span
+                                    class="flex items-center gap-1.5 text-xs font-bold"
+                                >
+                                    <UserRound class="h-4 w-4" /> Pribadi
+                                </span>
+                                <span class="mt-1 block text-[10px] opacity-75">
+                                    Hanya kamu yang mengelola
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                class="min-h-20 rounded-2xl border p-3 text-left transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500"
+                                :class="
+                                    createForm.scope === 'shared'
+                                        ? 'border-rose-500 bg-rose-50 text-rose-700 ring-1 ring-rose-500/20 dark:bg-rose-950/40 dark:text-rose-300'
+                                        : 'border-zinc-200 text-zinc-600 dark:border-zinc-700 dark:text-zinc-300'
+                                "
+                                :aria-pressed="createForm.scope === 'shared'"
+                                @click="createForm.scope = 'shared'"
+                            >
+                                <span
+                                    class="flex items-center gap-1.5 text-xs font-bold"
+                                >
+                                    <UsersRound class="h-4 w-4" /> Bersama
+                                </span>
+                                <span class="mt-1 block text-[10px] opacity-75">
+                                    Bisa dikelola berdua
+                                </span>
+                            </button>
+                        </div>
+                    </fieldset>
+
                     <div>
                         <label class="block text-xs font-medium text-zinc-500"
                             >Nama Impian</label
@@ -704,7 +895,7 @@ function confirmDeleteGoal(): void {
                         />
                     </div>
 
-                    <div v-if="wallets.length > 0">
+                    <div v-if="availableContributionWallets.length > 0">
                         <label class="block text-xs font-medium text-zinc-500"
                             >Potong dari Dompet (Opsional)</label
                         >
@@ -716,7 +907,7 @@ function confirmDeleteGoal(): void {
                                 -- Tanpa Potong Saldo Dompet --
                             </option>
                             <option
-                                v-for="w in wallets"
+                                v-for="w in availableContributionWallets"
                                 :key="w.id"
                                 :value="w.id"
                             >

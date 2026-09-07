@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $couple_space_id
  * @property int $created_by_user_id
+ * @property string $scope
  * @property string $name
  * @property string $target_amount
  * @property string $current_amount
@@ -28,6 +29,7 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'couple_space_id',
     'created_by_user_id',
+    'scope',
     'name',
     'target_amount',
     'current_amount',
@@ -41,6 +43,11 @@ class SavingsGoal extends Model
 {
     /** @use HasFactory<SavingsGoalFactory> */
     use HasFactory;
+
+    /** @var array<string, mixed> */
+    protected $attributes = [
+        'scope' => 'shared',
+    ];
 
     /**
      * @return array<string, string>

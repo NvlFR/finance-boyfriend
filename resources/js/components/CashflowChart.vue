@@ -11,6 +11,7 @@ interface DailyTrend {
 
 const props = defineProps<{
     data: DailyTrend[];
+    periodLabel: string;
 }>();
 
 const hoveredIndex = ref<number | null>(null);
@@ -35,6 +36,9 @@ const totalExpense = computed(() =>
 );
 const totalIncome = computed(() =>
     props.data.reduce((sum, d) => sum + d.income, 0),
+);
+const chartMinWidth = computed(() =>
+    props.data.length > 7 ? `${props.data.length * 44}px` : '100%',
 );
 
 function getBarHeight(val: number): number {
@@ -66,7 +70,7 @@ function toggleSelectedBar(index: number): void {
                     <h3
                         class="text-sm font-bold text-zinc-900 dark:text-zinc-100"
                     >
-                        Tren Cashflow 7 Hari
+                        Tren Cashflow {{ periodLabel }}
                     </h3>
                     <p class="text-[11px] text-zinc-500">
                         Pemasukan vs Pengeluaran Harian
@@ -91,87 +95,93 @@ function toggleSelectedBar(index: number): void {
             </div>
         </div>
 
-        <!-- 7-Day Interactive Bar Chart -->
-        <div class="pt-2">
-            <div
-                class="flex h-36 items-end justify-between gap-2 border-b border-zinc-100 px-1 pb-2 dark:border-zinc-800"
-            >
-                <button
-                    v-for="(item, index) in data"
-                    :key="item.date"
-                    type="button"
-                    class="group relative flex h-full flex-1 cursor-pointer flex-col items-center justify-end bg-transparent p-0 focus-visible:rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-                    @mouseenter="hoveredIndex = index"
-                    @mouseleave="hoveredIndex = null"
-                    @focus="hoveredIndex = index"
-                    @blur="hoveredIndex = null"
-                    @click="toggleSelectedBar(index)"
-                    :aria-label="`${item.day}, ${item.date}: pemasukan Rp ${item.income.toLocaleString('id-ID')}, pengeluaran Rp ${item.expense.toLocaleString('id-ID')}`"
-                >
-                    <!-- Tooltip on Hover -->
-                    <div
-                        v-if="hoveredIndex === index"
-                        class="pointer-events-none absolute bottom-full z-20 mb-2 flex flex-col items-center rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-[10px] whitespace-nowrap text-white shadow-xl dark:bg-zinc-800"
-                    >
-                        <span class="font-bold text-zinc-300"
-                            >{{ item.day }}, {{ item.date }}</span
-                        >
-                        <div class="mt-1 flex items-center gap-2">
-                            <span class="text-emerald-400"
-                                >+Rp
-                                {{ item.income.toLocaleString('id-ID') }}</span
-                            >
-                            <span class="text-rose-400"
-                                >-Rp
-                                {{ item.expense.toLocaleString('id-ID') }}</span
-                            >
-                        </div>
-                    </div>
-
-                    <!-- Dual Bars -->
-                    <div
-                        class="flex w-full max-w-[28px] items-end justify-center gap-1"
-                    >
-                        <!-- Income Bar -->
-                        <div
-                            class="w-full rounded-t-md bg-emerald-500 transition-all duration-300 group-hover:bg-emerald-400 group-hover:shadow-md group-hover:shadow-emerald-500/30"
-                            :style="{
-                                height: `${getBarHeight(item.income)}px`,
-                            }"
-                        />
-                        <!-- Expense Bar -->
-                        <div
-                            class="w-full rounded-t-md bg-rose-500 transition-all duration-300 group-hover:bg-rose-400 group-hover:shadow-md group-hover:shadow-rose-500/30"
-                            :style="{
-                                height: `${getBarHeight(item.expense)}px`,
-                            }"
-                        />
-                    </div>
-                </button>
-            </div>
-
-            <!-- Date Labels -->
-            <div
-                class="flex justify-between gap-2 px-1 pt-2 text-[11px] font-medium text-zinc-400"
-            >
+        <!-- Interactive Bar Chart -->
+        <div class="-mx-1 overflow-x-auto px-1 pt-2 pb-1">
+            <div :style="{ minWidth: chartMinWidth }">
                 <div
-                    v-for="(item, index) in data"
-                    :key="item.date"
-                    class="flex-1 text-center"
-                    :class="{
-                        'font-bold text-indigo-600 dark:text-indigo-400':
-                            hoveredIndex === index,
-                    }"
+                    class="flex h-36 items-end justify-between gap-2 border-b border-zinc-100 px-1 pb-2 dark:border-zinc-800"
                 >
-                    <div>{{ item.day }}</div>
-                    <div class="text-[9px] text-zinc-400">
-                        {{ item.date.split(' ')[0] }}
+                    <button
+                        v-for="(item, index) in data"
+                        :key="item.date"
+                        type="button"
+                        class="group relative flex h-full flex-1 cursor-pointer flex-col items-center justify-end bg-transparent p-0 focus-visible:rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                        @mouseenter="hoveredIndex = index"
+                        @mouseleave="hoveredIndex = null"
+                        @focus="hoveredIndex = index"
+                        @blur="hoveredIndex = null"
+                        @click="toggleSelectedBar(index)"
+                        :aria-label="`${item.day}, ${item.date}: pemasukan Rp ${item.income.toLocaleString('id-ID')}, pengeluaran Rp ${item.expense.toLocaleString('id-ID')}`"
+                    >
+                        <!-- Tooltip on Hover -->
+                        <div
+                            v-if="hoveredIndex === index"
+                            class="pointer-events-none absolute bottom-full z-20 mb-2 flex flex-col items-center rounded-xl border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-[10px] whitespace-nowrap text-white shadow-xl dark:bg-zinc-800"
+                        >
+                            <span class="font-bold text-zinc-300"
+                                >{{ item.day }}, {{ item.date }}</span
+                            >
+                            <div class="mt-1 flex items-center gap-2">
+                                <span class="text-emerald-400"
+                                    >+Rp
+                                    {{
+                                        item.income.toLocaleString('id-ID')
+                                    }}</span
+                                >
+                                <span class="text-rose-400"
+                                    >-Rp
+                                    {{
+                                        item.expense.toLocaleString('id-ID')
+                                    }}</span
+                                >
+                            </div>
+                        </div>
+
+                        <!-- Dual Bars -->
+                        <div
+                            class="flex w-full max-w-[28px] items-end justify-center gap-1"
+                        >
+                            <!-- Income Bar -->
+                            <div
+                                class="w-full rounded-t-md bg-emerald-500 transition-all duration-300 group-hover:bg-emerald-400 group-hover:shadow-md group-hover:shadow-emerald-500/30"
+                                :style="{
+                                    height: `${getBarHeight(item.income)}px`,
+                                }"
+                            />
+                            <!-- Expense Bar -->
+                            <div
+                                class="w-full rounded-t-md bg-rose-500 transition-all duration-300 group-hover:bg-rose-400 group-hover:shadow-md group-hover:shadow-rose-500/30"
+                                :style="{
+                                    height: `${getBarHeight(item.expense)}px`,
+                                }"
+                            />
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Date Labels -->
+                <div
+                    class="flex justify-between gap-2 px-1 pt-2 text-[11px] font-medium text-zinc-400"
+                >
+                    <div
+                        v-for="(item, index) in data"
+                        :key="item.date"
+                        class="flex-1 text-center"
+                        :class="{
+                            'font-bold text-indigo-600 dark:text-indigo-400':
+                                hoveredIndex === index,
+                        }"
+                    >
+                        <div>{{ item.day }}</div>
+                        <div class="text-[9px] text-zinc-400">
+                            {{ item.date.split(' ')[0] }}
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 7-Day Totals Footer -->
+        <!-- Period Totals Footer -->
         <div
             class="grid grid-cols-2 gap-2 rounded-2xl border border-zinc-100 bg-zinc-50/80 p-3 text-xs dark:border-zinc-800/80 dark:bg-zinc-800/40"
         >
@@ -182,9 +192,9 @@ function toggleSelectedBar(index: number): void {
                     <TrendingUp class="h-3.5 w-3.5" />
                 </div>
                 <div>
-                    <span class="text-[10px] text-zinc-400"
-                        >Pemasukan 7 Hari</span
-                    >
+                    <span class="text-[10px] text-zinc-400">
+                        Pemasukan {{ periodLabel }}
+                    </span>
                     <p
                         class="font-extrabold text-emerald-600 dark:text-emerald-400"
                     >
@@ -200,9 +210,9 @@ function toggleSelectedBar(index: number): void {
                     <TrendingDown class="h-3.5 w-3.5" />
                 </div>
                 <div>
-                    <span class="text-[10px] text-zinc-400"
-                        >Pengeluaran 7 Hari</span
-                    >
+                    <span class="text-[10px] text-zinc-400">
+                        Pengeluaran {{ periodLabel }}
+                    </span>
                     <p class="font-extrabold text-rose-600 dark:text-rose-400">
                         -Rp {{ totalExpense.toLocaleString('id-ID') }}
                     </p>

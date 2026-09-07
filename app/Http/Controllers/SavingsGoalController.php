@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -65,11 +66,13 @@ class SavingsGoalController extends Controller
             'target_date' => 'nullable|date',
             'icon' => 'nullable|string|max:50',
             'color' => 'nullable|string|max:20',
+            'scope' => ['sometimes', Rule::in(['personal', 'shared'])],
         ]);
 
         $goal = SavingsGoal::create([
             'couple_space_id' => $space->id,
             'created_by_user_id' => $user->id,
+            'scope' => $validated['scope'] ?? 'personal',
             'name' => $validated['name'],
             'target_amount' => $validated['target_amount'],
             'current_amount' => 0,
@@ -91,6 +94,8 @@ class SavingsGoalController extends Controller
             abort(403, 'Unauthorized.');
         }
 
+        Gate::authorize('update', $savingsGoal);
+
         $validated = $request->validate([
             'amount' => 'required|numeric|min:1',
             'wallet_id' => [
@@ -98,9 +103,17 @@ class SavingsGoalController extends Controller
                 Rule::exists('wallets', 'id')->where(fn ($query) => $query
                     ->where('couple_space_id', $space->id)
                     ->where('is_active', true)
-                    ->where(fn ($walletQuery) => $walletQuery
-                        ->where('user_id', $user->id)
-                        ->orWhere('type', 'joint'))),
+                    ->where(function ($walletQuery) use ($savingsGoal, $user): void {
+                        if ($savingsGoal->scope === 'personal') {
+                            $walletQuery->where('type', 'personal')->where('user_id', $user->id);
+
+                            return;
+                        }
+
+                        $walletQuery->where(fn ($allowedWalletQuery) => $allowedWalletQuery
+                            ->where('user_id', $user->id)
+                            ->orWhere('type', 'joint'));
+                    })),
             ],
             'notes' => 'nullable|string|max:255',
             'client_reference' => 'nullable|string|max:64',
@@ -118,13 +131,28 @@ class SavingsGoalController extends Controller
         try {
             DB::transaction(function () use ($user, $savingsGoal, $validated, $space, $clientReference) {
                 $amount = (float) $validated['amount'];
-                $lockedGoal = SavingsGoal::query()->whereKey($savingsGoal->id)->lockForUpdate()->firstOrFail();
+                $lockedGoal = SavingsGoal::query()
+                    ->whereKey($savingsGoal->id)
+                    ->where('couple_space_id', $space->id)
+                    ->where(function ($query) use ($user): void {
+                        $query->where('scope', 'shared')->orWhere('created_by_user_id', $user->id);
+                    })
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
                 if (! empty($validated['wallet_id'])) {
                     $wallet = Wallet::query()
                         ->where('couple_space_id', $space->id)
-                        ->where(function ($query) use ($user) {
-                            $query->where('user_id', $user->id)->orWhere('type', 'joint');
+                        ->where(function ($query) use ($lockedGoal, $user): void {
+                            if ($lockedGoal->scope === 'personal') {
+                                $query->where('type', 'personal')->where('user_id', $user->id);
+
+                                return;
+                            }
+
+                            $query->where(fn ($allowedWalletQuery) => $allowedWalletQuery
+                                ->where('user_id', $user->id)
+                                ->orWhere('type', 'joint'));
                         })
                         ->whereKey($validated['wallet_id'])
                         ->lockForUpdate()
@@ -183,6 +211,8 @@ class SavingsGoalController extends Controller
             abort(403, 'Unauthorized.');
         }
 
+        Gate::authorize('update', $savingsGoal);
+
         $validated = $request->validate([
             'name' => 'required|string|max:100',
             'target_amount' => 'required|numeric|min:1',
@@ -207,6 +237,8 @@ class SavingsGoalController extends Controller
         if (! $space || $savingsGoal->couple_space_id !== $space->id) {
             abort(403, 'Unauthorized.');
         }
+
+        Gate::authorize('delete', $savingsGoal);
 
         DB::transaction(function () use ($savingsGoal): void {
             $lockedGoal = SavingsGoal::query()->whereKey($savingsGoal->id)->lockForUpdate()->firstOrFail();

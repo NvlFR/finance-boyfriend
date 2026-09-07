@@ -6,6 +6,7 @@ use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CoupleSpaceController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\InvestmentController;
 use App\Http\Controllers\SavingsGoalController;
 use App\Http\Controllers\SettlementController;
 use App\Http\Controllers\SubscriptionController;
@@ -91,6 +92,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('budgets', [BudgetController::class, 'store'])->name('budgets.store');
     Route::put('budgets/{budget}', [BudgetController::class, 'update'])->name('budgets.update');
     Route::delete('budgets/{budget}', [BudgetController::class, 'destroy'])->name('budgets.destroy');
+
+    Route::get('investments', [InvestmentController::class, 'index'])->name('investments.index');
+    Route::post('investments', [InvestmentController::class, 'store'])->name('investments.store');
+    Route::post('investments/{investment}/transactions', [InvestmentController::class, 'transact'])->name('investments.transact');
+    Route::patch('investments/{investment}/price', [InvestmentController::class, 'updatePrice'])->name('investments.price.update');
+    Route::delete('investments/{investment}', [InvestmentController::class, 'destroy'])->name('investments.destroy');
 
     // Trips Live Tracker routes
     Route::get('trips', [TripController::class, 'index'])->name('trips.index');

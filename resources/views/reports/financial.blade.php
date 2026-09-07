@@ -76,10 +76,11 @@
                                     <h3 class="font-black text-zinc-900">{{ $member['name'] }}</h3>
                                     <span class="rounded-full bg-zinc-100 px-3 py-1 text-[10px] font-bold text-zinc-600">Per orang</span>
                                 </div>
-                                <dl class="mt-4 grid grid-cols-3 gap-2 text-xs">
+                                <dl class="mt-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
                                     <div><dt class="text-zinc-500">Pemasukan</dt><dd class="mt-1 font-bold text-emerald-700">Rp {{ number_format($member['income'], 0, ',', '.') }}</dd></div>
                                     <div><dt class="text-zinc-500">Pengeluaran</dt><dd class="mt-1 font-bold text-rose-700">Rp {{ number_format($member['expense'], 0, ',', '.') }}</dd></div>
                                     <div><dt class="text-zinc-500">Saldo dompet</dt><dd class="mt-1 font-bold text-zinc-900">Rp {{ number_format($member['wallet_balance'], 0, ',', '.') }}</dd></div>
+                                    <div><dt class="text-zinc-500">Investasi</dt><dd class="mt-1 font-bold text-sky-700">Rp {{ number_format($member['investment_value'], 0, ',', '.') }}</dd></div>
                                 </dl>
                             </article>
                         @endforeach
@@ -108,6 +109,25 @@
                             </article>
                         @empty
                             <p class="text-sm text-zinc-500">Belum ada dompet aktif.</p>
+                        @endforelse
+                    </div>
+                    <div class="mt-5 flex items-end justify-between gap-3">
+                        <div><p class="text-xs font-bold tracking-[0.16em] text-sky-600 uppercase">Portofolio</p><h3 class="text-lg font-black text-zinc-900">Investasi</h3></div>
+                        <div class="text-right"><p class="text-xs text-zinc-500">Untung/rugi berjalan</p><p @class(['font-black', 'text-emerald-700' => $investmentSummary['unrealized_profit_loss'] >= 0, 'text-rose-700' => $investmentSummary['unrealized_profit_loss'] < 0])>Rp {{ number_format($investmentSummary['unrealized_profit_loss'], 0, ',', '.') }}</p></div>
+                    </div>
+                    <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        @forelse ($investments as $investment)
+                            @php
+                                $marketValue = (float) $investment->quantity * (float) $investment->current_price;
+                                $costBasis = (float) $investment->quantity * (float) $investment->average_buy_price;
+                            @endphp
+                            <article class="report-card rounded-2xl border border-sky-100 bg-sky-50/50 p-4">
+                                <div class="flex items-start justify-between gap-3"><div><p class="font-bold text-zinc-900">{{ $investment->name }}</p><p class="text-xs text-zinc-500">{{ $investment->symbol ?: ucfirst(str_replace('_', ' ', $investment->asset_type)) }} · {{ $investment->scope === 'shared' ? 'Bersama' : ($investment->user?->nickname ?: $investment->user?->name ?: 'Pribadi') }}</p></div><span class="rounded-full bg-sky-100 px-2 py-1 text-[10px] font-bold text-sky-700">{{ number_format((float) $investment->quantity, 8, ',', '.') }} unit</span></div>
+                                <p class="mt-4 text-lg font-black text-sky-950">Rp {{ number_format($marketValue, 0, ',', '.') }}</p>
+                                <p @class(['mt-1 text-xs font-bold', 'text-emerald-700' => $marketValue >= $costBasis, 'text-rose-700' => $marketValue < $costBasis])>Untung/rugi Rp {{ number_format($marketValue - $costBasis, 0, ',', '.') }}</p>
+                            </article>
+                        @empty
+                            <p class="text-sm text-zinc-500">Belum ada portofolio investasi.</p>
                         @endforelse
                     </div>
                 </section>

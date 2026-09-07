@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Transaction\StoreTransactionRequest;
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\Investment;
 use App\Models\SavingsContribution;
 use App\Models\SavingsGoal;
 use App\Models\Subscription;
@@ -303,6 +304,12 @@ class TransactionController extends Controller
             ->with(['paidByUser:id,name,nickname', 'wallet:id,name'])
             ->orderBy('next_billing_date')
             ->get();
+        $investments = Investment::query()
+            ->where('couple_space_id', $space->id)
+            ->where('is_active', true)
+            ->with('user:id,name,nickname')
+            ->orderByDesc('current_price')
+            ->get();
         $filters = $request->only(['search', 'scope', 'type', 'category_id', 'wallet_id', 'start_date', 'end_date']);
 
         return view('reports.financial', $this->transactionReportService->financialReport(
@@ -313,6 +320,7 @@ class TransactionController extends Controller
             $budgets,
             $savingsGoals,
             $subscriptions,
+            $investments,
             $this->settlementService->getUnsettledBalance($space),
             $filters,
         ));

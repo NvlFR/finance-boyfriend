@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use Database\Factories\WalletFactory;
+use Database\Factories\InvestmentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,13 +15,14 @@ use Illuminate\Support\Carbon;
  * @property int $couple_space_id
  * @property int|null $user_id
  * @property string $name
- * @property string $type
- * @property string $wallet_type
- * @property string|null $account_number
- * @property string $balance
+ * @property string|null $symbol
+ * @property string $asset_type
+ * @property string $scope
+ * @property string $quantity
+ * @property string $average_buy_price
+ * @property string $current_price
+ * @property string $realized_profit_loss
  * @property string $currency
- * @property string $color
- * @property string $icon
  * @property bool $is_active
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -30,63 +31,58 @@ use Illuminate\Support\Carbon;
     'couple_space_id',
     'user_id',
     'name',
-    'type',
-    'wallet_type',
-    'account_number',
-    'balance',
+    'symbol',
+    'asset_type',
+    'scope',
+    'quantity',
+    'average_buy_price',
+    'current_price',
+    'realized_profit_loss',
     'currency',
-    'color',
-    'icon',
     'is_active',
 ])]
-class Wallet extends Model
+class Investment extends Model
 {
-    /** @use HasFactory<WalletFactory> */
+    /** @use HasFactory<InvestmentFactory> */
     use HasFactory;
 
-    /**
-     * @return array<string, string>
-     */
+    /** @var array<string, mixed> */
+    protected $attributes = [
+        'scope' => 'personal',
+        'quantity' => 0,
+        'average_buy_price' => 0,
+        'current_price' => 0,
+        'realized_profit_loss' => 0,
+        'currency' => 'IDR',
+        'is_active' => true,
+    ];
+
+    /** @return array<string, string> */
     protected function casts(): array
     {
         return [
-            'balance' => 'decimal:2',
+            'quantity' => 'decimal:8',
+            'average_buy_price' => 'decimal:2',
+            'current_price' => 'decimal:2',
+            'realized_profit_loss' => 'decimal:2',
             'is_active' => 'boolean',
         ];
     }
 
-    /**
-     * Couple space this wallet belongs to.
-     *
-     * @return BelongsTo<CoupleSpace, $this>
-     */
+    /** @return BelongsTo<CoupleSpace, $this> */
     public function coupleSpace(): BelongsTo
     {
         return $this->belongsTo(CoupleSpace::class);
     }
 
-    /**
-     * Owner of the wallet (null if joint wallet).
-     *
-     * @return BelongsTo<User, $this>
-     */
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Transactions originating from this wallet.
-     *
-     * @return HasMany<Transaction, $this>
-     */
-    public function transactions(): HasMany
-    {
-        return $this->hasMany(Transaction::class);
-    }
-
     /** @return HasMany<InvestmentTransaction, $this> */
-    public function investmentTransactions(): HasMany
+    public function transactions(): HasMany
     {
         return $this->hasMany(InvestmentTransaction::class);
     }

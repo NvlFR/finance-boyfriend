@@ -95,6 +95,42 @@ export type SavingsMovement = {
     user?: User;
 };
 
+export type InvestmentTransaction = {
+    id: number;
+    investment_id: number;
+    user_id: number;
+    wallet_id: number | null;
+    type: 'buy' | 'sell';
+    quantity: number | string;
+    unit_price: number | string;
+    gross_amount: number | string;
+    fee_amount: number | string;
+    realized_profit_loss: number | string;
+    transaction_date: string;
+    notes: string | null;
+    user?: User;
+    wallet?: Pick<Wallet, 'id' | 'name'>;
+};
+
+export type Investment = {
+    id: number;
+    couple_space_id: number;
+    user_id: number | null;
+    name: string;
+    symbol: string | null;
+    asset_type:
+        'stock' | 'mutual_fund' | 'crypto' | 'gold' | 'deposit' | 'other';
+    scope: 'personal' | 'shared';
+    quantity: number | string;
+    average_buy_price: number | string;
+    current_price: number | string;
+    realized_profit_loss: number | string;
+    currency: string;
+    is_active: boolean;
+    user?: User | null;
+    transactions?: InvestmentTransaction[];
+};
+
 export type Settlement = {
     id: number;
     couple_space_id: number;

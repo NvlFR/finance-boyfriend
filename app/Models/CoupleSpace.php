@@ -158,6 +158,12 @@ class CoupleSpace extends Model
         return $this->hasMany(Budget::class);
     }
 
+    /** @return HasMany<Investment, $this> */
+    public function investments(): HasMany
+    {
+        return $this->hasMany(Investment::class);
+    }
+
     /** @return HasOne<BirthdaySurprise, $this> */
     public function birthdaySurprise(): HasOne
     {

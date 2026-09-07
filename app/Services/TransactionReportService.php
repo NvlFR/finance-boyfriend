@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Budget;
 use App\Models\CoupleSpace;
+use App\Models\Investment;
 use App\Models\SavingsGoal;
 use App\Models\Subscription;
 use App\Models\Transaction;
@@ -58,6 +59,7 @@ class TransactionReportService
      * @param  Collection<int, Budget>  $budgets
      * @param  Collection<int, SavingsGoal>  $savingsGoals
      * @param  Collection<int, Subscription>  $subscriptions
+     * @param  Collection<int, Investment>  $investments
      * @param  array<string, mixed>  $settlementDebt
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
@@ -70,6 +72,7 @@ class TransactionReportService
         Collection $budgets,
         Collection $savingsGoals,
         Collection $subscriptions,
+        Collection $investments,
         array $settlementDebt,
         array $filters,
     ): array {
@@ -80,10 +83,16 @@ class TransactionReportService
         $expense = (float) $expenses->sum('amount');
         $transferFees = (float) $transfers->sum('fee_amount');
         $savedAmount = (float) $savingsGoals->sum('current_amount');
+        $investmentValue = $investments->sum(
+            fn (Investment $investment): float => (float) $investment->quantity * (float) $investment->current_price
+        );
+        $investmentCostBasis = $investments->sum(
+            fn (Investment $investment): float => (float) $investment->quantity * (float) $investment->average_buy_price
+        );
 
         $members = collect([$space->userOne, $space->userTwo])
             ->filter()
-            ->map(function ($member) use ($incomes, $expenses, $transfers, $wallets): array {
+            ->map(function ($member) use ($incomes, $expenses, $transfers, $wallets, $investments): array {
                 $memberFees = (float) $transfers->where('user_id', $member->id)->sum('fee_amount');
 
                 return [
@@ -91,6 +100,9 @@ class TransactionReportService
                     'income' => (float) $incomes->where('user_id', $member->id)->sum('amount'),
                     'expense' => (float) $expenses->where('user_id', $member->id)->sum('amount') + $memberFees,
                     'wallet_balance' => (float) $wallets->where('user_id', $member->id)->sum('balance'),
+                    'investment_value' => $investments->where('user_id', $member->id)->sum(
+                        fn (Investment $investment): float => (float) $investment->quantity * (float) $investment->current_price
+                    ),
                 ];
             })
             ->values();
@@ -158,7 +170,13 @@ class TransactionReportService
                 'surplus' => $income - $expense - $transferFees,
                 'transfer_amount' => (float) $transfers->sum('amount'),
                 'transaction_count' => $transactions->count(),
-                'net_worth' => (float) $wallets->sum('balance') + $savedAmount,
+                'net_worth' => (float) $wallets->sum('balance') + $savedAmount + $investmentValue,
+            ],
+            'investmentSummary' => [
+                'market_value' => $investmentValue,
+                'cost_basis' => $investmentCostBasis,
+                'unrealized_profit_loss' => $investmentValue - $investmentCostBasis,
+                'realized_profit_loss' => (float) $investments->sum('realized_profit_loss'),
             ],
             'members' => $members,
             'scopeSummary' => [
@@ -170,6 +188,7 @@ class TransactionReportService
             'budgetSummary' => $budgetSummary,
             'savingsGoals' => $savingsGoals,
             'subscriptions' => $subscriptions,
+            'investments' => $investments,
             'settlementDebt' => $settlementDebt,
             'transactions' => $transactions,
         ];
