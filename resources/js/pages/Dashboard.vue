@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
-    BanknoteArrowDown,
-    BanknoteArrowUp,
+    ArrowDownToLine,
+    ArrowUpFromLine,
     ChevronRight,
     Heart,
     Plus,
@@ -15,6 +15,7 @@ import {
     ArrowDownLeft,
     ArrowRightLeft,
     Target,
+    Ellipsis,
     Gift,
     Repeat,
     PieChart,
@@ -145,6 +146,10 @@ const props = withDefaults(
 
 const activeTab = ref<'all' | 'mine' | 'partner' | 'joint'>('all');
 const isChartFiltering = ref(false);
+const showMoreFeatures = ref(false);
+const dashboardCoverUrl = computed(
+    () => props.coupleSpace?.dashboard_cover_url || null,
+);
 const { openModal, openModalWithDefaults } = useTransactionModal();
 const chartPeriods: Array<{ label: string; value: ChartPeriod }> = [
     { label: '7 Hari', value: '7d' },
@@ -359,10 +364,22 @@ function selectChartPeriod(period: ChartPeriod): void {
         <div
             class="relative isolate overflow-hidden rounded-[1.75rem] border border-indigo-900/10 bg-gradient-to-br from-indigo-950 via-indigo-900 to-rose-900 p-5 text-white shadow-xl shadow-indigo-950/15 sm:p-7 dark:border-white/10"
         >
+            <img
+                v-if="dashboardCoverUrl"
+                :src="dashboardCoverUrl"
+                alt=""
+                class="absolute inset-0 -z-30 h-full w-full object-cover"
+            />
             <div
+                v-if="dashboardCoverUrl"
+                class="absolute inset-0 -z-20 bg-gradient-to-br from-slate-950/85 via-indigo-950/60 to-rose-950/65"
+            />
+            <div
+                v-else
                 class="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_76%_18%,rgba(251,113,133,0.75),transparent_27%),radial-gradient(circle_at_53%_56%,rgba(251,146,60,0.5),transparent_34%),linear-gradient(135deg,transparent_35%,rgba(255,255,255,0.08))]"
             />
             <svg
+                v-if="!dashboardCoverUrl"
                 class="absolute right-0 bottom-0 left-0 -z-10 h-1/2 w-full opacity-70"
                 viewBox="0 0 900 220"
                 preserveAspectRatio="none"
@@ -443,7 +460,7 @@ function selectChartPeriod(period: ChartPeriod): void {
                 @click="openModalWithDefaults({ type: 'transfer' })"
             >
                 <span
-                    class="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-indigo-700 transition-transform group-hover:scale-105 dark:bg-indigo-950 dark:text-indigo-300"
+                    class="pointer-events-none flex h-10 w-10 shrink-0 translate-y-0.5 items-center justify-center rounded-full bg-indigo-50 text-indigo-700 transition-colors group-hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300 dark:group-hover:bg-indigo-900"
                 >
                     <ArrowRightLeft class="h-5 w-5" />
                 </span>
@@ -455,9 +472,9 @@ function selectChartPeriod(period: ChartPeriod): void {
                 @click="openModalWithDefaults({ type: 'income' })"
             >
                 <span
-                    class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 transition-transform group-hover:scale-105 dark:bg-emerald-950 dark:text-emerald-300"
+                    class="pointer-events-none flex h-10 w-10 shrink-0 translate-y-0.5 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 transition-colors group-hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 dark:group-hover:bg-emerald-900"
                 >
-                    <BanknoteArrowDown class="h-5 w-5" />
+                    <ArrowDownToLine class="h-5 w-5" />
                 </span>
                 Pemasukan
             </button>
@@ -467,23 +484,26 @@ function selectChartPeriod(period: ChartPeriod): void {
                 @click="openModalWithDefaults({ type: 'expense' })"
             >
                 <span
-                    class="flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-600 transition-transform group-hover:scale-105 dark:bg-rose-950 dark:text-rose-300"
+                    class="pointer-events-none flex h-10 w-10 shrink-0 translate-y-0.5 items-center justify-center rounded-full bg-rose-50 text-rose-600 transition-colors group-hover:bg-rose-100 dark:bg-rose-950 dark:text-rose-300 dark:group-hover:bg-rose-900"
                 >
-                    <BanknoteArrowUp class="h-5 w-5" />
+                    <ArrowUpFromLine class="h-5 w-5" />
                 </span>
                 Pengeluaran
             </button>
-            <Link
-                href="/goals"
+            <button
+                type="button"
                 class="group flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-2xl text-center text-[10px] font-bold text-slate-700 transition hover:bg-violet-50 dark:text-zinc-200 dark:hover:bg-violet-950/40"
+                :aria-expanded="showMoreFeatures"
+                aria-controls="dashboard-feature-menu"
+                @click="showMoreFeatures = !showMoreFeatures"
             >
                 <span
-                    class="flex h-10 w-10 items-center justify-center rounded-full bg-violet-50 text-violet-700 transition-transform group-hover:scale-105 dark:bg-violet-950 dark:text-violet-300"
+                    class="pointer-events-none flex h-10 w-10 shrink-0 translate-y-0.5 items-center justify-center rounded-full bg-violet-50 text-violet-700 transition-colors group-hover:bg-violet-100 dark:bg-violet-950 dark:text-violet-300 dark:group-hover:bg-violet-900"
                 >
-                    <Target class="h-5 w-5" />
+                    <Ellipsis class="h-5 w-5" />
                 </span>
-                Buat Tabungan
-            </Link>
+                {{ showMoreFeatures ? 'Lebih sedikit' : 'Lihat lainnya' }}
+            </button>
         </div>
 
         <!-- Upcoming Subscription Bill Reminder Banner -->
@@ -543,7 +563,10 @@ function selectChartPeriod(period: ChartPeriod): void {
         </div>
 
         <!-- Quick Couple Features Grid -->
-        <div class="grid grid-cols-4 gap-2 text-center sm:grid-cols-8">
+        <div
+            id="dashboard-feature-menu"
+            class="grid grid-cols-4 gap-2 text-center sm:grid-cols-8"
+        >
             <!-- Goals -->
             <Link
                 href="/goals"
@@ -611,7 +634,8 @@ function selectChartPeriod(period: ChartPeriod): void {
             <!-- Investments -->
             <Link
                 href="/investments"
-                class="flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-200/80 bg-white p-3 shadow-sm transition-all hover:border-sky-300 dark:border-zinc-800 dark:bg-zinc-900"
+                class="flex-col items-center gap-1.5 rounded-2xl border border-zinc-200/80 bg-white p-3 shadow-sm transition-all hover:border-sky-300 sm:flex dark:border-zinc-800 dark:bg-zinc-900"
+                :class="showMoreFeatures ? 'flex' : 'hidden'"
             >
                 <div
                     class="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400"
@@ -627,7 +651,8 @@ function selectChartPeriod(period: ChartPeriod): void {
             <!-- Couple Space -->
             <Link
                 href="/couple-space"
-                class="flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-200/80 bg-white p-3 shadow-sm transition-all hover:border-pink-300 dark:border-zinc-800 dark:bg-zinc-900"
+                class="flex-col items-center gap-1.5 rounded-2xl border border-zinc-200/80 bg-white p-3 shadow-sm transition-all hover:border-pink-300 sm:flex dark:border-zinc-800 dark:bg-zinc-900"
+                :class="showMoreFeatures ? 'flex' : 'hidden'"
             >
                 <div
                     class="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-500/10 text-pink-600 dark:bg-pink-500/20 dark:text-pink-400"
@@ -643,7 +668,8 @@ function selectChartPeriod(period: ChartPeriod): void {
             <Link
                 :href="settlementsIndex()"
                 prefetch
-                class="flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-200/80 bg-white p-3 shadow-sm transition-all hover:border-amber-300 dark:border-zinc-800 dark:bg-zinc-900"
+                class="flex-col items-center gap-1.5 rounded-2xl border border-zinc-200/80 bg-white p-3 shadow-sm transition-all hover:border-amber-300 sm:flex dark:border-zinc-800 dark:bg-zinc-900"
+                :class="showMoreFeatures ? 'flex' : 'hidden'"
             >
                 <div
                     class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400"
@@ -660,7 +686,8 @@ function selectChartPeriod(period: ChartPeriod): void {
             <Link
                 :href="tripsIndex()"
                 prefetch
-                class="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-sky-200/80 bg-gradient-to-r from-sky-50 to-indigo-50 p-3 text-center shadow-sm transition-all hover:border-sky-300 dark:border-sky-900/70 dark:from-sky-950/50 dark:to-indigo-950/40"
+                class="flex-col items-center justify-center gap-1.5 rounded-2xl border border-sky-200/80 bg-gradient-to-r from-sky-50 to-indigo-50 p-3 text-center shadow-sm transition-all hover:border-sky-300 sm:flex dark:border-sky-900/70 dark:from-sky-950/50 dark:to-indigo-950/40"
+                :class="showMoreFeatures ? 'flex' : 'hidden'"
             >
                 <div
                     class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400"

@@ -16,6 +16,7 @@ import {
     Plus,
 } from '@lucide/vue';
 import { ref, computed, watch } from 'vue';
+import CurrencyInput from '@/components/CurrencyInput.vue';
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
 import { store as categoryStore } from '@/routes/categories';
 import { store as transactionStore } from '@/routes/transactions';
@@ -320,6 +321,7 @@ function selectCategory(id: number | null) {
 function submit() {
     form.post(transactionStore.url(), {
         preserveScroll: true,
+        replace: true,
         onSuccess: () => {
             form.reset();
             emit('update:open', false);
@@ -444,14 +446,12 @@ function submit() {
                             class="absolute top-1/2 left-0 -translate-y-1/2 text-2xl font-black text-zinc-400"
                             >Rp</span
                         >
-                        <input
+                        <CurrencyInput
                             v-model="form.amount"
                             id="transaction-amount"
-                            type="number"
                             placeholder="0"
                             required
                             min="1"
-                            step="1"
                             class="w-full bg-transparent py-2 pr-2 pl-12 text-3xl font-black tracking-tight text-zinc-900 focus:outline-none dark:text-zinc-100"
                         />
                     </div>
@@ -810,13 +810,10 @@ function submit() {
                                 class="absolute top-1/2 left-3 -translate-y-1/2 text-xs font-bold text-zinc-500"
                                 >Rp</span
                             >
-                            <input
+                            <CurrencyInput
                                 id="transaction-fee"
                                 v-model="form.fee_amount"
-                                type="number"
                                 min="0"
-                                step="1"
-                                inputmode="numeric"
                                 class="min-h-11 w-full rounded-xl border border-amber-200 bg-white py-2 pr-3 pl-9 text-sm font-bold text-zinc-900 focus:border-amber-500 focus:outline-none dark:border-amber-900 dark:bg-zinc-900 dark:text-zinc-100"
                             />
                         </div>

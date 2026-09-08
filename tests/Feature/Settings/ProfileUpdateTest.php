@@ -25,6 +25,38 @@ test('profile only shows pairing code before a partner joins and has no account 
         ->not->toContain('<DeleteUser />');
 });
 
+test('personal information form is hidden behind an accessible settings menu item', function () {
+    $profilePage = file_get_contents(resource_path('js/pages/settings/Profile.vue'));
+
+    expect($profilePage)
+        ->toContain('const isProfileDetailsOpen = ref(false)')
+        ->toContain(':aria-expanded="isProfileDetailsOpen"')
+        ->toContain('aria-controls="profile-details-panel"')
+        ->toContain('v-show="isProfileDetailsOpen"')
+        ->toContain('Informasi Data Diri')
+        ->toContain('Edit profil kamu');
+});
+
+test('profile couple hero reuses the custom couple space cover', function () {
+    $profilePage = file_get_contents(resource_path('js/pages/settings/Profile.vue'));
+
+    expect($profilePage)
+        ->toContain('v-if="coupleSpace?.dashboard_cover_url"')
+        ->toContain(':src="coupleSpace.dashboard_cover_url"')
+        ->toContain('from-slate-950/85 via-zinc-950/70 to-rose-950/75');
+});
+
+test('settings layout uses the same page header as finance pages', function () {
+    $settingsLayout = file_get_contents(resource_path('js/layouts/settings/Layout.vue'));
+
+    expect($settingsLayout)
+        ->toContain("import PageHeader from '@/components/PageHeader.vue'")
+        ->toContain('title="Pengaturan Akun"')
+        ->toContain('aria-label="Navigasi pengaturan akun"')
+        ->toContain('grid grid-cols-3 gap-1')
+        ->toContain('bg-indigo-900 text-white');
+});
+
 test('profile information can be updated', function () {
     $user = User::factory()->create();
 

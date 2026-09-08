@@ -2,7 +2,6 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import {
     Target,
-    Plus,
     Sparkles,
     CheckCircle2,
     Trophy,
@@ -13,10 +12,13 @@ import {
     UserRound,
     UsersRound,
     LockKeyhole,
+    ShoppingBag,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
+import CurrencyInput from '@/components/CurrencyInput.vue';
 import FormErrorSummary from '@/components/FormErrorSummary.vue';
+import PageHeader from '@/components/PageHeader.vue';
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
 import {
     contribute as goalContribute,
@@ -264,29 +266,19 @@ function confirmDeleteGoal(): void {
     <Head title="Tabungan - Couple Finance" />
 
     <div class="mx-auto max-w-4xl space-y-4 sm:space-y-5">
-        <!-- Top Bar Action -->
-        <div
-            class="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center"
-        >
-            <div class="min-w-0">
-                <h1
-                    class="text-2xl font-black tracking-tight text-slate-950 dark:text-white"
-                >
-                    Tabungan
-                </h1>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Tujuan yang sedang kamu bangun
-                </p>
-            </div>
-
+        <PageHeader title="Tabungan" subtitle="Tujuan yang sedang kamu bangun">
             <button
                 type="button"
                 @click="openCreateModal"
-                class="flex min-h-11 items-center gap-1.5 rounded-2xl bg-indigo-900 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-900/15 transition-all hover:bg-indigo-800 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-2xl text-indigo-900 transition-colors hover:bg-indigo-50 sm:w-auto sm:gap-2 sm:bg-indigo-900 sm:px-4 sm:text-white sm:shadow-lg sm:shadow-indigo-900/15 sm:hover:bg-indigo-800 dark:text-indigo-300 sm:dark:bg-indigo-500 sm:dark:text-white sm:dark:hover:bg-indigo-400"
+                aria-label="Buat target tabungan"
             >
-                <Plus class="h-4 w-4" /> Buat Target
+                <ShoppingBag class="h-5 w-5" />
+                <span class="hidden text-xs font-bold sm:inline"
+                    >Buat Target</span
+                >
             </button>
-        </div>
+        </PageHeader>
 
         <!-- Summary Progress Banner -->
         <div
@@ -676,9 +668,8 @@ function confirmDeleteGoal(): void {
                         <label class="block text-xs font-medium text-zinc-500"
                             >Target Nominal (Rp)</label
                         >
-                        <input
+                        <CurrencyInput
                             v-model="createForm.target_amount"
-                            type="number"
                             placeholder="0"
                             required
                             min="1000"
@@ -789,9 +780,8 @@ function confirmDeleteGoal(): void {
                         <label class="block text-xs font-medium text-zinc-500"
                             >Target Nominal (Rp)</label
                         >
-                        <input
+                        <CurrencyInput
                             v-model="editForm.target_amount"
-                            type="number"
                             required
                             min="1000"
                             class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
@@ -907,9 +897,8 @@ function confirmDeleteGoal(): void {
                         <label class="block text-xs font-medium text-zinc-500"
                             >Nominal Setoran (Rp)</label
                         >
-                        <input
+                        <CurrencyInput
                             v-model="contributeForm.amount"
-                            type="number"
                             placeholder="Contoh: 100000"
                             required
                             min="1000"

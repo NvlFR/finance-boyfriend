@@ -12,6 +12,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
+import CurrencyInput from '@/components/CurrencyInput.vue';
 import FormErrorSummary from '@/components/FormErrorSummary.vue';
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
 import { useTransactionModal } from '@/composables/useTransactionModal';
@@ -400,9 +401,8 @@ function recordBudgetExpense(budget: BudgetItem) {
                             }}
                             (Rp)</label
                         >
-                        <input
+                        <CurrencyInput
                             v-model="createForm.limit_amount"
-                            type="number"
                             placeholder="0"
                             required
                             min="1"
@@ -537,12 +537,10 @@ function recordBudgetExpense(budget: BudgetItem) {
                             }}
                             (Rp)</label
                         >
-                        <input
+                        <CurrencyInput
                             v-model="editForm.limit_amount"
-                            type="number"
                             required
                             min="1"
-                            step="1"
                             class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
                         />
                     </div>

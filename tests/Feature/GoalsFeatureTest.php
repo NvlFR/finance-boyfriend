@@ -382,3 +382,13 @@ test('savings goals mobile UI provides personal and shared choices', function ()
         ->toContain("goal.scope === 'shared'")
         ->toContain('min-h-11');
 });
+
+test('savings page uses the shared compact mobile header', function () {
+    $page = file_get_contents(resource_path('js/pages/Goals/Index.vue'));
+
+    expect($page)
+        ->toContain("import PageHeader from '@/components/PageHeader.vue'")
+        ->toContain('title="Tabungan"')
+        ->toContain('<ShoppingBag')
+        ->toContain('aria-label="Buat target tabungan"');
+});

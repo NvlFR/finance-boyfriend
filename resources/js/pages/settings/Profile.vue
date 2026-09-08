@@ -12,6 +12,7 @@ import {
     Users,
     Camera,
     Tag,
+    ChevronDown,
 } from '@lucide/vue';
 import { ref, computed, onBeforeUnmount } from 'vue';
 import InputError from '@/components/InputError.vue';
@@ -30,6 +31,7 @@ const partner = computed(() => (page.props as any).partner as User | null);
 const isCopied = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 const avatarPreview = ref<string | null>(null);
+const isProfileDetailsOpen = ref(false);
 
 const themeColors = [
     { label: 'Indigo', value: '#6366F1' },
@@ -109,6 +111,9 @@ function submitProfile() {
     })).post('/settings/profile', {
         preserveScroll: true,
         forceFormData: true,
+        onSuccess: () => {
+            isProfileDetailsOpen.value = false;
+        },
     });
 }
 
@@ -125,14 +130,25 @@ function handleLogout() {
     <div class="space-y-6">
         <!-- Couple Status Hero Card -->
         <div
-            class="relative overflow-hidden rounded-3xl border border-zinc-200/80 bg-gradient-to-br from-indigo-900/90 via-zinc-900 to-zinc-950 p-6 text-white shadow-xl dark:border-zinc-800"
+            class="relative isolate overflow-hidden rounded-3xl border border-zinc-200/80 bg-gradient-to-br from-indigo-900/90 via-zinc-900 to-zinc-950 p-6 text-white shadow-xl dark:border-zinc-800"
         >
-            <!-- Ambient Glow -->
-            <div
-                class="absolute -top-8 -right-8 h-32 w-32 rounded-full bg-rose-500/20 blur-2xl"
+            <img
+                v-if="coupleSpace?.dashboard_cover_url"
+                :src="coupleSpace.dashboard_cover_url"
+                alt=""
+                class="absolute inset-0 z-0 h-full w-full object-cover"
             />
             <div
-                class="absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-indigo-500/20 blur-2xl"
+                v-if="coupleSpace?.dashboard_cover_url"
+                class="absolute inset-0 z-[1] bg-gradient-to-br from-slate-950/85 via-zinc-950/70 to-rose-950/75"
+            />
+
+            <!-- Ambient Glow -->
+            <div
+                class="absolute -top-8 -right-8 z-[2] h-32 w-32 rounded-full bg-rose-500/20 blur-2xl"
+            />
+            <div
+                class="absolute -bottom-8 -left-8 z-[2] h-32 w-32 rounded-full bg-indigo-500/20 blur-2xl"
             />
 
             <div
@@ -277,7 +293,7 @@ function handleLogout() {
             <!-- Invite code is only needed until a partner joins. -->
             <div
                 v-if="coupleSpace?.invite_code && !partner"
-                class="mt-5 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 backdrop-blur-md"
+                class="relative z-10 mt-5 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 backdrop-blur-md"
             >
                 <span class="text-xs text-zinc-400"
                     >Kode Pairing:
@@ -301,200 +317,259 @@ function handleLogout() {
         </div>
 
         <!-- Form Edit Data Diri -->
-        <div
-            class="space-y-6 rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+        <section
+            class="overflow-hidden rounded-3xl border border-zinc-200/80 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
         >
-            <div class="border-b border-zinc-100 pb-3 dark:border-zinc-800">
-                <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    Informasi Data Diri
-                </h3>
-                <p class="text-xs text-zinc-500">
-                    Perbarui foto profil, nama lengkap, nama panggilan sayang,
-                    dan warna tema
-                </p>
-            </div>
-
-            <form @submit.prevent="submitProfile" class="space-y-4">
-                <!-- Hidden File Input for Avatar -->
-                <input
-                    ref="fileInput"
-                    type="file"
-                    :disabled="avatarForm.processing"
-                    accept="image/png,image/jpeg,image/jpg,image/webp"
-                    @change="handleFileSelect"
-                    class="hidden"
-                />
-
-                <!-- Centered Modern Profile Picture Picker -->
-                <div
-                    class="flex flex-col items-center justify-center py-2 text-center"
-                >
+            <button
+                type="button"
+                class="flex min-h-20 w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/70"
+                :aria-expanded="isProfileDetailsOpen"
+                aria-controls="profile-details-panel"
+                @click="isProfileDetailsOpen = !isProfileDetailsOpen"
+            >
+                <div class="flex min-w-0 items-center gap-3">
                     <div
-                        @click="triggerFileInput"
-                        class="group relative cursor-pointer"
-                        title="Klik untuk memilih foto profil"
+                        class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-sm font-bold text-white shadow-sm"
+                        :style="{
+                            backgroundColor: form.theme_color || '#6366F1',
+                        }"
+                    >
+                        <img
+                            v-if="avatarPreview || user.avatar_url"
+                            :src="avatarPreview || user.avatar_url || undefined"
+                            alt="Foto profil"
+                            class="h-full w-full object-cover"
+                        />
+                        <span v-else>{{
+                            user.nickname?.charAt(0) || user.name.charAt(0)
+                        }}</span>
+                    </div>
+                    <div class="min-w-0">
+                        <h3
+                            class="text-sm font-bold text-zinc-900 dark:text-zinc-100"
+                        >
+                            Informasi Data Diri
+                        </h3>
+                        <p class="truncate text-[11px] text-zinc-500">
+                            {{ user.nickname || user.name }} · {{ user.email }}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex shrink-0 items-center gap-2">
+                    <span
+                        class="hidden rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-bold text-indigo-600 sm:inline dark:bg-indigo-500/15 dark:text-indigo-300"
+                    >
+                        Edit profil
+                    </span>
+                    <ChevronDown
+                        class="h-5 w-5 text-zinc-400 transition-transform duration-200"
+                        :class="isProfileDetailsOpen ? 'rotate-180' : ''"
+                    />
+                </div>
+            </button>
+
+            <div
+                id="profile-details-panel"
+                v-show="isProfileDetailsOpen"
+                class="border-t border-zinc-100 px-4 pt-5 pb-4 sm:px-6 sm:pb-6 dark:border-zinc-800"
+            >
+                <div class="mb-5">
+                    <p
+                        class="text-xs font-semibold text-zinc-800 dark:text-zinc-200"
+                    >
+                        Edit profil kamu
+                    </p>
+                    <p class="mt-0.5 text-[11px] text-zinc-500">
+                        Foto, nama, email, dan warna aksen aplikasi
+                    </p>
+                </div>
+
+                <form @submit.prevent="submitProfile" class="space-y-4">
+                    <!-- Hidden File Input for Avatar -->
+                    <input
+                        ref="fileInput"
+                        type="file"
+                        :disabled="avatarForm.processing"
+                        accept="image/png,image/jpeg,image/jpg,image/webp"
+                        @change="handleFileSelect"
+                        class="hidden"
+                    />
+
+                    <!-- Centered Modern Profile Picture Picker -->
+                    <div
+                        class="flex flex-col items-center justify-center py-2 text-center"
                     >
                         <div
-                            class="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-white shadow-xl ring-4 ring-indigo-500/20 transition-transform group-hover:scale-105 dark:border-zinc-800"
-                            :style="{
-                                backgroundColor: form.theme_color || '#6366F1',
-                            }"
+                            @click="triggerFileInput"
+                            class="group relative cursor-pointer"
+                            title="Klik untuk memilih foto profil"
                         >
-                            <img
-                                v-if="avatarPreview || user.avatar_url"
-                                :src="
-                                    avatarPreview ||
-                                    user.avatar_url ||
-                                    undefined
-                                "
-                                alt="Foto Profil"
-                                class="h-full w-full object-cover"
-                            />
-                            <span
-                                v-else
-                                class="text-3xl font-extrabold text-white"
+                            <div
+                                class="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-white shadow-xl ring-4 ring-indigo-500/20 transition-transform group-hover:scale-105 dark:border-zinc-800"
+                                :style="{
+                                    backgroundColor:
+                                        form.theme_color || '#6366F1',
+                                }"
+                            >
+                                <img
+                                    v-if="avatarPreview || user.avatar_url"
+                                    :src="
+                                        avatarPreview ||
+                                        user.avatar_url ||
+                                        undefined
+                                    "
+                                    alt="Foto Profil"
+                                    class="h-full w-full object-cover"
+                                />
+                                <span
+                                    v-else
+                                    class="text-3xl font-extrabold text-white"
+                                >
+                                    {{
+                                        user.nickname?.charAt(0) ||
+                                        user.name.charAt(0)
+                                    }}
+                                </span>
+                            </div>
+
+                            <!-- Camera Action Pill Overlay -->
+                            <div
+                                class="absolute right-0 bottom-0 flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg ring-2 ring-white transition-all group-hover:bg-indigo-500 dark:ring-zinc-900"
+                            >
+                                <Camera class="h-4 w-4" />
+                            </div>
+                        </div>
+
+                        <div class="mt-3 space-y-0.5">
+                            <button
+                                type="button"
+                                @click="triggerFileInput"
+                                class="text-xs font-bold text-indigo-600 hover:underline dark:text-indigo-400"
                             >
                                 {{
-                                    user.nickname?.charAt(0) ||
-                                    user.name.charAt(0)
+                                    avatarPreview || user.avatar_url
+                                        ? 'Ganti Foto Profil'
+                                        : 'Upload Foto Profil'
                                 }}
-                            </span>
-                        </div>
-
-                        <!-- Camera Action Pill Overlay -->
-                        <div
-                            class="absolute right-0 bottom-0 flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg ring-2 ring-white transition-all group-hover:bg-indigo-500 dark:ring-zinc-900"
-                        >
-                            <Camera class="h-4 w-4" />
-                        </div>
-                    </div>
-
-                    <div class="mt-3 space-y-0.5">
-                        <button
-                            type="button"
-                            @click="triggerFileInput"
-                            class="text-xs font-bold text-indigo-600 hover:underline dark:text-indigo-400"
-                        >
-                            {{
-                                avatarPreview || user.avatar_url
-                                    ? 'Ganti Foto Profil'
-                                    : 'Upload Foto Profil'
-                            }}
-                        </button>
-                        <p class="text-[11px] text-zinc-400">
-                            {{
-                                avatarForm.processing
-                                    ? 'Sedang mengunggah foto...'
-                                    : 'Format JPG, PNG, atau WebP (Maks. 2MB) · otomatis tersimpan'
-                            }}
-                        </p>
-                        <progress
-                            v-if="avatarForm.progress"
-                            :value="avatarForm.progress.percentage"
-                            max="100"
-                            class="mt-2 h-1.5 w-32 overflow-hidden rounded-full"
-                        />
-                    </div>
-
-                    <InputError
-                        :message="avatarForm.errors.avatar"
-                        class="mt-2"
-                    />
-                </div>
-
-                <!-- Name -->
-                <div>
-                    <label
-                        class="block text-xs font-medium text-zinc-500 dark:text-zinc-400"
-                        >Nama Lengkap</label
-                    >
-                    <div class="relative mt-1">
-                        <input
-                            v-model="form.name"
-                            type="text"
-                            required
-                            class="w-full rounded-2xl border border-zinc-200 bg-zinc-50/50 px-4 py-2.5 text-sm font-medium text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100 dark:focus:bg-zinc-900"
-                        />
-                    </div>
-                    <InputError :message="form.errors.name" class="mt-1" />
-                </div>
-
-                <!-- Nickname -->
-                <div>
-                    <label
-                        class="block text-xs font-medium text-zinc-500 dark:text-zinc-400"
-                    >
-                        Nama Panggilan / Nickname (Untuk Tampilan Kencan)
-                    </label>
-                    <div class="relative mt-1">
-                        <input
-                            v-model="form.nickname"
-                            type="text"
-                            placeholder="Contoh: Rony, Ayang, Babe"
-                            class="w-full rounded-2xl border border-zinc-200 bg-zinc-50/50 px-4 py-2.5 text-sm font-medium text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100 dark:focus:bg-zinc-900"
-                        />
-                    </div>
-                    <InputError :message="form.errors.nickname" class="mt-1" />
-                </div>
-
-                <!-- Email -->
-                <div>
-                    <label
-                        class="block text-xs font-medium text-zinc-500 dark:text-zinc-400"
-                        >Alamat Email</label
-                    >
-                    <div class="relative mt-1">
-                        <input
-                            v-model="form.email"
-                            type="email"
-                            required
-                            class="w-full rounded-2xl border border-zinc-200 bg-zinc-50/50 px-4 py-2.5 text-sm font-medium text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100 dark:focus:bg-zinc-900"
-                        />
-                    </div>
-                    <InputError :message="form.errors.email" class="mt-1" />
-                </div>
-
-                <!-- Theme Color Picker -->
-                <div>
-                    <label
-                        class="block text-xs font-medium text-zinc-500 dark:text-zinc-400"
-                    >
-                        Warna Aksen Tema Kamu
-                    </label>
-                    <div class="mt-2 flex flex-wrap gap-2">
-                        <button
-                            v-for="color in themeColors"
-                            :key="color.value"
-                            type="button"
-                            @click="form.theme_color = color.value"
-                            class="group relative flex h-9 w-9 items-center justify-center rounded-full transition-transform active:scale-95"
-                            :style="{ backgroundColor: color.value }"
-                        >
-                            <Check
-                                v-if="form.theme_color === color.value"
-                                class="h-4 w-4 text-white drop-shadow-md"
+                            </button>
+                            <p class="text-[11px] text-zinc-400">
+                                {{
+                                    avatarForm.processing
+                                        ? 'Sedang mengunggah foto...'
+                                        : 'Format JPG, PNG, atau WebP (Maks. 2MB) · otomatis tersimpan'
+                                }}
+                            </p>
+                            <progress
+                                v-if="avatarForm.progress"
+                                :value="avatarForm.progress.percentage"
+                                max="100"
+                                class="mt-2 h-1.5 w-32 overflow-hidden rounded-full"
                             />
+                        </div>
+
+                        <InputError
+                            :message="avatarForm.errors.avatar"
+                            class="mt-2"
+                        />
+                    </div>
+
+                    <!-- Name -->
+                    <div>
+                        <label
+                            class="block text-xs font-medium text-zinc-500 dark:text-zinc-400"
+                            >Nama Lengkap</label
+                        >
+                        <div class="relative mt-1">
+                            <input
+                                v-model="form.name"
+                                type="text"
+                                required
+                                class="w-full rounded-2xl border border-zinc-200 bg-zinc-50/50 px-4 py-2.5 text-sm font-medium text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100 dark:focus:bg-zinc-900"
+                            />
+                        </div>
+                        <InputError :message="form.errors.name" class="mt-1" />
+                    </div>
+
+                    <!-- Nickname -->
+                    <div>
+                        <label
+                            class="block text-xs font-medium text-zinc-500 dark:text-zinc-400"
+                        >
+                            Nama Panggilan / Nickname (Untuk Tampilan Kencan)
+                        </label>
+                        <div class="relative mt-1">
+                            <input
+                                v-model="form.nickname"
+                                type="text"
+                                placeholder="Contoh: Rony, Ayang, Babe"
+                                class="w-full rounded-2xl border border-zinc-200 bg-zinc-50/50 px-4 py-2.5 text-sm font-medium text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100 dark:focus:bg-zinc-900"
+                            />
+                        </div>
+                        <InputError
+                            :message="form.errors.nickname"
+                            class="mt-1"
+                        />
+                    </div>
+
+                    <!-- Email -->
+                    <div>
+                        <label
+                            class="block text-xs font-medium text-zinc-500 dark:text-zinc-400"
+                            >Alamat Email</label
+                        >
+                        <div class="relative mt-1">
+                            <input
+                                v-model="form.email"
+                                type="email"
+                                required
+                                class="w-full rounded-2xl border border-zinc-200 bg-zinc-50/50 px-4 py-2.5 text-sm font-medium text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100 dark:focus:bg-zinc-900"
+                            />
+                        </div>
+                        <InputError :message="form.errors.email" class="mt-1" />
+                    </div>
+
+                    <!-- Theme Color Picker -->
+                    <div>
+                        <label
+                            class="block text-xs font-medium text-zinc-500 dark:text-zinc-400"
+                        >
+                            Warna Aksen Tema Kamu
+                        </label>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <button
+                                v-for="color in themeColors"
+                                :key="color.value"
+                                type="button"
+                                @click="form.theme_color = color.value"
+                                class="group relative flex h-9 w-9 items-center justify-center rounded-full transition-transform active:scale-95"
+                                :style="{ backgroundColor: color.value }"
+                            >
+                                <Check
+                                    v-if="form.theme_color === color.value"
+                                    class="h-4 w-4 text-white drop-shadow-md"
+                                />
+                            </button>
+                        </div>
+                        <InputError
+                            :message="form.errors.theme_color"
+                            class="mt-1"
+                        />
+                    </div>
+
+                    <!-- Save Button -->
+                    <div class="pt-2">
+                        <button
+                            type="submit"
+                            :disabled="form.processing"
+                            class="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-500/20 transition-all hover:bg-indigo-500 disabled:opacity-50"
+                        >
+                            <Sparkles class="h-4 w-4" />
+                            <span>Simpan Perubahan</span>
                         </button>
                     </div>
-                    <InputError
-                        :message="form.errors.theme_color"
-                        class="mt-1"
-                    />
-                </div>
-
-                <!-- Save Button -->
-                <div class="pt-2">
-                    <button
-                        type="submit"
-                        :disabled="form.processing"
-                        class="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3 text-sm font-semibold text-white shadow-md shadow-indigo-500/20 transition-all hover:bg-indigo-500 disabled:opacity-50"
-                    >
-                        <Sparkles class="h-4 w-4" />
-                        <span>Simpan Perubahan</span>
-                    </button>
-                </div>
-            </form>
-        </div>
+                </form>
+            </div>
+        </section>
 
         <!-- Shortcut Pengaturan Lainnya -->
         <div

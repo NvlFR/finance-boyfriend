@@ -8,6 +8,8 @@ export type CoupleSpace = {
     user_two_id: number | null;
     status: 'pending' | 'active';
     anniversary_date: string | null;
+    dashboard_cover_path?: string | null;
+    dashboard_cover_url?: string | null;
     user_one?: User;
     user_two?: User;
     partner?: User | null;

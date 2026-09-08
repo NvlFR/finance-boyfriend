@@ -16,6 +16,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
+import CurrencyInput from '@/components/CurrencyInput.vue';
 import FormErrorSummary from '@/components/FormErrorSummary.vue';
 import WalletCard from '@/components/WalletCard.vue';
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
@@ -683,9 +684,8 @@ function confirmDeleteWallet(): void {
                             class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300"
                             >Saldo Awal (Rp)</label
                         >
-                        <input
+                        <CurrencyInput
                             v-model="form.balance"
-                            type="number"
                             placeholder="0"
                             min="0"
                             class="w-full rounded-2xl border border-zinc-200 bg-zinc-50/50 px-3.5 py-2.5 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
@@ -964,9 +964,8 @@ function confirmDeleteWallet(): void {
                             class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300"
                             >Penyesuaian Saldo (Rp)</label
                         >
-                        <input
+                        <CurrencyInput
                             v-model="editForm.balance"
-                            type="number"
                             min="0"
                             class="w-full rounded-2xl border border-zinc-200 bg-zinc-50/50 px-3.5 py-2.5 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
                         />

@@ -12,6 +12,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
+import CurrencyInput from '@/components/CurrencyInput.vue';
 import FormErrorSummary from '@/components/FormErrorSummary.vue';
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
 import {
@@ -762,13 +763,11 @@ function confirmDelete(): void {
                                 <label
                                     class="text-xs font-semibold text-zinc-600 dark:text-zinc-300"
                                     >Nominal pembelian (Rp)</label
-                                ><input
+                                ><CurrencyInput
                                     v-model="tradeForm.amount"
                                     required
-                                    type="number"
+                                    allow-decimals
                                     min="0.01"
-                                    step="0.01"
-                                    inputmode="decimal"
                                     placeholder="Contoh: 100000"
                                     class="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm dark:border-zinc-700 dark:bg-zinc-800"
                                 />
@@ -780,7 +779,7 @@ function confirmDelete(): void {
                                 ><input
                                     v-model="tradeForm.quantity"
                                     required
-                                    type="number"
+                                    type="text"
                                     min="0.00000001"
                                     step="0.00000001"
                                     inputmode="decimal"
@@ -791,13 +790,11 @@ function confirmDelete(): void {
                                 <label
                                     class="text-xs font-semibold text-zinc-600 dark:text-zinc-300"
                                     >Harga / unit</label
-                                ><input
+                                ><CurrencyInput
                                     v-model="tradeForm.unit_price"
                                     required
-                                    type="number"
+                                    allow-decimals
                                     min="0.01"
-                                    step="0.01"
-                                    inputmode="decimal"
                                     class="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm dark:border-zinc-700 dark:bg-zinc-800"
                                 />
                             </div>
@@ -807,12 +804,10 @@ function confirmDelete(): void {
                                 <label
                                     class="text-xs font-semibold text-zinc-600 dark:text-zinc-300"
                                     >Biaya admin</label
-                                ><input
+                                ><CurrencyInput
                                     v-model="tradeForm.fee_amount"
-                                    type="number"
+                                    allow-decimals
                                     min="0"
-                                    step="0.01"
-                                    inputmode="decimal"
                                     class="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm dark:border-zinc-700 dark:bg-zinc-800"
                                 />
                             </div>
@@ -898,13 +893,11 @@ function confirmDelete(): void {
                             <label
                                 class="text-xs font-semibold text-zinc-600 dark:text-zinc-300"
                                 >Harga terkini / unit</label
-                            ><input
+                            ><CurrencyInput
                                 v-model="priceForm.current_price"
                                 required
-                                type="number"
+                                allow-decimals
                                 min="0"
-                                step="0.01"
-                                inputmode="decimal"
                                 class="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm dark:border-zinc-700 dark:bg-zinc-800"
                             />
                         </div>

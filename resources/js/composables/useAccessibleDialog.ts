@@ -17,19 +17,33 @@ export function useAccessibleDialog(
     const dialogRef = ref<HTMLElement | null>(null);
     let previouslyFocusedElement: HTMLElement | null = null;
     let previousBodyOverflow = '';
+    let previousRootOverflow = '';
+    let previousRootOverscrollBehavior = '';
+
+    function unlockPageScroll(): void {
+        document.body.style.overflow = previousBodyOverflow;
+        document.documentElement.style.overflow = previousRootOverflow;
+        document.documentElement.style.overscrollBehavior =
+            previousRootOverscrollBehavior;
+    }
 
     watch(isOpen, async (open) => {
         if (open) {
             previouslyFocusedElement = document.activeElement as HTMLElement;
             previousBodyOverflow = document.body.style.overflow;
+            previousRootOverflow = document.documentElement.style.overflow;
+            previousRootOverscrollBehavior =
+                document.documentElement.style.overscrollBehavior;
             document.body.style.overflow = 'hidden';
+            document.documentElement.style.overflow = 'hidden';
+            document.documentElement.style.overscrollBehavior = 'none';
             await nextTick();
             dialogRef.value?.focus();
 
             return;
         }
 
-        document.body.style.overflow = previousBodyOverflow;
+        unlockPageScroll();
         previouslyFocusedElement?.focus();
     });
 
@@ -68,7 +82,7 @@ export function useAccessibleDialog(
     }
 
     onBeforeUnmount(() => {
-        document.body.style.overflow = previousBodyOverflow;
+        unlockPageScroll();
     });
 
     return { dialogRef, handleDialogKeydown };

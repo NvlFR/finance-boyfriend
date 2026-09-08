@@ -35,6 +35,16 @@ test('dashboard renders the birthday surprise entry point', function () {
         ->toContain(':surprise="birthdaySurprise"');
 });
 
+test('dashboard uses the custom couple space cover with its fallback intact', function () {
+    $dashboard = file_get_contents(resource_path('js/pages/Dashboard.vue'));
+
+    expect($dashboard)
+        ->toContain('props.coupleSpace?.dashboard_cover_url')
+        ->toContain('v-if="dashboardCoverUrl"')
+        ->toContain(':src="dashboardCoverUrl"')
+        ->toContain('v-if="!dashboardCoverUrl"');
+});
+
 test('birthday surprise presents photos as an accessible cinematic gallery', function () {
     $surprise = file_get_contents(resource_path('js/components/BirthdaySurprise.vue'));
 
@@ -351,10 +361,24 @@ test('dashboard exposes the redesigned mobile finance shortcuts', function () {
         ->toContain("openModalWithDefaults({ type: 'transfer' })")
         ->toContain("openModalWithDefaults({ type: 'income' })")
         ->toContain("openModalWithDefaults({ type: 'expense' })")
-        ->toContain('Buat Tabungan')
+        ->toContain("showMoreFeatures ? 'Lebih sedikit' : 'Lihat lainnya'")
+        ->toContain('aria-controls="dashboard-feature-menu"')
+        ->toContain('<ArrowDownToLine')
+        ->toContain('<ArrowUpFromLine')
+        ->toContain('<Ellipsis')
+        ->not->toContain('Buat Tabungan')
+        ->not->toContain('group-hover:scale-105')
+        ->and(substr_count($dashboard, 'shrink-0 translate-y-0.5'))
+        ->toBe(4)
+        ->and(substr_count($dashboard, ":class=\"showMoreFeatures ? 'flex' : 'hidden'\""))
+        ->toBe(4)
         ->and($bottomNavigation)
         ->toContain('Beranda')
         ->toContain('Tabungan')
         ->toContain('Catat Transaksi Cepat')
+        ->toContain('<ShoppingBag')
+        ->toContain('<Heart')
+        ->toContain('place-items-center')
+        ->not->toContain('hover:scale-105')
         ->toContain('Akun');
 });

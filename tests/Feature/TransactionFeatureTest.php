@@ -449,6 +449,50 @@ test('transaction drawer defaults to personal scope and explains transfer fees',
         ->not->toContain('Kencan Bersama');
 });
 
+test('transaction modal locks page scrolling and browser back reloads fresh financial data', function () {
+    $drawer = file_get_contents(resource_path('js/components/TransactionDrawer.vue'));
+    $dialog = file_get_contents(resource_path('js/composables/useAccessibleDialog.ts'));
+    $layout = file_get_contents(resource_path('js/layouts/AppLayout.vue'));
+    $transactions = file_get_contents(resource_path('js/pages/Transactions/Index.vue'));
+
+    expect($dialog)
+        ->toContain("document.documentElement.style.overflow = 'hidden'")
+        ->toContain("document.documentElement.style.overscrollBehavior = 'none'")
+        ->toContain('unlockPageScroll()')
+        ->and($layout)
+        ->toContain("window.addEventListener('popstate', handleBrowserHistoryNavigation)")
+        ->toContain("router.on('navigate'")
+        ->toContain('router.reload()')
+        ->and($drawer)
+        ->toContain('replace: true')
+        ->and(substr_count($transactions, 'replace: true'))
+        ->toBeGreaterThanOrEqual(3);
+});
+
+test('rupiah inputs format thousands while typing without native number spinners', function () {
+    $currencyInput = file_get_contents(resource_path('js/components/CurrencyInput.vue'));
+    $currencyPages = collect([
+        'js/components/TransactionDrawer.vue',
+        'js/pages/Transactions/Index.vue',
+        'js/pages/Wallets/Index.vue',
+        'js/pages/Goals/Index.vue',
+        'js/pages/Budgets/Index.vue',
+        'js/pages/Wishlists/Index.vue',
+        'js/pages/Subscriptions/Index.vue',
+        'js/pages/Investments/Index.vue',
+    ])->map(fn (string $path): string => file_get_contents(resource_path($path)))->implode("\n");
+
+    expect($currencyInput)
+        ->toContain('groupThousands')
+        ->toContain("replace(/\\B(?=(\\d{3})+(?!\\d))/g, '.')")
+        ->toContain('type="text"')
+        ->toContain("allowDecimals ? 'decimal' : 'numeric'")
+        ->and($currencyPages)
+        ->not->toContain('type="number"')
+        ->and(substr_count($currencyPages, '<CurrencyInput'))
+        ->toBe(19);
+});
+
 test('transaction cannot use wallet from another couple space', function () {
     $space = CoupleSpace::factory()->active()->create();
     $user = $space->userOne;
@@ -558,4 +602,15 @@ test('updating shared expense without split input preserves original split', fun
 
     expect($split->fresh()->split_type)->toBe('full_two')
         ->and((float) $split->fresh()->user_two_amount)->toBe(200000.0);
+});
+
+test('transaction history uses the shared compact mobile header', function () {
+    $page = file_get_contents(resource_path('js/pages/Transactions/Index.vue'));
+
+    expect($page)
+        ->toContain("import PageHeader from '@/components/PageHeader.vue'")
+        ->toContain('title="Riwayat"')
+        ->toContain('sm:inline-flex')
+        ->toContain('<span>Ekspor</span>')
+        ->toContain('<Download');
 });

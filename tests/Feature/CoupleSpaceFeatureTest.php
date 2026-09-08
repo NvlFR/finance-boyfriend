@@ -3,6 +3,8 @@
 use App\Models\CoupleSpace;
 use App\Models\User;
 use App\Models\Wallet;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 test('authenticated user can view couple space index json', function () {
     $user = User::factory()->create();
@@ -14,6 +16,48 @@ test('authenticated user can view couple space index json', function () {
 
     $response->assertOk()
         ->assertJsonPath('couple_space.id', $space->id);
+});
+
+test('couple space response exposes the dashboard cover public url', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $space = CoupleSpace::factory()->create([
+        'user_one_id' => $user->id,
+        'dashboard_cover_path' => 'couple-spaces/1/covers/cover.jpg',
+    ]);
+    $user->update(['current_couple_space_id' => $space->id]);
+
+    $this->actingAs($user)
+        ->getJson(route('couple-space.index'))
+        ->assertOk()
+        ->assertJsonPath(
+            'couple_space.dashboard_cover_url',
+            Storage::disk('public')->url($space->dashboard_cover_path),
+        );
+});
+
+test('couple space hero reuses the custom dashboard cover', function () {
+    $page = file_get_contents(resource_path('js/pages/CoupleSpace/Index.vue'));
+
+    expect($page)
+        ->toContain('v-if="coupleSpace.dashboard_cover_url"')
+        ->toContain(':src="coupleSpace.dashboard_cover_url"')
+        ->toContain('from-slate-950/85 via-zinc-950/70 to-rose-950/75');
+});
+
+test('couple space settings use a mobile friendly sectioned bottom sheet', function () {
+    $page = file_get_contents(resource_path('js/pages/CoupleSpace/Index.vue'));
+
+    expect($page)
+        ->toContain('items-end justify-center')
+        ->toContain('rounded-t-[2rem]')
+        ->toContain('Atur Ruang Kita')
+        ->toContain('Tampilan Ruang')
+        ->toContain('Detail Hubungan')
+        ->toContain('editForm.progress.percentage')
+        ->toContain('env(safe-area-inset-bottom)')
+        ->toContain('Simpan Pengaturan');
 });
 
 test('user can create a new couple space with auto-generated invite code', function () {
@@ -110,6 +154,47 @@ test('member can update couple space settings', function () {
         'id' => $space->id,
         'name' => 'Updated Space Name',
     ]);
+});
+
+test('member can upload and replace dashboard cover', function () {
+    Storage::fake('public');
+
+    $space = CoupleSpace::factory()->active()->create([
+        'dashboard_cover_path' => 'couple-spaces/old-cover.jpg',
+    ]);
+    Storage::disk('public')->put('couple-spaces/old-cover.jpg', 'old cover');
+
+    $this->actingAs($space->userOne)
+        ->post(route('couple-space.update', $space), [
+            '_method' => 'put',
+            'name' => $space->name,
+            'anniversary_date' => optional($space->anniversary_date)->toDateString(),
+            'dashboard_cover' => UploadedFile::fake()->image('cover-kita.webp', 1200, 600),
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect();
+
+    $dashboardCoverPath = $space->fresh()->dashboard_cover_path;
+
+    expect($dashboardCoverPath)->not->toBeNull();
+    Storage::disk('public')->assertExists($dashboardCoverPath);
+    Storage::disk('public')->assertMissing('couple-spaces/old-cover.jpg');
+});
+
+test('dashboard cover upload rejects non image files', function () {
+    Storage::fake('public');
+
+    $space = CoupleSpace::factory()->active()->create();
+
+    $this->actingAs($space->userOne)
+        ->post(route('couple-space.update', $space), [
+            '_method' => 'put',
+            'name' => $space->name,
+            'dashboard_cover' => UploadedFile::fake()->create('cover.pdf', 100, 'application/pdf'),
+        ])
+        ->assertSessionHasErrors('dashboard_cover');
+
+    expect($space->fresh()->dashboard_cover_path)->toBeNull();
 });
 
 test('non-member cannot update couple space', function () {

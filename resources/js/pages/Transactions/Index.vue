@@ -22,7 +22,9 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
+import CurrencyInput from '@/components/CurrencyInput.vue';
 import FormErrorSummary from '@/components/FormErrorSummary.vue';
+import PageHeader from '@/components/PageHeader.vue';
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
 import { useTransactionModal } from '@/composables/useTransactionModal';
 import {
@@ -199,6 +201,7 @@ function submitEdit() {
 
     editForm.put(transactionUpdate.url(editingTransaction.value.id), {
         preserveScroll: true,
+        replace: true,
         onSuccess: () => {
             isEditModalOpen.value = false;
             editingTransaction.value = null;
@@ -217,6 +220,7 @@ function confirmDeleteTransaction(): void {
 
     router.delete(transactionDestroy.url(transactionToDelete.value.id), {
         preserveScroll: true,
+        replace: true,
         onStart: () => (isDeleting.value = true),
         onSuccess: () => (transactionToDelete.value = null),
         onFinish: () => (isDeleting.value = false),
@@ -262,41 +266,25 @@ function exportPdf() {
     <Head title="Riwayat Transaksi - Couple Finance" />
 
     <div class="mx-auto max-w-4xl space-y-4 sm:space-y-5">
-        <!-- Top Bar Action -->
-        <div
-            class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-        >
-            <div>
-                <h1
-                    class="text-2xl font-black tracking-tight text-slate-950 dark:text-white"
-                >
-                    Riwayat
-                </h1>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Semua pemasukan, pengeluaran, dan perpindahan uang
-                </p>
-            </div>
+        <PageHeader title="Riwayat">
+            <button
+                type="button"
+                @click="showExports = !showExports"
+                class="inline-flex min-h-11 items-center gap-1.5 rounded-2xl px-2 text-xs font-bold text-indigo-800 transition-colors hover:bg-indigo-50 sm:border sm:border-slate-200 sm:bg-white sm:px-3.5 sm:shadow-sm dark:text-indigo-300 dark:hover:bg-indigo-950/40 sm:dark:border-zinc-800 sm:dark:bg-zinc-900"
+                :aria-expanded="showExports"
+            >
+                <span>Ekspor</span>
+                <Download class="h-4 w-4" />
+            </button>
 
-            <div class="flex flex-wrap items-center gap-2">
-                <button
-                    type="button"
-                    @click="showExports = !showExports"
-                    class="inline-flex min-h-11 items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-indigo-800 shadow-sm transition-colors hover:bg-indigo-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-indigo-300 dark:hover:bg-indigo-950/40"
-                    :aria-expanded="showExports"
-                >
-                    <Download class="h-4 w-4" />
-                    <span>Ekspor</span>
-                </button>
-
-                <button
-                    type="button"
-                    @click="isDrawerOpen = true"
-                    class="inline-flex min-h-11 items-center gap-1.5 rounded-2xl bg-indigo-900 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-900/15 transition-all hover:bg-indigo-800 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-                >
-                    <Plus class="h-4 w-4" /> Catat Transaksi
-                </button>
-            </div>
-        </div>
+            <button
+                type="button"
+                @click="isDrawerOpen = true"
+                class="hidden min-h-11 items-center gap-1.5 rounded-2xl bg-indigo-900 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-900/15 transition-all hover:bg-indigo-800 sm:inline-flex dark:bg-indigo-500 dark:hover:bg-indigo-400"
+            >
+                <Plus class="h-4 w-4" /> Catat Transaksi
+            </button>
+        </PageHeader>
 
         <div
             v-if="showExports"
@@ -856,12 +844,10 @@ function exportPdf() {
                         <label class="block text-xs font-medium text-zinc-500"
                             >Nominal (Rp)</label
                         >
-                        <input
+                        <CurrencyInput
                             v-model="editForm.amount"
-                            type="number"
                             required
                             min="1"
-                            step="1"
                             class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
                         />
                     </div>
@@ -870,11 +856,9 @@ function exportPdf() {
                         <label class="block text-xs font-medium text-zinc-500"
                             >Biaya Admin (Rp)</label
                         >
-                        <input
+                        <CurrencyInput
                             v-model="editForm.fee_amount"
-                            type="number"
                             min="0"
-                            step="1"
                             class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
                         />
                         <p class="mt-1 text-[11px] text-zinc-500">

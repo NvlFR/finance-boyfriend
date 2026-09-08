@@ -4,12 +4,14 @@ namespace App\Models;
 
 use Database\Factories\CoupleSpaceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -21,14 +23,19 @@ use Illuminate\Support\Str;
  * @property int|null $birthday_surprise_manager_user_id
  * @property string $status
  * @property Carbon|null $anniversary_date
+ * @property string|null $dashboard_cover_path
+ * @property-read string|null $dashboard_cover_url
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'invite_code', 'user_one_id', 'user_two_id', 'birthday_surprise_manager_user_id', 'status', 'anniversary_date'])]
+#[Fillable(['name', 'invite_code', 'user_one_id', 'user_two_id', 'birthday_surprise_manager_user_id', 'status', 'anniversary_date', 'dashboard_cover_path'])]
 class CoupleSpace extends Model
 {
     /** @use HasFactory<CoupleSpaceFactory> */
     use HasFactory;
+
+    /** @var list<string> */
+    protected $appends = ['dashboard_cover_url'];
 
     /**
      * @return array<string, string>
@@ -38,6 +45,14 @@ class CoupleSpace extends Model
         return [
             'anniversary_date' => 'date',
         ];
+    }
+
+    /** @return Attribute<string|null, never> */
+    protected function dashboardCoverUrl(): Attribute
+    {
+        return Attribute::get(fn (): ?string => $this->dashboard_cover_path
+            ? Storage::disk('public')->url($this->dashboard_cover_path)
+            : null);
     }
 
     /**

@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { Home, PiggyBank, Plus, History, User as UserIcon } from '@lucide/vue';
+import {
+    Home,
+    ShoppingBag,
+    Heart,
+    History,
+    User as UserIcon,
+} from '@lucide/vue';
 import { computed } from 'vue';
 import { useTransactionModal } from '@/composables/useTransactionModal';
 import { index as transactionsIndex } from '@/routes/transactions';
@@ -68,19 +74,19 @@ function isActive(pattern: string): boolean {
                         : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
                 "
             >
-                <PiggyBank class="h-5 w-5" />
+                <ShoppingBag class="h-5 w-5" />
                 <span class="text-[10px] leading-tight">Tabungan</span>
             </Link>
 
             <!-- 3. Center Hero (+) Quick Add Button (Symmetric & Centered) -->
-            <div class="flex w-full items-center justify-center">
+            <div class="grid w-full place-items-center">
                 <button
                     type="button"
                     @click="openModal"
-                    class="-mt-8 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-rose-400 to-rose-600 text-white shadow-lg ring-4 shadow-rose-500/30 ring-white transition-transform hover:scale-105 active:scale-90 dark:ring-zinc-900"
+                    class="-mt-8 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-rose-400 to-rose-600 text-white shadow-lg ring-4 shadow-rose-500/30 ring-white transition-[filter,transform] hover:brightness-105 active:scale-95 dark:ring-zinc-900"
                     aria-label="Catat Transaksi Cepat"
                 >
-                    <Plus class="h-6 w-6 stroke-[2.5]" />
+                    <Heart class="h-6 w-6 fill-current stroke-[2.5]" />
                 </button>
             </div>
 

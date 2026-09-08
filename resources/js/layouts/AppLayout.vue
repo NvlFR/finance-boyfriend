@@ -40,8 +40,17 @@ watch(
 
 let removeStartListener: (() => void) | null = null;
 let removeFinishListener: (() => void) | null = null;
+let removeNavigateListener: (() => void) | null = null;
+let isBrowserHistoryNavigation = false;
+
+function handleBrowserHistoryNavigation(): void {
+    isBrowserHistoryNavigation = true;
+    isDrawerOpen.value = false;
+}
 
 onMounted(() => {
+    window.addEventListener('popstate', handleBrowserHistoryNavigation);
+
     removeStartListener = router.on('start', () => {
         isNavigating.value = true;
     });
@@ -49,15 +58,30 @@ onMounted(() => {
     removeFinishListener = router.on('finish', () => {
         isNavigating.value = false;
     });
+
+    removeNavigateListener = router.on('navigate', () => {
+        if (!isBrowserHistoryNavigation) {
+            return;
+        }
+
+        isBrowserHistoryNavigation = false;
+        router.reload();
+    });
 });
 
 onUnmounted(() => {
+    window.removeEventListener('popstate', handleBrowserHistoryNavigation);
+
     if (removeStartListener) {
         removeStartListener();
     }
 
     if (removeFinishListener) {
         removeFinishListener();
+    }
+
+    if (removeNavigateListener) {
+        removeNavigateListener();
     }
 });
 </script>

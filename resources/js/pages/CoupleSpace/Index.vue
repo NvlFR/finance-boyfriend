@@ -15,6 +15,9 @@ import {
     Target,
     Repeat,
     Gift,
+    ImagePlus,
+    CalendarDays,
+    Save,
 } from '@lucide/vue';
 import { ref, computed } from 'vue';
 import FormErrorSummary from '@/components/FormErrorSummary.vue';
@@ -43,6 +46,8 @@ const props = defineProps<{
 
 const copied = ref(false);
 const isEditModalOpen = ref(false);
+const coverInput = ref<HTMLInputElement | null>(null);
+const coverPreview = ref(props.coupleSpace?.dashboard_cover_url || null);
 const { dialogRef, handleDialogKeydown } = useAccessibleDialog(
     isEditModalOpen,
     () => {
@@ -60,10 +65,12 @@ const createForm = useForm({
 });
 
 const editForm = useForm({
+    _method: 'put',
     name: props.coupleSpace?.name || '',
     anniversary_date: props.coupleSpace?.anniversary_date
         ? props.coupleSpace.anniversary_date.slice(0, 10)
         : '',
+    dashboard_cover: null as File | null,
 });
 
 // Dynamic Love Counter
@@ -121,11 +128,38 @@ function openEditModal() {
     }
 
     editForm.clearErrors();
+    editForm.dashboard_cover = null;
     editForm.name = props.coupleSpace.name;
     editForm.anniversary_date = props.coupleSpace.anniversary_date
         ? props.coupleSpace.anniversary_date.slice(0, 10)
         : '';
+    coverPreview.value = props.coupleSpace.dashboard_cover_url || null;
+
+    if (coverInput.value) {
+        coverInput.value.value = '';
+    }
+
     isEditModalOpen.value = true;
+}
+
+function handleCoverSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] || null;
+
+    editForm.dashboard_cover = file;
+
+    if (!file) {
+        coverPreview.value = props.coupleSpace?.dashboard_cover_url || null;
+
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        coverPreview.value =
+            typeof reader.result === 'string' ? reader.result : null;
+    };
+    reader.readAsDataURL(file);
 }
 
 function submitEdit() {
@@ -133,7 +167,8 @@ function submitEdit() {
         return;
     }
 
-    editForm.put(`/couple-space/${props.coupleSpace.id}`, {
+    editForm.post(`/couple-space/${props.coupleSpace.id}`, {
+        forceFormData: true,
         preserveScroll: true,
         onSuccess: () => {
             isEditModalOpen.value = false;
@@ -175,14 +210,25 @@ function submitEdit() {
         <div v-if="coupleSpace" class="space-y-6">
             <!-- Romantic Hero Banner with Live Love Counter -->
             <div
-                class="relative overflow-hidden rounded-3xl border border-zinc-200/80 bg-gradient-to-br from-indigo-900/90 via-zinc-900 to-zinc-950 p-6 text-white shadow-xl dark:border-zinc-800"
+                class="relative isolate overflow-hidden rounded-3xl border border-zinc-200/80 bg-gradient-to-br from-indigo-900/90 via-zinc-900 to-zinc-950 p-6 text-white shadow-xl dark:border-zinc-800"
             >
-                <!-- Ambient Glowing Orbs -->
-                <div
-                    class="absolute -top-8 -right-8 h-36 w-36 rounded-full bg-rose-500/20 blur-2xl"
+                <img
+                    v-if="coupleSpace.dashboard_cover_url"
+                    :src="coupleSpace.dashboard_cover_url"
+                    alt=""
+                    class="absolute inset-0 z-0 h-full w-full object-cover"
                 />
                 <div
-                    class="absolute -bottom-8 -left-8 h-36 w-36 rounded-full bg-indigo-500/20 blur-2xl"
+                    v-if="coupleSpace.dashboard_cover_url"
+                    class="absolute inset-0 z-[1] bg-gradient-to-br from-slate-950/85 via-zinc-950/70 to-rose-950/75"
+                />
+
+                <!-- Ambient Glowing Orbs -->
+                <div
+                    class="absolute -top-8 -right-8 z-[2] h-36 w-36 rounded-full bg-rose-500/20 blur-2xl"
+                />
+                <div
+                    class="absolute -bottom-8 -left-8 z-[2] h-36 w-36 rounded-full bg-indigo-500/20 blur-2xl"
                 />
 
                 <div class="relative z-10 space-y-5">
@@ -698,7 +744,7 @@ function submitEdit() {
         <div
             v-if="isEditModalOpen && coupleSpace"
             @click.self="isEditModalOpen = false"
-            class="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            class="fixed inset-0 z-50 flex cursor-pointer items-end justify-center bg-slate-950/65 backdrop-blur-sm sm:items-center sm:p-4"
         >
             <div
                 ref="dialogRef"
@@ -708,65 +754,226 @@ function submitEdit() {
                 aria-labelledby="edit-couple-space-title"
                 tabindex="-1"
                 @keydown="handleDialogKeydown"
-                class="w-full max-w-md cursor-default rounded-3xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
+                class="flex max-h-[94dvh] w-full max-w-lg cursor-default flex-col overflow-hidden rounded-t-[2rem] border border-zinc-200 bg-[#fbfaf8] shadow-2xl sm:rounded-[2rem] dark:border-zinc-800 dark:bg-zinc-950"
             >
                 <div
-                    class="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800"
+                    class="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-zinc-300 sm:hidden dark:bg-zinc-700"
+                    aria-hidden="true"
+                />
+
+                <div
+                    class="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-200/80 bg-white/90 px-5 py-4 backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-900/90"
                 >
-                    <h2
-                        id="edit-couple-space-title"
-                        class="text-base font-semibold text-zinc-900 dark:text-zinc-100"
-                    >
-                        Edit Ruang Pasangan
-                    </h2>
+                    <div class="flex min-w-0 items-center gap-3">
+                        <div
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-indigo-600 text-white shadow-lg shadow-rose-500/20"
+                        >
+                            <Heart class="h-5 w-5 fill-current" />
+                        </div>
+                        <div class="min-w-0">
+                            <h2
+                                id="edit-couple-space-title"
+                                class="truncate text-base font-bold text-zinc-950 dark:text-white"
+                            >
+                                Atur Ruang Kita
+                            </h2>
+                            <p class="text-[11px] text-zinc-500">
+                                Sesuaikan tampilan dan momen hubungan
+                            </p>
+                        </div>
+                    </div>
                     <button
                         type="button"
                         @click="isEditModalOpen = false"
-                        class="flex h-11 w-11 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                         aria-label="Tutup dialog edit ruang pasangan"
                     >
                         <X class="h-5 w-5" />
                     </button>
                 </div>
 
-                <form @submit.prevent="submitEdit" class="mt-4 space-y-4">
-                    <div>
-                        <label class="block text-xs font-medium text-zinc-500"
-                            >Nama Ruang Pasangan</label
-                        >
-                        <input
-                            v-model="editForm.name"
-                            type="text"
-                            required
-                            class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
-                        />
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-medium text-zinc-500"
-                            >Tanggal Jadian / Pernikahan</label
-                        >
-                        <input
-                            v-model="editForm.anniversary_date"
-                            type="date"
-                            class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
-                        />
-                    </div>
-
-                    <FormErrorSummary :errors="editForm.errors" />
-
-                    <button
-                        type="submit"
-                        :disabled="editForm.processing"
-                        class="w-full rounded-2xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-md transition-all hover:bg-indigo-500"
+                <form
+                    @submit.prevent="submitEdit"
+                    class="flex min-h-0 flex-1 flex-col"
+                >
+                    <div
+                        class="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 sm:p-5"
                     >
-                        <Sparkles class="mr-1 inline h-4 w-4" />
-                        {{
-                            editForm.processing
-                                ? 'Menyimpan...'
-                                : 'Simpan Perubahan'
-                        }}
-                    </button>
+                        <section
+                            class="overflow-hidden rounded-3xl border border-zinc-200/80 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+                        >
+                            <div
+                                class="flex items-center justify-between gap-3 px-4 pt-4 pb-3"
+                            >
+                                <div>
+                                    <p
+                                        class="text-xs font-bold text-zinc-900 dark:text-zinc-100"
+                                    >
+                                        Tampilan Ruang
+                                    </p>
+                                    <p class="mt-0.5 text-[11px] text-zinc-500">
+                                        Satu cover untuk dashboard dan Couple
+                                        Space
+                                    </p>
+                                </div>
+                                <span
+                                    class="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-bold text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"
+                                >
+                                    COVER
+                                </span>
+                            </div>
+
+                            <div
+                                class="relative mx-3 mb-3 aspect-[16/7] overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-950 via-indigo-900 to-rose-900"
+                            >
+                                <img
+                                    v-if="coverPreview"
+                                    :src="coverPreview"
+                                    alt="Preview cover ruang pasangan"
+                                    class="h-full w-full object-cover"
+                                />
+                                <div
+                                    class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/15 to-transparent"
+                                />
+                                <div
+                                    class="absolute right-3 bottom-3 left-3 flex items-end justify-between gap-3"
+                                >
+                                    <div class="min-w-0 text-white">
+                                        <p class="truncate text-sm font-bold">
+                                            {{ editForm.name || 'Ruang Kita' }}
+                                        </p>
+                                        <p class="text-[10px] text-white/70">
+                                            Preview cover
+                                        </p>
+                                    </div>
+                                    <label
+                                        class="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-white px-3.5 py-2 text-xs font-bold text-indigo-950 shadow-lg transition hover:bg-indigo-50"
+                                    >
+                                        <ImagePlus class="h-4 w-4" />
+                                        {{ coverPreview ? 'Ganti' : 'Pilih' }}
+                                        <input
+                                            ref="coverInput"
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            class="sr-only"
+                                            @change="handleCoverSelect"
+                                        />
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="px-4 pb-4">
+                                <div
+                                    v-if="editForm.progress"
+                                    class="mb-2 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800"
+                                    aria-label="Progres upload cover"
+                                >
+                                    <div
+                                        class="h-full rounded-full bg-gradient-to-r from-rose-500 to-indigo-600 transition-all"
+                                        :style="{
+                                            width: `${editForm.progress.percentage}%`,
+                                        }"
+                                    />
+                                </div>
+                                <p
+                                    class="text-[10px] leading-relaxed text-zinc-400"
+                                >
+                                    JPG, PNG, atau WebP · Maksimal 5 MB · Rasio
+                                    lebar disarankan
+                                </p>
+                                <InputError
+                                    :message="editForm.errors.dashboard_cover"
+                                />
+                            </div>
+                        </section>
+
+                        <section
+                            class="space-y-4 rounded-3xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+                        >
+                            <div>
+                                <p
+                                    class="text-xs font-bold text-zinc-900 dark:text-zinc-100"
+                                >
+                                    Detail Hubungan
+                                </p>
+                                <p class="mt-0.5 text-[11px] text-zinc-500">
+                                    Informasi yang tampil untuk kalian berdua
+                                </p>
+                            </div>
+
+                            <div>
+                                <label
+                                    for="couple-space-name"
+                                    class="mb-1.5 block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300"
+                                >
+                                    Nama Ruang Pasangan
+                                </label>
+                                <div class="relative">
+                                    <Heart
+                                        class="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-rose-500"
+                                    />
+                                    <input
+                                        id="couple-space-name"
+                                        v-model="editForm.name"
+                                        type="text"
+                                        required
+                                        class="min-h-12 w-full rounded-2xl border border-zinc-200 bg-zinc-50 py-3 pr-4 pl-10 text-sm font-medium text-zinc-900 transition outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-indigo-400"
+                                    />
+                                </div>
+                                <InputError :message="editForm.errors.name" />
+                            </div>
+
+                            <div>
+                                <label
+                                    for="couple-space-anniversary"
+                                    class="mb-1.5 block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300"
+                                >
+                                    Tanggal Jadian / Pernikahan
+                                </label>
+                                <div class="relative">
+                                    <CalendarDays
+                                        class="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-indigo-500"
+                                    />
+                                    <input
+                                        id="couple-space-anniversary"
+                                        v-model="editForm.anniversary_date"
+                                        type="date"
+                                        class="min-h-12 w-full rounded-2xl border border-zinc-200 bg-zinc-50 py-3 pr-4 pl-10 text-sm font-medium text-zinc-900 transition outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-indigo-400"
+                                    />
+                                </div>
+                                <InputError
+                                    :message="editForm.errors.anniversary_date"
+                                />
+                            </div>
+                        </section>
+
+                        <FormErrorSummary :errors="editForm.errors" />
+                    </div>
+
+                    <div
+                        class="grid shrink-0 grid-cols-[0.75fr_1.25fr] gap-3 border-t border-zinc-200/80 bg-white/95 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-xl sm:px-5 sm:pb-4 dark:border-zinc-800 dark:bg-zinc-900/95"
+                    >
+                        <button
+                            type="button"
+                            :disabled="editForm.processing"
+                            @click="isEditModalOpen = false"
+                            class="min-h-12 rounded-2xl border border-zinc-200 bg-white px-4 text-xs font-bold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="editForm.processing"
+                            class="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-rose-500 px-4 text-xs font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            <Save class="h-4 w-4" />
+                            {{
+                                editForm.processing
+                                    ? 'Menyimpan...'
+                                    : 'Simpan Pengaturan'
+                            }}
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>

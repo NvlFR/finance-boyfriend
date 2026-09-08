@@ -13,5 +13,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/js/components/BirthdaySurprise.vue | .ai/rules/js-components.md |
 | app/Http/**,app/Services/**,resources/js/** | .ai/rules/js.md |
 | app/Http/Controllers/DashboardController.php,resources/js/pages/Dashboard.vue,resources/js/components/*Chart.vue | .ai/rules/pages-js-components.md |
+| resources/js/** | .ai/rules/resources-js.md |
 | app/Models/Investment*.php,app/Services/InvestmentService.php,app/Http/Controllers/InvestmentController.php,app/Http/Requests/Investment/**,resources/js/pages/Investments/**,app/Http/Controllers/DashboardController.php,app/Services/TransactionReportService.php | .ai/rules/services.md |
+| resources/js/layouts/AppLayout.vue,resources/js/components/TransactionDrawer.vue,resources/js/pages/Transactions/** | .ai/rules/transactions.md |
 | resources/js/pages/Trips/** | .ai/rules/trips.md |

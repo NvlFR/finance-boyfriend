@@ -19,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -216,13 +217,31 @@ class CoupleSpaceController extends Controller
      */
     public function update(UpdateCoupleSpaceRequest $request, CoupleSpace $coupleSpace): JsonResponse|RedirectResponse|Response
     {
-        $user = $request->user();
+        $validated = $request->validated();
+        $dashboardCover = $request->file('dashboard_cover');
+        unset($validated['dashboard_cover']);
 
-        if ($coupleSpace->user_one_id !== $user->id && $coupleSpace->user_two_id !== $user->id) {
-            abort(403, 'Unauthorized access to this couple space.');
+        $oldDashboardCoverPath = $coupleSpace->dashboard_cover_path;
+        $newDashboardCoverPath = null;
+
+        if ($dashboardCover) {
+            $newDashboardCoverPath = $dashboardCover->store("couple-spaces/{$coupleSpace->id}/covers", 'public');
+            $validated['dashboard_cover_path'] = $newDashboardCoverPath;
         }
 
-        $coupleSpace->update($request->validated());
+        try {
+            $coupleSpace->update($validated);
+        } catch (\Throwable $exception) {
+            if ($newDashboardCoverPath) {
+                Storage::disk('public')->delete($newDashboardCoverPath);
+            }
+
+            throw $exception;
+        }
+
+        if ($newDashboardCoverPath && $oldDashboardCoverPath) {
+            Storage::disk('public')->delete($oldDashboardCoverPath);
+        }
 
         if ($request->wantsJson()) {
             return response()->json([
