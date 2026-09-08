@@ -64,7 +64,7 @@ onUnmounted(() => {
 
 <template>
     <div
-        class="min-h-screen bg-zinc-50 pb-[calc(7rem+env(safe-area-inset-bottom))] text-zinc-900 antialiased selection:bg-rose-500 selection:text-white dark:bg-zinc-950 dark:text-zinc-100"
+        class="min-h-screen bg-[#fbfaf8] pb-[calc(7rem+env(safe-area-inset-bottom))] text-slate-950 antialiased selection:bg-rose-500 selection:text-white dark:bg-zinc-950 dark:text-zinc-100"
     >
         <!-- Top Loading Progress Bar (Glowing Gradient Line) -->
         <div
@@ -73,7 +73,7 @@ onUnmounted(() => {
         />
 
         <!-- Page Content Slot with Smooth Transition -->
-        <main class="mx-auto max-w-5xl px-4 py-5">
+        <main class="mx-auto max-w-5xl px-3 py-4 sm:px-5 sm:py-6">
             <slot />
         </main>
 

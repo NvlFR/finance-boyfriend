@@ -1,12 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import {
-    Home,
-    WalletCards,
-    Plus,
-    History,
-    User as UserIcon,
-} from '@lucide/vue';
+import { Home, PiggyBank, Plus, History, User as UserIcon } from '@lucide/vue';
 import { computed } from 'vue';
 import { useTransactionModal } from '@/composables/useTransactionModal';
 import { index as transactionsIndex } from '@/routes/transactions';
@@ -17,7 +11,6 @@ const page = usePage();
 const currentUrl = computed(() => page.url);
 const homeSectionPaths = [
     '/dashboard',
-    '/goals',
     '/wishlists',
     '/subscriptions',
     '/budgets',
@@ -47,7 +40,7 @@ function isActive(pattern: string): boolean {
         class="pointer-events-none fixed right-0 bottom-0 left-0 z-40 px-4 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))] md:hidden"
     >
         <nav
-            class="pointer-events-auto mx-auto grid max-w-md grid-cols-5 items-center rounded-full border border-zinc-200/80 bg-white/95 px-2 py-1.5 shadow-xl backdrop-blur-md dark:border-zinc-800/80 dark:bg-zinc-900/95"
+            class="pointer-events-auto mx-auto grid max-w-md grid-cols-5 items-center rounded-[1.75rem] border border-slate-200/80 bg-white/95 px-2 py-2 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-zinc-800/80 dark:bg-zinc-900/95"
         >
             <!-- 1. Home -->
             <Link
@@ -56,27 +49,27 @@ function isActive(pattern: string): boolean {
                 class="flex min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-2xl py-1 text-center transition-colors"
                 :class="
                     isHomeSectionActive
-                        ? 'font-bold text-indigo-600 dark:text-indigo-400'
+                        ? 'font-bold text-indigo-800 dark:text-indigo-400'
                         : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
                 "
             >
                 <Home class="h-5 w-5" />
-                <span class="text-[11px] leading-tight">Home</span>
+                <span class="text-[10px] leading-tight">Beranda</span>
             </Link>
 
-            <!-- 2. Wallets -->
+            <!-- 2. Savings Goals -->
             <Link
-                href="/wallets"
-                :aria-current="isActive('/wallets') ? 'page' : undefined"
+                href="/goals"
+                :aria-current="isActive('/goals') ? 'page' : undefined"
                 class="flex min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-2xl py-1 text-center transition-colors"
                 :class="
-                    isActive('/wallets')
-                        ? 'font-bold text-indigo-600 dark:text-indigo-400'
+                    isActive('/goals')
+                        ? 'font-bold text-indigo-800 dark:text-indigo-400'
                         : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
                 "
             >
-                <WalletCards class="h-5 w-5" />
-                <span class="text-[11px] leading-tight">Dompet</span>
+                <PiggyBank class="h-5 w-5" />
+                <span class="text-[10px] leading-tight">Tabungan</span>
             </Link>
 
             <!-- 3. Center Hero (+) Quick Add Button (Symmetric & Centered) -->
@@ -84,7 +77,7 @@ function isActive(pattern: string): boolean {
                 <button
                     type="button"
                     @click="openModal"
-                    class="-mt-7 flex h-13 w-13 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 to-rose-500 text-white shadow-lg ring-4 shadow-indigo-500/30 ring-white transition-transform hover:scale-105 active:scale-90 dark:ring-zinc-900"
+                    class="-mt-8 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-rose-400 to-rose-600 text-white shadow-lg ring-4 shadow-rose-500/30 ring-white transition-transform hover:scale-105 active:scale-90 dark:ring-zinc-900"
                     aria-label="Catat Transaksi Cepat"
                 >
                     <Plus class="h-6 w-6 stroke-[2.5]" />
@@ -99,12 +92,12 @@ function isActive(pattern: string): boolean {
                 class="flex min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-2xl py-1 text-center transition-colors"
                 :class="
                     isActive('/transactions')
-                        ? 'font-bold text-indigo-600 dark:text-indigo-400'
+                        ? 'font-bold text-indigo-800 dark:text-indigo-400'
                         : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
                 "
             >
                 <History class="h-5 w-5" />
-                <span class="text-[11px] leading-tight">Riwayat</span>
+                <span class="text-[10px] leading-tight">Riwayat</span>
             </Link>
 
             <!-- 5. Profile & Settings -->
@@ -114,12 +107,12 @@ function isActive(pattern: string): boolean {
                 class="flex min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-2xl py-1 text-center transition-colors"
                 :class="
                     isActive('/settings')
-                        ? 'font-bold text-indigo-600 dark:text-indigo-400'
+                        ? 'font-bold text-indigo-800 dark:text-indigo-400'
                         : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
                 "
             >
                 <UserIcon class="h-5 w-5" />
-                <span class="text-[11px] leading-tight">Profil</span>
+                <span class="text-[10px] leading-tight">Akun</span>
             </Link>
         </nav>
     </div>

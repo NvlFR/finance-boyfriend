@@ -73,6 +73,7 @@ const editingTransaction = ref<Transaction | null>(null);
 const transactionToDelete = ref<Transaction | null>(null);
 const isDeleting = ref(false);
 const showFilters = ref(false);
+const showExports = ref(false);
 const sourceWallets = computed(() =>
     (props.wallets || []).filter(
         (wallet) =>
@@ -91,6 +92,43 @@ const selectedWalletId = ref(props.filters?.wallet_id || '');
 const selectedCategoryId = ref(props.filters?.category_id || '');
 const selectedStartDate = ref(props.filters?.start_date || '');
 const selectedEndDate = ref(props.filters?.end_date || '');
+
+const groupedTransactions = computed(() => {
+    const groups = new Map<string, Transaction[]>();
+
+    props.transactions.data.forEach((transaction) => {
+        const dateKey = transaction.transaction_date.slice(0, 10);
+        const transactions = groups.get(dateKey) || [];
+        transactions.push(transaction);
+        groups.set(dateKey, transactions);
+    });
+
+    return Array.from(groups, ([date, transactions]) => ({
+        date,
+        transactions,
+    }));
+});
+
+function formatDateHeading(date: string): string {
+    const parsedDate = new Date(`${date}T00:00:00`);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (parsedDate.toDateString() === today.toDateString()) {
+        return 'Hari ini';
+    }
+
+    if (parsedDate.toDateString() === yesterday.toDateString()) {
+        return 'Kemarin';
+    }
+
+    return parsedDate.toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    });
+}
 
 const editForm = useForm({
     title: '',
@@ -223,18 +261,18 @@ function exportPdf() {
 <template>
     <Head title="Riwayat Transaksi - Couple Finance" />
 
-    <div class="space-y-6">
+    <div class="mx-auto max-w-4xl space-y-4 sm:space-y-5">
         <!-- Top Bar Action -->
         <div
             class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
         >
             <div>
                 <h1
-                    class="text-base font-bold text-zinc-900 dark:text-zinc-100"
+                    class="text-2xl font-black tracking-tight text-slate-950 dark:text-white"
                 >
-                    Riwayat Transaksi
+                    Riwayat
                 </h1>
-                <p class="text-xs text-zinc-500">
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
                     Semua pemasukan, pengeluaran, dan perpindahan uang
                 </p>
             </div>
@@ -242,41 +280,57 @@ function exportPdf() {
             <div class="flex flex-wrap items-center gap-2">
                 <button
                     type="button"
-                    @click="exportExcel"
-                    class="inline-flex min-h-11 items-center gap-1.5 rounded-2xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                    title="Download laporan Excel"
+                    @click="showExports = !showExports"
+                    class="inline-flex min-h-11 items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-indigo-800 shadow-sm transition-colors hover:bg-indigo-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-indigo-300 dark:hover:bg-indigo-950/40"
+                    :aria-expanded="showExports"
                 >
-                    <FileSpreadsheet
-                        class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"
-                    />
-                    <span>Excel</span>
-                </button>
-
-                <button
-                    type="button"
-                    @click="exportPdf"
-                    class="inline-flex min-h-11 items-center gap-1.5 rounded-2xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                    title="Buka laporan lengkap dan simpan sebagai PDF"
-                >
-                    <FileText
-                        class="h-3.5 w-3.5 text-rose-600 dark:text-rose-400"
-                    />
-                    <span>Laporan PDF</span>
+                    <Download class="h-4 w-4" />
+                    <span>Ekspor</span>
                 </button>
 
                 <button
                     type="button"
                     @click="isDrawerOpen = true"
-                    class="inline-flex min-h-11 items-center gap-1.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-rose-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-500/20 transition-all hover:opacity-95"
+                    class="inline-flex min-h-11 items-center gap-1.5 rounded-2xl bg-indigo-900 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-900/15 transition-all hover:bg-indigo-800 dark:bg-indigo-500 dark:hover:bg-indigo-400"
                 >
                     <Plus class="h-4 w-4" /> Catat Transaksi
                 </button>
             </div>
         </div>
 
+        <div
+            v-if="showExports"
+            class="grid grid-cols-3 gap-2 rounded-[1.5rem] border border-slate-200/80 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+        >
+            <button
+                type="button"
+                @click="exportExcel"
+                class="flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-emerald-50 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300"
+            >
+                <FileSpreadsheet class="h-5 w-5" />
+                Excel
+            </button>
+            <button
+                type="button"
+                @click="exportPdf"
+                class="flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-rose-50 text-xs font-bold text-rose-600 transition hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300"
+            >
+                <FileText class="h-5 w-5" />
+                Laporan PDF
+            </button>
+            <button
+                type="button"
+                @click="exportCsv"
+                class="flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-indigo-50 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300"
+            >
+                <Download class="h-5 w-5" />
+                CSV
+            </button>
+        </div>
+
         <!-- Search & Filter Bar -->
         <div
-            class="space-y-3 rounded-3xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+            class="space-y-3 rounded-[1.5rem] border border-slate-200/80 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
         >
             <div class="flex items-center gap-2">
                 <div class="relative flex-1">
@@ -288,8 +342,8 @@ function exportPdf() {
                         aria-label="Cari transaksi"
                         @keydown.enter="applyFilters"
                         type="text"
-                        placeholder="Cari transaksi berdasarkan judul atau catatan..."
-                        class="min-h-11 w-full rounded-2xl border border-zinc-200 bg-zinc-50/50 py-2 pr-4 pl-10 text-xs text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+                        placeholder="Cari transaksi, catatan, kategori..."
+                        class="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2 pr-4 pl-10 text-xs text-slate-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
                     />
                 </div>
 
@@ -515,145 +569,176 @@ function exportPdf() {
         </section>
 
         <!-- Transactions Feed -->
-        <div
-            class="divide-y divide-zinc-100 rounded-3xl border border-zinc-200/80 bg-white shadow-sm dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900"
-        >
-            <div
-                v-for="tx in transactions.data"
-                :key="tx.id"
-                class="flex items-start gap-3 p-4 transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40"
+        <div class="space-y-5">
+            <section
+                v-for="group in groupedTransactions"
+                :key="group.date"
+                class="space-y-2"
             >
-                <div class="flex min-w-0 flex-1 items-center gap-3">
+                <h2
+                    class="px-1 text-xs font-bold text-slate-500 dark:text-zinc-400"
+                >
+                    {{ formatDateHeading(group.date) }}
+                </h2>
+                <div
+                    class="divide-y divide-slate-100 overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-white shadow-sm dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900"
+                >
                     <div
-                        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm"
-                        :style="{
-                            backgroundColor:
-                                tx.category?.color ||
-                                (tx.type === 'income' ? '#10B981' : '#6366F1'),
-                        }"
+                        v-for="tx in group.transactions"
+                        :key="tx.id"
+                        class="flex items-start gap-3 p-4 transition-colors hover:bg-slate-50/80 dark:hover:bg-zinc-800/40"
                     >
-                        <TrendingDown
-                            v-if="tx.type === 'expense'"
-                            class="h-5 w-5"
-                        />
-                        <TrendingUp
-                            v-else-if="tx.type === 'income'"
-                            class="h-5 w-5"
-                        />
-                        <ArrowRightLeft v-else class="h-5 w-5" />
-                    </div>
+                        <div class="flex min-w-0 flex-1 items-center gap-3">
+                            <div
+                                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm"
+                                :style="{
+                                    backgroundColor:
+                                        tx.category?.color ||
+                                        (tx.type === 'income'
+                                            ? '#10B981'
+                                            : '#6366F1'),
+                                }"
+                            >
+                                <TrendingDown
+                                    v-if="tx.type === 'expense'"
+                                    class="h-5 w-5"
+                                />
+                                <TrendingUp
+                                    v-else-if="tx.type === 'income'"
+                                    class="h-5 w-5"
+                                />
+                                <ArrowRightLeft v-else class="h-5 w-5" />
+                            </div>
 
-                    <div class="min-w-0 flex-1">
-                        <h3
-                            class="text-sm font-bold break-words text-zinc-900 dark:text-zinc-100"
-                        >
-                            {{ tx.title || tx.category?.name || 'Transaksi' }}
-                        </h3>
-                        <div
-                            class="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400"
-                        >
-                            <span>{{ tx.wallet?.name }}</span>
-                            <span v-if="tx.to_wallet"
-                                >&rarr; {{ tx.to_wallet.name }}</span
+                            <div class="min-w-0 flex-1">
+                                <h3
+                                    class="text-sm font-bold break-words text-zinc-900 dark:text-zinc-100"
+                                >
+                                    {{
+                                        tx.title ||
+                                        tx.category?.name ||
+                                        'Transaksi'
+                                    }}
+                                </h3>
+                                <div
+                                    class="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400"
+                                >
+                                    <span>{{ tx.wallet?.name }}</span>
+                                    <span v-if="tx.to_wallet"
+                                        >&rarr; {{ tx.to_wallet.name }}</span
+                                    >
+                                    <span>•</span>
+                                    <span>{{
+                                        tx.user?.nickname ||
+                                        tx.user?.name?.split(' ')[0]
+                                    }}</span>
+                                    <span
+                                        class="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                                        :class="
+                                            tx.scope === 'shared'
+                                                ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400'
+                                                : 'bg-indigo-500/10 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300'
+                                        "
+                                    >
+                                        {{
+                                            tx.scope === 'shared'
+                                                ? 'Bersama'
+                                                : 'Pribadi'
+                                        }}
+                                    </span>
+                                    <span
+                                        v-if="tx.source_type"
+                                        class="rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400"
+                                    >
+                                        Terhubung
+                                        {{
+                                            tx.source_type === 'subscription'
+                                                ? 'Langganan'
+                                                : tx.source_type === 'wishlist'
+                                                  ? 'Wishlist'
+                                                  : 'Anggaran'
+                                        }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex shrink-0 flex-col items-end gap-1">
+                            <div class="shrink-0 text-right">
+                                <span
+                                    class="block text-sm font-extrabold whitespace-nowrap"
+                                    :class="[
+                                        tx.type === 'income'
+                                            ? 'text-emerald-600 dark:text-emerald-400'
+                                            : 'text-zinc-900 dark:text-zinc-100',
+                                    ]"
+                                    >{{
+                                        tx.type === 'expense'
+                                            ? '-Rp '
+                                            : tx.type === 'income'
+                                              ? '+Rp '
+                                              : 'Rp '
+                                    }}{{
+                                        Number(tx.amount).toLocaleString(
+                                            'id-ID',
+                                        )
+                                    }}</span
+                                >
+                                <p
+                                    class="text-[10px] whitespace-nowrap text-zinc-400"
+                                >
+                                    <span
+                                        v-if="
+                                            tx.type === 'transfer' &&
+                                            Number(tx.fee_amount) > 0
+                                        "
+                                    >
+                                        Admin Rp
+                                        {{
+                                            Number(
+                                                tx.fee_amount,
+                                            ).toLocaleString('id-ID')
+                                        }}
+                                        •
+                                    </span>
+                                    {{
+                                        new Date(
+                                            tx.transaction_date,
+                                        ).toLocaleDateString('id-ID', {
+                                            day: 'numeric',
+                                            month: 'short',
+                                        })
+                                    }}
+                                </p>
+                            </div>
+
+                            <div
+                                v-if="tx.user_id === auth.user.id"
+                                class="flex items-center gap-0.5"
                             >
-                            <span>•</span>
-                            <span>{{
-                                tx.user?.nickname ||
-                                tx.user?.name?.split(' ')[0]
-                            }}</span>
-                            <span
-                                v-if="tx.scope === 'shared'"
-                                class="py-0.2 rounded-full bg-rose-500/10 px-2 text-[10px] font-bold text-rose-600 dark:bg-rose-500/20 dark:text-rose-400"
-                            >
-                                Bersama
-                            </span>
-                            <span
-                                v-if="tx.source_type"
-                                class="rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400"
-                            >
-                                Terhubung
-                                {{
-                                    tx.source_type === 'subscription'
-                                        ? 'Langganan'
-                                        : tx.source_type === 'wishlist'
-                                          ? 'Wishlist'
-                                          : 'Anggaran'
-                                }}
-                            </span>
+                                <button
+                                    v-if="!tx.source_type"
+                                    type="button"
+                                    @click="openEditModal(tx)"
+                                    class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                                    title="Edit Transaksi"
+                                >
+                                    <Edit2 class="h-4 w-4" />
+                                </button>
+
+                                <button
+                                    type="button"
+                                    @click="deleteTransaction(tx)"
+                                    class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
+                                    title="Hapus Transaksi"
+                                >
+                                    <Trash2 class="h-4 w-4" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-
-                <div class="flex shrink-0 flex-col items-end gap-1">
-                    <div class="shrink-0 text-right">
-                        <span
-                            class="block text-sm font-extrabold whitespace-nowrap"
-                            :class="[
-                                tx.type === 'income'
-                                    ? 'text-emerald-600 dark:text-emerald-400'
-                                    : 'text-zinc-900 dark:text-zinc-100',
-                            ]"
-                            >{{
-                                tx.type === 'expense'
-                                    ? '-Rp '
-                                    : tx.type === 'income'
-                                      ? '+Rp '
-                                      : 'Rp '
-                            }}{{
-                                Number(tx.amount).toLocaleString('id-ID')
-                            }}</span
-                        >
-                        <p class="text-[10px] whitespace-nowrap text-zinc-400">
-                            <span
-                                v-if="
-                                    tx.type === 'transfer' &&
-                                    Number(tx.fee_amount) > 0
-                                "
-                            >
-                                Admin Rp
-                                {{
-                                    Number(tx.fee_amount).toLocaleString(
-                                        'id-ID',
-                                    )
-                                }}
-                                •
-                            </span>
-                            {{
-                                new Date(
-                                    tx.transaction_date,
-                                ).toLocaleDateString('id-ID', {
-                                    day: 'numeric',
-                                    month: 'short',
-                                })
-                            }}
-                        </p>
-                    </div>
-
-                    <div
-                        v-if="tx.user_id === auth.user.id"
-                        class="flex items-center gap-0.5"
-                    >
-                        <button
-                            v-if="!tx.source_type"
-                            type="button"
-                            @click="openEditModal(tx)"
-                            class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                            title="Edit Transaksi"
-                        >
-                            <Edit2 class="h-4 w-4" />
-                        </button>
-
-                        <button
-                            type="button"
-                            @click="deleteTransaction(tx)"
-                            class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
-                            title="Hapus Transaksi"
-                        >
-                            <Trash2 class="h-4 w-4" />
-                        </button>
-                    </div>
-                </div>
-            </div>
+            </section>
 
             <div
                 v-if="transactions.data.length === 0"

@@ -340,3 +340,21 @@ test('dashboard chart filter updates both chart datasets without a full page rel
         ->toContain('preserveScroll: true')
         ->toContain('preserveState: true');
 });
+
+test('dashboard exposes the redesigned mobile finance shortcuts', function () {
+    $dashboard = file_get_contents(resource_path('js/pages/Dashboard.vue'));
+    $bottomNavigation = file_get_contents(resource_path('js/components/MobileBottomNav.vue'));
+
+    expect($dashboard)
+        ->toContain('Total Kekayaan')
+        ->toContain('Milik Bersama')
+        ->toContain("openModalWithDefaults({ type: 'transfer' })")
+        ->toContain("openModalWithDefaults({ type: 'income' })")
+        ->toContain("openModalWithDefaults({ type: 'expense' })")
+        ->toContain('Buat Tabungan')
+        ->and($bottomNavigation)
+        ->toContain('Beranda')
+        ->toContain('Tabungan')
+        ->toContain('Catat Transaksi Cepat')
+        ->toContain('Akun');
+});

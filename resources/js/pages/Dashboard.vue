@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
+    BanknoteArrowDown,
+    BanknoteArrowUp,
+    ChevronRight,
     Heart,
     Plus,
     Handshake,
@@ -16,6 +19,7 @@ import {
     Repeat,
     PieChart,
     Navigation,
+    ShieldCheck,
 } from '@lucide/vue';
 import { ref, computed } from 'vue';
 import BirthdaySurprise from '@/components/BirthdaySurprise.vue';
@@ -141,7 +145,7 @@ const props = withDefaults(
 
 const activeTab = ref<'all' | 'mine' | 'partner' | 'joint'>('all');
 const isChartFiltering = ref(false);
-const { openModal } = useTransactionModal();
+const { openModal, openModalWithDefaults } = useTransactionModal();
 const chartPeriods: Array<{ label: string; value: ChartPeriod }> = [
     { label: '7 Hari', value: '7d' },
     { label: '30 Hari', value: '30d' },
@@ -200,6 +204,24 @@ const formattedMonthlyIncome = computed(() => {
     return 'Rp ' + Number(props.monthlyIncome).toLocaleString('id-ID');
 });
 
+const userFirstName = computed(
+    () => props.auth.user.nickname || props.auth.user.name.split(' ')[0],
+);
+
+const partnerFirstName = computed(() =>
+    props.partner
+        ? props.partner.nickname || props.partner.name.split(' ')[0]
+        : 'Pasangan',
+);
+
+const userAvatarUrl = computed(
+    () => props.auth.user.avatar_url || props.auth.user.avatar || '',
+);
+
+const partnerAvatarUrl = computed(
+    () => props.partner?.avatar_url || props.partner?.avatar || '',
+);
+
 function formatCurrency(amount: number) {
     return 'Rp ' + Number(amount).toLocaleString('id-ID');
 }
@@ -238,54 +260,66 @@ function selectChartPeriod(period: ChartPeriod): void {
 <template>
     <Head title="Dashboard - Couple Finance" />
 
-    <div class="space-y-6">
-        <!-- 💖 Welcome Greeting Headline -->
-        <div
-            class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center"
-        >
-            <div>
-                <div class="flex min-w-0 flex-wrap items-center gap-2">
-                    <h1
-                        class="min-w-0 text-xl font-black tracking-tight break-words text-zinc-900 sm:text-2xl dark:text-zinc-100"
+    <div class="mx-auto max-w-5xl space-y-4 sm:space-y-5">
+        <header class="flex items-center justify-between gap-3 px-1">
+            <div class="min-w-0">
+                <h1
+                    class="truncate text-xl font-black tracking-tight text-slate-950 sm:text-2xl dark:text-white"
+                >
+                    {{ greeting }}, {{ userFirstName }}
+                </h1>
+                <p
+                    class="mt-0.5 flex items-center gap-1.5 truncate text-xs font-medium text-slate-500 dark:text-slate-400"
+                >
+                    <Heart
+                        class="h-3.5 w-3.5 shrink-0 fill-current text-rose-500"
+                    />
+                    <span v-if="partner"
+                        >{{ userFirstName }} & {{ partnerFirstName }}</span
                     >
-                        {{ greeting }},
-                        {{
-                            auth.user.nickname || auth.user.name.split(' ')[0]
-                        }}! 👋
-                    </h1>
-                    <span
-                        v-if="partner"
-                        class="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-0.5 text-xs font-bold text-rose-600 dark:bg-rose-500/20 dark:text-rose-400"
-                    >
-                        <Heart class="h-3 w-3 animate-pulse fill-current" /> &
-                        {{ partner.nickname || partner.name.split(' ')[0] }}
-                    </span>
-                </div>
-                <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                    {{ todayDateFormatted }} •
-                    {{
-                        coupleSpace
-                            ? coupleSpace.name
-                            : 'Kelola keuangan pribadi dan bersama'
-                    }}
+                    <span v-else>{{ todayDateFormatted }}</span>
                 </p>
             </div>
 
-            <div class="flex items-center gap-2">
-                <Link
-                    v-if="coupleSpace"
-                    href="/couple-space"
-                    class="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3.5 py-1.5 text-xs font-bold text-zinc-700 shadow-xs transition-all hover:border-rose-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
-                >
-                    <Heart class="h-3.5 w-3.5 fill-current text-rose-500" />
-                    <span>{{
-                        partner
-                            ? `${partner.nickname || partner.name.split(' ')[0]}`
-                            : 'Undang Pasangan'
-                    }}</span>
-                </Link>
-            </div>
-        </div>
+            <Link
+                :href="coupleSpace ? '/couple-space' : '/settings/profile'"
+                class="group flex shrink-0 items-center gap-2"
+                :aria-label="
+                    coupleSpace
+                        ? 'Buka ruang pasangan'
+                        : 'Buka pengaturan profil'
+                "
+            >
+                <div class="flex -space-x-3">
+                    <div
+                        class="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-indigo-600 text-sm font-black text-white shadow-sm ring-2 ring-indigo-100 dark:border-zinc-950 dark:ring-indigo-950"
+                    >
+                        <img
+                            v-if="userAvatarUrl"
+                            :src="userAvatarUrl"
+                            :alt="auth.user.name"
+                            class="h-full w-full object-cover"
+                        />
+                        <span v-else>{{ userFirstName.charAt(0) }}</span>
+                    </div>
+                    <div
+                        v-if="partner"
+                        class="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-rose-500 text-sm font-black text-white shadow-sm ring-2 ring-rose-100 dark:border-zinc-950 dark:ring-rose-950"
+                    >
+                        <img
+                            v-if="partnerAvatarUrl"
+                            :src="partnerAvatarUrl"
+                            :alt="partner.name"
+                            class="h-full w-full object-cover"
+                        />
+                        <span v-else>{{ partnerFirstName.charAt(0) }}</span>
+                    </div>
+                </div>
+                <ChevronRight
+                    class="h-4 w-4 text-slate-400 transition-transform group-hover:translate-x-0.5"
+                />
+            </Link>
+        </header>
 
         <BirthdaySurprise
             v-if="birthdaySurprise"
@@ -323,68 +357,133 @@ function selectChartPeriod(period: ChartPeriod): void {
 
         <!-- Hero Net Worth Card -->
         <div
-            class="relative overflow-hidden rounded-3xl border border-zinc-200/80 bg-gradient-to-br from-indigo-900/90 via-zinc-900 to-zinc-950 p-6 text-white shadow-xl dark:border-zinc-800"
+            class="relative isolate overflow-hidden rounded-[1.75rem] border border-indigo-900/10 bg-gradient-to-br from-indigo-950 via-indigo-900 to-rose-900 p-5 text-white shadow-xl shadow-indigo-950/15 sm:p-7 dark:border-white/10"
         >
             <div
-                class="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-rose-500/20 blur-3xl"
+                class="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_76%_18%,rgba(251,113,133,0.75),transparent_27%),radial-gradient(circle_at_53%_56%,rgba(251,146,60,0.5),transparent_34%),linear-gradient(135deg,transparent_35%,rgba(255,255,255,0.08))]"
             />
-            <div
-                class="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-indigo-500/20 blur-3xl"
-            />
+            <svg
+                class="absolute right-0 bottom-0 left-0 -z-10 h-1/2 w-full opacity-70"
+                viewBox="0 0 900 220"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+            >
+                <path
+                    d="M0 170L120 85L220 145L360 40L500 155L620 70L760 135L900 55V220H0Z"
+                    fill="rgba(15,23,42,.52)"
+                />
+                <path
+                    d="M0 195L170 125L300 178L470 100L650 180L780 122L900 165V220H0Z"
+                    fill="rgba(15,23,42,.72)"
+                />
+            </svg>
 
             <div class="relative z-10 space-y-4">
                 <div class="flex items-center justify-between">
                     <span
-                        class="text-xs font-medium tracking-wider text-zinc-400 uppercase"
+                        class="inline-flex items-center gap-2 text-xs font-semibold text-white/80"
                     >
-                        Total Kekayaan Berdua (Net Worth)
+                        Total Kekayaan
+                        <ShieldCheck class="h-4 w-4" />
                     </span>
                     <button
                         type="button"
                         @click="openModal"
-                        class="hidden items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md transition-colors hover:bg-white/20 md:inline-flex"
+                        class="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold text-white backdrop-blur-md transition-colors hover:bg-white/25"
                     >
                         <Plus class="h-4 w-4" /> Catat Transaksi
                     </button>
                 </div>
 
                 <div
-                    class="text-2xl font-extrabold tracking-tight break-words min-[360px]:text-3xl sm:text-4xl"
+                    class="text-[clamp(1.75rem,8vw,2.75rem)] font-black tracking-tight break-words"
                 >
                     {{ formattedTotalNetWorth }}
                 </div>
 
                 <div
-                    class="grid grid-cols-3 gap-2 border-t border-white/10 pt-2"
+                    class="grid grid-cols-3 divide-x divide-white/20 border-t border-white/20 pt-4"
                 >
-                    <div>
-                        <span class="text-[11px] text-indigo-300"
-                            >Punya Kamu</span
+                    <div class="min-w-0 pr-2">
+                        <span class="text-[10px] font-medium text-white/70"
+                            >Milik Kamu</span
                         >
-                        <p class="truncate text-xs font-bold sm:text-sm">
+                        <p class="mt-1 truncate text-xs font-black sm:text-sm">
                             {{ formatCurrency(userNetWorth) }}
                         </p>
                     </div>
-                    <div>
-                        <span class="text-[11px] text-rose-300">{{
-                            partner
-                                ? partner.nickname || partner.name.split(' ')[0]
-                                : 'Pasangan'
-                        }}</span>
-                        <p class="truncate text-xs font-bold sm:text-sm">
+                    <div class="min-w-0 px-2 sm:px-4">
+                        <span class="text-[10px] font-medium text-white/70"
+                            >Milik {{ partnerFirstName }}</span
+                        >
+                        <p class="mt-1 truncate text-xs font-black sm:text-sm">
                             {{ formatCurrency(partnerNetWorth) }}
                         </p>
                     </div>
-                    <div>
-                        <span class="text-[11px] text-emerald-300"
-                            >Kas Bersama</span
+                    <div class="min-w-0 pl-2 sm:pl-4">
+                        <span class="text-[10px] font-medium text-white/70"
+                            >Milik Bersama</span
                         >
-                        <p class="truncate text-xs font-bold sm:text-sm">
+                        <p class="mt-1 truncate text-xs font-black sm:text-sm">
                             {{ formatCurrency(jointNetWorth) }}
                         </p>
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Primary Quick Actions -->
+        <div
+            class="grid grid-cols-4 rounded-[1.5rem] border border-slate-200/80 bg-white px-2 py-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+            aria-label="Aksi transaksi cepat"
+        >
+            <button
+                type="button"
+                class="group flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-2xl text-[10px] font-bold text-slate-700 transition hover:bg-indigo-50 dark:text-zinc-200 dark:hover:bg-indigo-950/40"
+                @click="openModalWithDefaults({ type: 'transfer' })"
+            >
+                <span
+                    class="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-indigo-700 transition-transform group-hover:scale-105 dark:bg-indigo-950 dark:text-indigo-300"
+                >
+                    <ArrowRightLeft class="h-5 w-5" />
+                </span>
+                Transfer
+            </button>
+            <button
+                type="button"
+                class="group flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-2xl text-[10px] font-bold text-slate-700 transition hover:bg-emerald-50 dark:text-zinc-200 dark:hover:bg-emerald-950/40"
+                @click="openModalWithDefaults({ type: 'income' })"
+            >
+                <span
+                    class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 transition-transform group-hover:scale-105 dark:bg-emerald-950 dark:text-emerald-300"
+                >
+                    <BanknoteArrowDown class="h-5 w-5" />
+                </span>
+                Pemasukan
+            </button>
+            <button
+                type="button"
+                class="group flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-2xl text-[10px] font-bold text-slate-700 transition hover:bg-rose-50 dark:text-zinc-200 dark:hover:bg-rose-950/40"
+                @click="openModalWithDefaults({ type: 'expense' })"
+            >
+                <span
+                    class="flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-600 transition-transform group-hover:scale-105 dark:bg-rose-950 dark:text-rose-300"
+                >
+                    <BanknoteArrowUp class="h-5 w-5" />
+                </span>
+                Pengeluaran
+            </button>
+            <Link
+                href="/goals"
+                class="group flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-2xl text-center text-[10px] font-bold text-slate-700 transition hover:bg-violet-50 dark:text-zinc-200 dark:hover:bg-violet-950/40"
+            >
+                <span
+                    class="flex h-10 w-10 items-center justify-center rounded-full bg-violet-50 text-violet-700 transition-transform group-hover:scale-105 dark:bg-violet-950 dark:text-violet-300"
+                >
+                    <Target class="h-5 w-5" />
+                </span>
+                Buat Tabungan
+            </Link>
         </div>
 
         <!-- Upcoming Subscription Bill Reminder Banner -->
@@ -444,7 +543,7 @@ function selectChartPeriod(period: ChartPeriod): void {
         </div>
 
         <!-- Quick Couple Features Grid -->
-        <div class="grid grid-cols-3 gap-2 text-center sm:grid-cols-6">
+        <div class="grid grid-cols-4 gap-2 text-center sm:grid-cols-8">
             <!-- Goals -->
             <Link
                 href="/goals"
@@ -561,10 +660,10 @@ function selectChartPeriod(period: ChartPeriod): void {
             <Link
                 :href="tripsIndex()"
                 prefetch
-                class="col-span-2 flex min-h-16 items-center justify-center gap-3 rounded-2xl border border-sky-200/80 bg-gradient-to-r from-sky-50 to-indigo-50 px-4 py-3 text-left shadow-sm transition-all hover:border-sky-300 sm:col-span-5 dark:border-sky-900/70 dark:from-sky-950/50 dark:to-indigo-950/40"
+                class="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-sky-200/80 bg-gradient-to-r from-sky-50 to-indigo-50 p-3 text-center shadow-sm transition-all hover:border-sky-300 dark:border-sky-900/70 dark:from-sky-950/50 dark:to-indigo-950/40"
             >
                 <div
-                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400"
                 >
                     <Navigation class="h-5 w-5" />
                 </div>
@@ -573,8 +672,7 @@ function selectChartPeriod(period: ChartPeriod): void {
                         class="block text-xs font-bold text-zinc-900 dark:text-zinc-100"
                         >Perjalanan</span
                     >
-                    <span
-                        class="block text-[10px] text-zinc-500 dark:text-zinc-400"
+                    <span class="sr-only"
                         >Bagikan lokasi dan pantau perjalanan pasangan</span
                     >
                 </div>

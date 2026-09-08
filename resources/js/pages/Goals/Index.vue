@@ -263,26 +263,26 @@ function confirmDeleteGoal(): void {
 <template>
     <Head title="Tabungan - Couple Finance" />
 
-    <div class="space-y-6">
+    <div class="mx-auto max-w-4xl space-y-4 sm:space-y-5">
         <!-- Top Bar Action -->
         <div
             class="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center"
         >
             <div class="min-w-0">
                 <h1
-                    class="text-base font-bold text-zinc-900 dark:text-zinc-100"
+                    class="text-2xl font-black tracking-tight text-slate-950 dark:text-white"
                 >
                     Tabungan
                 </h1>
-                <p class="text-xs text-zinc-500">
-                    Pisahkan target pribadi dan impian bersama
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Tujuan yang sedang kamu bangun
                 </p>
             </div>
 
             <button
                 type="button"
                 @click="openCreateModal"
-                class="flex min-h-11 items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-600 to-rose-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:opacity-90"
+                class="flex min-h-11 items-center gap-1.5 rounded-2xl bg-indigo-900 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-900/15 transition-all hover:bg-indigo-800 dark:bg-indigo-500 dark:hover:bg-indigo-400"
             >
                 <Plus class="h-4 w-4" /> Buat Target
             </button>
@@ -290,32 +290,44 @@ function confirmDeleteGoal(): void {
 
         <!-- Summary Progress Banner -->
         <div
-            class="rounded-3xl border border-zinc-200/80 bg-gradient-to-br from-indigo-900/90 via-zinc-900 to-zinc-950 p-6 text-white shadow-xl dark:border-zinc-800"
+            class="relative overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6 dark:border-zinc-800 dark:bg-zinc-900"
         >
+            <div
+                class="absolute -top-12 -right-10 h-32 w-32 rounded-full bg-indigo-100 blur-2xl dark:bg-indigo-950/60"
+            />
             <div class="flex items-center justify-between">
                 <div>
                     <span
-                        class="text-xs font-medium tracking-wider text-indigo-300 uppercase"
-                        >Total Terkumpul</span
+                        class="text-xs font-semibold text-slate-500 dark:text-slate-400"
+                        >Total Tersimpan</span
                     >
                     <div
-                        class="text-2xl font-extrabold tracking-tight sm:text-3xl"
+                        class="mt-1 text-2xl font-black tracking-tight text-indigo-900 sm:text-3xl dark:text-indigo-300"
                     >
                         Rp {{ visibleTotalSaved.toLocaleString('id-ID') }}
                     </div>
                 </div>
                 <div class="text-right">
-                    <span class="text-xs text-zinc-400">Total Target</span>
-                    <p class="text-sm font-semibold text-zinc-200">
+                    <div
+                        class="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-50 text-rose-500 dark:bg-rose-950/50"
+                    >
+                        <Coins class="h-5 w-5" />
+                    </div>
+                    <span class="text-[10px] text-slate-400">Total Target</span>
+                    <p
+                        class="text-xs font-bold text-slate-700 dark:text-zinc-200"
+                    >
                         Rp {{ visibleTotalTarget.toLocaleString('id-ID') }}
                     </p>
                 </div>
             </div>
 
             <div class="mt-4">
-                <div class="mb-1.5 flex justify-between text-xs text-zinc-400">
-                    <span>Kemajuan Keseluruhan</span>
-                    <span class="font-bold text-white">
+                <div
+                    class="mb-2 flex justify-between text-xs text-slate-500 dark:text-zinc-400"
+                >
+                    <span>Dari seluruh target aktif</span>
+                    <span class="font-black text-slate-900 dark:text-white">
                         {{
                             visibleTotalTarget > 0
                                 ? Math.min(
@@ -331,10 +343,10 @@ function confirmDeleteGoal(): void {
                     </span>
                 </div>
                 <div
-                    class="h-3 w-full overflow-hidden rounded-full bg-white/10"
+                    class="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-zinc-800"
                 >
                     <div
-                        class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-rose-500 transition-all duration-500"
+                        class="h-full rounded-full bg-gradient-to-r from-indigo-900 to-indigo-500 transition-all duration-500 dark:from-indigo-500 dark:to-violet-400"
                         :style="{
                             width: `${visibleTotalTarget > 0 ? Math.min(100, Math.round((visibleTotalSaved / visibleTotalTarget) * 100)) : 0}%`,
                         }"
@@ -346,7 +358,7 @@ function confirmDeleteGoal(): void {
         <div
             role="group"
             aria-label="Filter jenis tabungan"
-            class="grid grid-cols-3 gap-1 rounded-2xl bg-zinc-100 p-1 dark:bg-zinc-800"
+            class="grid grid-cols-3 gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
         >
             <button
                 type="button"
@@ -354,7 +366,7 @@ function confirmDeleteGoal(): void {
                 class="min-h-11 rounded-xl px-2 text-xs font-bold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
                 :class="
                     activeScope === 'all'
-                        ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-700 dark:text-indigo-300'
+                        ? 'bg-indigo-900 text-white shadow-sm dark:bg-indigo-500 dark:text-white'
                         : 'text-zinc-500 dark:text-zinc-400'
                 "
                 @click="activeScope = 'all'"
@@ -367,7 +379,7 @@ function confirmDeleteGoal(): void {
                 class="min-h-11 rounded-xl px-2 text-xs font-bold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
                 :class="
                     activeScope === 'personal'
-                        ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-700 dark:text-indigo-300'
+                        ? 'bg-indigo-900 text-white shadow-sm dark:bg-indigo-500 dark:text-white'
                         : 'text-zinc-500 dark:text-zinc-400'
                 "
                 @click="activeScope = 'personal'"
@@ -380,7 +392,7 @@ function confirmDeleteGoal(): void {
                 class="min-h-11 rounded-xl px-2 text-xs font-bold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
                 :class="
                     activeScope === 'shared'
-                        ? 'bg-white text-rose-600 shadow-sm dark:bg-zinc-700 dark:text-rose-300'
+                        ? 'bg-indigo-900 text-white shadow-sm dark:bg-indigo-500 dark:text-white'
                         : 'text-zinc-500 dark:text-zinc-400'
                 "
                 @click="activeScope = 'shared'"
@@ -394,12 +406,17 @@ function confirmDeleteGoal(): void {
             <div
                 v-for="goal in visibleGoals"
                 :key="goal.id"
-                class="relative overflow-hidden rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
+                class="relative overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
             >
+                <div
+                    class="absolute top-0 bottom-0 left-0 w-1.5"
+                    :style="{ backgroundColor: goal.color || '#6366F1' }"
+                    aria-hidden="true"
+                />
                 <div class="flex items-start justify-between gap-3">
                     <div class="flex items-center gap-3">
                         <div
-                            class="flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-sm"
+                            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm"
                             :style="{
                                 backgroundColor: goal.color || '#6366F1',
                             }"
@@ -409,7 +426,7 @@ function confirmDeleteGoal(): void {
                         <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-1.5">
                                 <h3
-                                    class="text-base font-bold break-words text-zinc-900 dark:text-zinc-100"
+                                    class="text-base font-black break-words text-slate-950 dark:text-white"
                                 >
                                     {{ goal.name }}
                                 </h3>
@@ -498,7 +515,7 @@ function confirmDeleteGoal(): void {
                         </span>
                     </div>
                     <div
-                        class="h-2.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800"
+                        class="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-zinc-800"
                     >
                         <div
                             class="h-full rounded-full transition-all duration-500"
@@ -531,9 +548,14 @@ function confirmDeleteGoal(): void {
                         v-if="canManageGoal(goal)"
                         type="button"
                         @click="openContributeModal(goal)"
-                        class="flex min-h-11 items-center gap-1 rounded-xl bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-900/50"
+                        class="flex min-h-11 items-center gap-1 rounded-xl px-4 py-1.5 text-xs font-bold text-white shadow-sm transition-opacity hover:opacity-90"
+                        :class="
+                            goal.scope === 'shared'
+                                ? 'bg-rose-500'
+                                : 'bg-indigo-900 dark:bg-indigo-500'
+                        "
                     >
-                        <Coins class="h-3.5 w-3.5" /> + Setor Tabungan
+                        <Coins class="h-3.5 w-3.5" /> Setor
                     </button>
                     <span
                         v-else

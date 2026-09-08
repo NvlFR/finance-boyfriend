@@ -75,6 +75,20 @@ test('transaction history exposes wallet movements to savings goals', function (
         ->assertJsonPath('savingsMovements.0.amount', '250000.00');
 });
 
+test('transaction history mobile UI groups dates and keeps report exports', function () {
+    $page = file_get_contents(resource_path('js/pages/Transactions/Index.vue'));
+
+    expect($page)
+        ->toContain('groupedTransactions')
+        ->toContain('formatDateHeading')
+        ->toContain("return 'Hari ini'")
+        ->toContain("return 'Kemarin'")
+        ->toContain('showExports')
+        ->toContain('Laporan PDF')
+        ->toContain('Excel')
+        ->toContain('CSV');
+});
+
 test('user can store income and balance increments', function () {
     $space = CoupleSpace::factory()->active()->create();
     $user = $space->userOne;

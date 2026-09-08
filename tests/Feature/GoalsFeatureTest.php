@@ -373,9 +373,12 @@ test('savings goals mobile UI provides personal and shared choices', function ()
 
     expect($page)
         ->toContain("scope: 'personal' as 'personal' | 'shared'")
+        ->toContain('Total Tersimpan')
+        ->toContain('Tujuan yang sedang kamu bangun')
         ->toContain('Jenis Tabungan')
         ->toContain('Pribadi')
         ->toContain('Bersama')
         ->toContain('canManageGoal(goal)')
+        ->toContain("goal.scope === 'shared'")
         ->toContain('min-h-11');
 });
