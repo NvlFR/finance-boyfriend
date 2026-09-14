@@ -3,6 +3,7 @@
 use App\Models\Category;
 use App\Models\CoupleSpace;
 use App\Models\Investment;
+use App\Models\InvestmentTransaction;
 use App\Models\SavingsContribution;
 use App\Models\SavingsGoal;
 use App\Models\Transaction;
@@ -46,6 +47,30 @@ test('user can list transactions with filters', function () {
         ->assertJsonCount(1, 'transactions.data');
 });
 
+test('transaction history provides a next page for loading more without replacing prior results', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+    $wallet = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+    ]);
+
+    Transaction::factory()->count(21)->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'wallet_id' => $wallet->id,
+    ]);
+
+    $this->actingAs($user)
+        ->getJson(route('transactions.index'))
+        ->assertOk()
+        ->assertJsonCount(20, 'transactions.data')
+        ->assertJsonPath('transactions.current_page', 1)
+        ->assertJsonPath('transactions.last_page', 2)
+        ->assertJsonPath('transactions.next_page_url', route('transactions.index', ['page' => 2]));
+});
+
 test('transaction history exposes wallet movements to savings goals', function () {
     $space = CoupleSpace::factory()->active()->create();
     $user = $space->userOne;
@@ -75,6 +100,43 @@ test('transaction history exposes wallet movements to savings goals', function (
         ->assertJsonPath('savingsMovements.0.amount', '250000.00');
 });
 
+test('transaction history exposes investment wallet movements', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+    $wallet = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'name' => 'BCA Utama',
+    ]);
+    $investment = Investment::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'name' => 'Emas Digital',
+        'scope' => 'personal',
+    ]);
+    InvestmentTransaction::factory()->create([
+        'investment_id' => $investment->id,
+        'user_id' => $user->id,
+        'wallet_id' => $wallet->id,
+        'type' => 'buy',
+        'gross_amount' => '100000.00',
+        'fee_amount' => '2500.00',
+    ]);
+
+    $this->actingAs($user)
+        ->getJson(route('transactions.index'))
+        ->assertOk()
+        ->assertJsonPath('investmentMovements.data.0.investment.name', 'Emas Digital')
+        ->assertJsonPath('investmentMovements.data.0.wallet.name', 'BCA Utama')
+        ->assertJsonPath('investmentMovements.data.0.type', 'buy')
+        ->assertJsonPath('investmentMovements.data.0.gross_amount', '100000.00')
+        ->assertJsonPath('investmentMovements.data.0.fee_amount', '2500.00')
+        ->assertJsonStructure([
+            'investmentMovements' => ['data', 'links'],
+        ]);
+});
+
 test('transaction history mobile UI groups dates and keeps report exports', function () {
     $page = file_get_contents(resource_path('js/pages/Transactions/Index.vue'));
 
@@ -86,7 +148,13 @@ test('transaction history mobile UI groups dates and keeps report exports', func
         ->toContain('showExports')
         ->toContain('Laporan PDF')
         ->toContain('Excel')
-        ->toContain('CSV');
+        ->toContain('CSV')
+        ->toContain('loadMoreTransactions')
+        ->toContain("only: ['transactions']")
+        ->toContain('preserveScroll: true')
+        ->toContain('Muat transaksi lainnya')
+        ->toContain('displayedTransactions.value.push')
+        ->not->toContain('v-for="link in transactions.links"');
 });
 
 test('user can store income and balance increments', function () {

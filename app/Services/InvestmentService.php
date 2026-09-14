@@ -71,7 +71,7 @@ class InvestmentService
                         $isRupiahPurchase ? 'amount' : 'quantity',
                     );
                     $this->decreaseWalletBalance($wallet, $totalDebit);
-                    $this->applyBuy($lockedInvestment, BigDecimal::of($quantity), $totalDebit, BigDecimal::of($unitPrice));
+                    $this->applyBuy($lockedInvestment, BigDecimal::of($quantity), $grossAmount, BigDecimal::of($unitPrice));
                 } else {
                     $realizedProfitLoss = $this->applySell(
                         $lockedInvestment,
@@ -119,14 +119,14 @@ class InvestmentService
     private function applyBuy(
         Investment $investment,
         BigDecimal $boughtQuantity,
-        BigDecimal $totalDebit,
+        BigDecimal $grossAmount,
         BigDecimal $unitPrice,
     ): void {
         $oldQuantity = BigDecimal::of($investment->quantity);
         $newQuantity = $oldQuantity->plus($boughtQuantity);
         $oldCostBasis = $oldQuantity->multipliedBy($investment->average_buy_price);
         $newAveragePrice = $oldCostBasis
-            ->plus($totalDebit)
+            ->plus($grossAmount)
             ->dividedBy($newQuantity, 2, RoundingMode::HalfUp);
 
         $investment->quantity = $newQuantity->toScale(8)->__toString();

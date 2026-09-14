@@ -7,3 +7,10 @@ export type FlashToast = {
     type: 'success' | 'info' | 'warning' | 'error';
     message: string;
 };
+
+export type AppRelease = {
+    version: string;
+    title: string;
+    released_at: string;
+    highlights: string[];
+};

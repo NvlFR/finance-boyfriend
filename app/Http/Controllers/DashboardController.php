@@ -17,7 +17,7 @@ use Inertia\Response;
 class DashboardController extends Controller
 {
     /** @var list<string> */
-    private const CHART_PERIODS = ['7d', '30d', 'month'];
+    private const CHART_PERIODS = ['7d', '30d', 'month', 'all'];
 
     public function __construct(
         protected SettlementService $settlementService,
@@ -31,7 +31,10 @@ class DashboardController extends Controller
     {
         $user = $request->user();
         $space = $user->currentCoupleSpace;
-        [$chartPeriod, $chartPeriodLabel, $chartStartDate, $chartEndDate] = $this->resolveChartPeriod($request);
+        [$chartPeriod, $chartPeriodLabel, $chartStartDate, $chartEndDate] = $this->resolveChartPeriod(
+            $request,
+            $space?->id,
+        );
 
         if (! $space) {
             $categories = Category::whereNull('couple_space_id')->get();
@@ -48,6 +51,7 @@ class DashboardController extends Controller
                 'userNetWorth' => 0,
                 'partnerNetWorth' => 0,
                 'jointNetWorth' => 0,
+                'netWorthBreakdown' => $this->emptyNetWorthBreakdown(),
                 'recentTransactions' => [],
                 'settlementDebt' => null,
                 'monthlySpending' => 0,
@@ -113,6 +117,23 @@ class DashboardController extends Controller
         $userNetWorth = (float) $userWallets->sum('balance') + $userPersonalSavings + $userInvestmentValue;
         $partnerNetWorth = (float) $partnerWallets->sum('balance') + $partnerPersonalSavings + $partnerInvestmentValue;
         $jointNetWorth = (float) $jointWallets->sum('balance') + $sharedSavings + $jointInvestmentValue;
+        $netWorthBreakdown = [
+            'user' => [
+                'wallets' => (float) $userWallets->sum('balance'),
+                'savings' => $userPersonalSavings,
+                'investments' => (float) $userInvestmentValue,
+            ],
+            'partner' => [
+                'wallets' => (float) $partnerWallets->sum('balance'),
+                'savings' => $partnerPersonalSavings,
+                'investments' => (float) $partnerInvestmentValue,
+            ],
+            'joint' => [
+                'wallets' => (float) $jointWallets->sum('balance'),
+                'savings' => $sharedSavings,
+                'investments' => (float) $jointInvestmentValue,
+            ],
+        ];
 
         // Recent Transactions
         $recentTransactions = Transaction::where('couple_space_id', $space->id)
@@ -190,18 +211,38 @@ class DashboardController extends Controller
         $indonesianDays = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
         $indonesianMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
-        for ($date = $chartStartDate->copy(); $date->lte($chartEndDate); $date->addDay()) {
-            $dayTransactions = $chartTransactionsByDate->get($date->toDateString(), collect());
-            $dayExpense = (float) $dayTransactions->where('type', 'expense')->sum('amount')
-                + (float) $dayTransactions->where('type', 'transfer')->sum('fee_amount');
-            $dayIncome = (float) $dayTransactions->where('type', 'income')->sum('amount');
+        if ($chartPeriod === 'all') {
+            $chartTransactionsByMonth = $chartTransactions->groupBy(
+                fn (Transaction $transaction): string => $transaction->transaction_date->format('Y-m')
+            );
 
-            $dailyTrend[] = [
-                'date' => $date->format('d').' '.$indonesianMonths[$date->month - 1],
-                'day' => $indonesianDays[$date->dayOfWeek],
-                'expense' => $dayExpense,
-                'income' => $dayIncome,
-            ];
+            for ($month = $chartStartDate->copy()->startOfMonth(); $month->lte($chartEndDate); $month->addMonth()) {
+                $monthTransactionsForChart = $chartTransactionsByMonth->get($month->format('Y-m'), collect());
+                $monthExpense = (float) $monthTransactionsForChart->where('type', 'expense')->sum('amount')
+                    + (float) $monthTransactionsForChart->where('type', 'transfer')->sum('fee_amount');
+                $monthIncome = (float) $monthTransactionsForChart->where('type', 'income')->sum('amount');
+
+                $dailyTrend[] = [
+                    'date' => $indonesianMonths[$month->month - 1].' '.$month->year,
+                    'day' => (string) $month->year,
+                    'expense' => $monthExpense,
+                    'income' => $monthIncome,
+                ];
+            }
+        } else {
+            for ($date = $chartStartDate->copy(); $date->lte($chartEndDate); $date->addDay()) {
+                $dayTransactions = $chartTransactionsByDate->get($date->toDateString(), collect());
+                $dayExpense = (float) $dayTransactions->where('type', 'expense')->sum('amount')
+                    + (float) $dayTransactions->where('type', 'transfer')->sum('fee_amount');
+                $dayIncome = (float) $dayTransactions->where('type', 'income')->sum('amount');
+
+                $dailyTrend[] = [
+                    'date' => $date->format('d').' '.$indonesianMonths[$date->month - 1],
+                    'day' => $indonesianDays[$date->dayOfWeek],
+                    'expense' => $dayExpense,
+                    'income' => $dayIncome,
+                ];
+            }
         }
 
         // Category Spending Breakdown (Selected Chart Period)
@@ -268,6 +309,7 @@ class DashboardController extends Controller
             'userNetWorth' => $userNetWorth,
             'partnerNetWorth' => $partnerNetWorth,
             'jointNetWorth' => $jointNetWorth,
+            'netWorthBreakdown' => $netWorthBreakdown,
             'recentTransactions' => $recentTransactions,
             'settlementDebt' => $settlementDebt,
             'monthlySpending' => $monthlySpending,
@@ -291,9 +333,21 @@ class DashboardController extends Controller
     }
 
     /**
+     * @return array{user: array{wallets: float, savings: float, investments: float}, partner: array{wallets: float, savings: float, investments: float}, joint: array{wallets: float, savings: float, investments: float}}
+     */
+    private function emptyNetWorthBreakdown(): array
+    {
+        return [
+            'user' => ['wallets' => 0, 'savings' => 0, 'investments' => 0],
+            'partner' => ['wallets' => 0, 'savings' => 0, 'investments' => 0],
+            'joint' => ['wallets' => 0, 'savings' => 0, 'investments' => 0],
+        ];
+    }
+
+    /**
      * @return array{string, string, Carbon, Carbon}
      */
-    private function resolveChartPeriod(Request $request): array
+    private function resolveChartPeriod(Request $request, ?int $spaceId): array
     {
         $chartPeriod = (string) $request->query('chart_period', '7d');
 
@@ -305,9 +359,26 @@ class DashboardController extends Controller
         [$chartPeriodLabel, $chartStartDate] = match ($chartPeriod) {
             '30d' => ['30 Hari', $chartEndDate->copy()->subDays(29)],
             'month' => ['Bulan Ini', $chartEndDate->copy()->startOfMonth()],
+            'all' => ['Semua Waktu', $this->firstChartTransactionDate($spaceId, $chartEndDate)],
             default => ['7 Hari', $chartEndDate->copy()->subDays(6)],
         };
 
         return [$chartPeriod, $chartPeriodLabel, $chartStartDate, $chartEndDate];
+    }
+
+    private function firstChartTransactionDate(?int $spaceId, Carbon $chartEndDate): Carbon
+    {
+        if ($spaceId === null) {
+            return $chartEndDate->copy();
+        }
+
+        $firstTransactionAt = Transaction::query()
+            ->where('couple_space_id', $spaceId)
+            ->where('transaction_date', '<=', $chartEndDate->copy()->endOfDay())
+            ->min('transaction_date');
+
+        return $firstTransactionAt
+            ? Carbon::parse($firstTransactionAt)->startOfDay()
+            : $chartEndDate->copy();
     }
 }

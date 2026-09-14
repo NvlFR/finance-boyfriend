@@ -40,7 +40,7 @@ test('user can open investment portfolio and create a personal asset', function 
         ->and($investment->quantity)->toBe('0.00000000');
 });
 
-test('buying investment deducts wallet and calculates average price including fee', function () {
+test('buying investment deducts fee from wallet without reducing invested amount', function () {
     [$space, $user] = investmentSpace();
     $wallet = Wallet::factory()->create([
         'couple_space_id' => $space->id,
@@ -68,9 +68,60 @@ test('buying investment deducts wallet and calculates average price including fe
     $investment->refresh();
     expect($wallet->fresh()->balance)->toBe('745000.00')
         ->and($investment->quantity)->toBe('2.50000000')
-        ->and($investment->average_buy_price)->toBe('102000.00')
+        ->and($investment->average_buy_price)->toBe('100000.00')
         ->and($investment->current_price)->toBe('100000.00')
+        ->and(InvestmentTransaction::query()->value('gross_amount'))->toBe('250000.00')
+        ->and(InvestmentTransaction::query()->value('fee_amount'))->toBe('5000.00')
         ->and(InvestmentTransaction::query()->count())->toBe(1);
+});
+
+test('fee on a later investment purchase is excluded from average buy price', function () {
+    [$space, $user] = investmentSpace();
+    $wallet = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'balance' => '500000.00',
+    ]);
+    $investment = Investment::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'quantity' => 0,
+        'average_buy_price' => 0,
+        'current_price' => 0,
+    ]);
+
+    $firstPurchase = [
+        'type' => 'buy',
+        'input_mode' => 'amount',
+        'wallet_id' => $wallet->id,
+        'amount' => '100000',
+        'unit_price' => '1203.99',
+        'fee_amount' => '0',
+        'transaction_date' => '2026-09-09',
+        'client_reference' => 'average-price-buy-1',
+    ];
+    $secondPurchase = [
+        'type' => 'buy',
+        'input_mode' => 'amount',
+        'wallet_id' => $wallet->id,
+        'amount' => '100000',
+        'unit_price' => '1204.89',
+        'fee_amount' => '1500',
+        'transaction_date' => '2026-09-10',
+        'client_reference' => 'average-price-buy-2',
+    ];
+
+    $this->actingAs($user)->post(route('investments.transact', $investment), $firstPurchase)
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+    $this->actingAs($user)->post(route('investments.transact', $investment), $secondPurchase)
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect($wallet->fresh()->balance)->toBe('298500.00')
+        ->and($investment->fresh()->average_buy_price)->toBe('1204.44')
+        ->and(InvestmentTransaction::query()->sum('gross_amount'))->toEqual(200000)
+        ->and(InvestmentTransaction::query()->sum('fee_amount'))->toEqual(1500);
 });
 
 test('user can buy investment using an exact rupiah amount', function () {
@@ -104,10 +155,21 @@ test('user can buy investment using an exact rupiah amount', function () {
 
     expect($wallet->fresh()->balance)->toBe('897500.00')
         ->and($investment->quantity)->toBe('66.66666666')
-        ->and($investment->average_buy_price)->toBe('1537.50')
+        ->and($investment->average_buy_price)->toBe('1500.00')
         ->and($investment->current_price)->toBe('1500.00')
         ->and($transaction->gross_amount)->toBe('100000.00')
+        ->and($transaction->fee_amount)->toBe('2500.00')
         ->and($transaction->quantity)->toBe('66.66666666');
+});
+
+test('investment trade form uses a visual wallet picker', function () {
+    $page = file_get_contents(resource_path('js/pages/Investments/Index.vue'));
+
+    expect($page)
+        ->toContain(':aria-pressed="')
+        ->toContain('@click="tradeForm.wallet_id = wallet.id"')
+        ->toContain("wallet.type === 'joint'")
+        ->not->toContain('v-model="tradeForm.wallet_id"');
 });
 
 test('repeated investment request only mutates balance once', function () {

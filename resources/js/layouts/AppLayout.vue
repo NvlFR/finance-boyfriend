@@ -5,12 +5,14 @@ import { toast } from 'vue-sonner';
 import LogoutConfirmModal from '@/components/LogoutConfirmModal.vue';
 import MobileBottomNav from '@/components/MobileBottomNav.vue';
 import PwaInstallPrompt from '@/components/PwaInstallPrompt.vue';
+import ReleaseUpdateModal from '@/components/ReleaseUpdateModal.vue';
 import TransactionDrawer from '@/components/TransactionDrawer.vue';
 import { Toaster } from '@/components/ui/sonner';
 import { useTransactionModal } from '@/composables/useTransactionModal';
 import type { BreadcrumbItem } from '@/types';
 import type { User } from '@/types/auth';
 import type { Wallet, Category } from '@/types/finance';
+import type { AppRelease } from '@/types/ui';
 
 defineProps<{
     breadcrumbs?: BreadcrumbItem[];
@@ -22,6 +24,9 @@ const partner = computed(() => (page.props as any).partner as User | undefined);
 const wallets = computed(() => ((page.props as any).wallets || []) as Wallet[]);
 const categories = computed(
     () => ((page.props as any).categories || []) as Category[],
+);
+const appRelease = computed(
+    () => ((page.props as any).appRelease || null) as AppRelease | null,
 );
 
 const { isOpen: isDrawerOpen, defaults: transactionDefaults } =
@@ -118,6 +123,12 @@ onUnmounted(() => {
 
         <!-- Global Logout Confirmation Modal -->
         <LogoutConfirmModal />
+
+        <ReleaseUpdateModal
+            v-if="user"
+            :release="appRelease"
+            :user-id="user.id"
+        />
 
         <PwaInstallPrompt />
         <Toaster position="top-center" rich-colors />

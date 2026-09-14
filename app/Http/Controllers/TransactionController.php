@@ -6,6 +6,7 @@ use App\Http\Requests\Transaction\StoreTransactionRequest;
 use App\Models\Budget;
 use App\Models\Category;
 use App\Models\Investment;
+use App\Models\InvestmentTransaction;
 use App\Models\SavingsContribution;
 use App\Models\SavingsGoal;
 use App\Models\Subscription;
@@ -61,6 +62,10 @@ class TransactionController extends Controller
                 'wallets' => [],
                 'categories' => [],
                 'savingsMovements' => [],
+                'investmentMovements' => [
+                    'data' => [],
+                    'links' => [],
+                ],
             ]);
         }
 
@@ -119,6 +124,17 @@ class TransactionController extends Controller
             ->latest('contributed_at')
             ->limit(20)
             ->get();
+        $investmentMovements = InvestmentTransaction::query()
+            ->whereHas('investment', fn ($query) => $query->where('couple_space_id', $space->id))
+            ->with([
+                'investment:id,name,symbol,scope',
+                'wallet:id,name,wallet_type,color',
+                'user:id,name,nickname',
+            ])
+            ->latest('transaction_date')
+            ->latest('id')
+            ->paginate(perPage: 20, pageName: 'investment_page')
+            ->withQueryString();
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -127,6 +143,7 @@ class TransactionController extends Controller
                 'wallets' => $wallets,
                 'categories' => $categories,
                 'savingsMovements' => $savingsMovements,
+                'investmentMovements' => $investmentMovements,
             ]);
         }
 
@@ -136,6 +153,7 @@ class TransactionController extends Controller
             'wallets' => $wallets,
             'categories' => $categories,
             'savingsMovements' => $savingsMovements,
+            'investmentMovements' => $investmentMovements,
         ]);
     }
 

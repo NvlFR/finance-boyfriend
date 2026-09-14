@@ -3,9 +3,13 @@ import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     ArrowLeft,
     BarChart3,
+    Check,
     Coins,
+    CreditCard,
+    Landmark,
     Pencil,
     Plus,
+    Smartphone,
     Trash2,
     TrendingUp,
     X,
@@ -702,20 +706,100 @@ function confirmDelete(): void {
                                         : 'penerima'
                                 }}</label
                             >
-                            <select
-                                v-model="tradeForm.wallet_id"
-                                required
-                                class="mt-1 min-h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                            <div
+                                class="mt-2 grid max-h-48 grid-cols-2 gap-2 overflow-y-auto pr-1"
                             >
-                                <option
+                                <button
                                     v-for="wallet in wallets"
                                     :key="wallet.id"
-                                    :value="wallet.id"
+                                    type="button"
+                                    :aria-pressed="
+                                        tradeForm.wallet_id === wallet.id
+                                    "
+                                    class="relative flex min-h-24 flex-col justify-between rounded-2xl border p-3 text-left transition-all active:scale-[0.98]"
+                                    :class="
+                                        tradeForm.wallet_id === wallet.id
+                                            ? 'border-sky-600 bg-sky-50 shadow-sm ring-2 ring-sky-500/20 dark:border-sky-400 dark:bg-sky-950/40'
+                                            : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600'
+                                    "
+                                    @click="tradeForm.wallet_id = wallet.id"
                                 >
-                                    {{ wallet.name }} ·
-                                    {{ money(wallet.balance) }}
-                                </option>
-                            </select>
+                                    <span
+                                        class="flex w-full items-start justify-between gap-2"
+                                    >
+                                        <span
+                                            class="flex min-w-0 items-center gap-2"
+                                        >
+                                            <span
+                                                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white"
+                                                :style="{
+                                                    backgroundColor:
+                                                        wallet.color ||
+                                                        '#0EA5E9',
+                                                }"
+                                            >
+                                                <Landmark
+                                                    v-if="
+                                                        wallet.wallet_type ===
+                                                        'bank'
+                                                    "
+                                                    class="h-4 w-4"
+                                                />
+                                                <Coins
+                                                    v-else-if="
+                                                        wallet.wallet_type ===
+                                                        'cash'
+                                                    "
+                                                    class="h-4 w-4"
+                                                />
+                                                <Smartphone
+                                                    v-else-if="
+                                                        wallet.wallet_type ===
+                                                        'ewallet'
+                                                    "
+                                                    class="h-4 w-4"
+                                                />
+                                                <CreditCard
+                                                    v-else
+                                                    class="h-4 w-4"
+                                                />
+                                            </span>
+                                            <span
+                                                class="min-w-0 truncate text-xs font-bold text-zinc-900 dark:text-zinc-100"
+                                            >
+                                                {{ wallet.name }}
+                                            </span>
+                                        </span>
+                                        <span
+                                            v-if="
+                                                tradeForm.wallet_id ===
+                                                wallet.id
+                                            "
+                                            class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sky-600 text-white"
+                                        >
+                                            <Check class="h-3 w-3 stroke-[3]" />
+                                        </span>
+                                    </span>
+                                    <span class="mt-2 block">
+                                        <span
+                                            class="block text-[10px] text-zinc-500 dark:text-zinc-400"
+                                        >
+                                            {{
+                                                wallet.type === 'joint'
+                                                    ? 'Dompet Bersama'
+                                                    : wallet.user?.nickname ||
+                                                      wallet.user?.name ||
+                                                      'Dompet Pribadi'
+                                            }}
+                                        </span>
+                                        <strong
+                                            class="mt-0.5 block text-xs text-zinc-900 dark:text-white"
+                                        >
+                                            {{ money(wallet.balance) }}
+                                        </strong>
+                                    </span>
+                                </button>
+                            </div>
                         </div>
 
                         <div v-if="tradeForm.type === 'buy'">

@@ -25,7 +25,14 @@ class HandleInertiaRequests extends Middleware
      */
     public function version(Request $request): ?string
     {
-        return parent::version($request);
+        $assetVersion = parent::version($request);
+        $releaseVersion = config('releases.current_version');
+
+        if (! $assetVersion && ! $releaseVersion) {
+            return null;
+        }
+
+        return hash('xxh128', $assetVersion.'|'.$releaseVersion);
     }
 
     /**
@@ -59,9 +66,52 @@ class HandleInertiaRequests extends Middleware
             'partner' => $partner,
             'wallets' => $wallets,
             'categories' => $categories,
+            'appRelease' => $user ? $this->currentRelease() : null,
             'statusMessage' => fn (): ?array => session('success')
                 ? ['type' => 'success', 'message' => session('success')]
                 : (session('error') ? ['type' => 'error', 'message' => session('error')] : null),
         ];
+    }
+
+    /**
+     * @return array{version: string, title: string, released_at: string, highlights: list<string>}|null
+     */
+    private function currentRelease(): ?array
+    {
+        $currentVersion = config('releases.current_version');
+        $releases = config('releases.items', []);
+
+        if (! is_string($currentVersion) || ! is_array($releases)) {
+            return null;
+        }
+
+        foreach ($releases as $release) {
+            if (! is_array($release) || ($release['version'] ?? null) !== $currentVersion) {
+                continue;
+            }
+
+            $title = $release['title'] ?? null;
+            $releasedAt = $release['released_at'] ?? null;
+            $highlights = $release['highlights'] ?? null;
+
+            if (! is_string($title) || ! is_string($releasedAt) || ! is_array($highlights)) {
+                return null;
+            }
+
+            $validHighlights = array_values(array_filter($highlights, is_string(...)));
+
+            if (count($validHighlights) !== count($highlights)) {
+                return null;
+            }
+
+            return [
+                'version' => $currentVersion,
+                'title' => $title,
+                'released_at' => $releasedAt,
+                'highlights' => $validHighlights,
+            ];
+        }
+
+        return null;
     }
 }

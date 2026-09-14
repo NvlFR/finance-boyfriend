@@ -2,6 +2,7 @@
 
 use App\Models\Category;
 use App\Models\CoupleSpace;
+use App\Models\Investment;
 use App\Models\SavingsGoal;
 use App\Models\Transaction;
 use App\Models\User;
@@ -105,7 +106,29 @@ test('dashboard net worth includes money moved into savings goals', function () 
 
     $this->actingAs($user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
         ->where('totalNetWorth', 1000000)
-        ->where('jointNetWorth', 300000));
+        ->where('jointNetWorth', 300000)
+        ->where('netWorthBreakdown.user.wallets', 700000)
+        ->where('netWorthBreakdown.user.savings', 0)
+        ->where('netWorthBreakdown.joint.savings', 300000));
+});
+
+test('dashboard separates investment value from personal wallet balance', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+    Wallet::factory()->create(['couple_space_id' => $space->id, 'user_id' => $user->id, 'balance' => 136000]);
+    Investment::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'quantity' => 2,
+        'current_price' => 100000,
+    ]);
+
+    $this->actingAs($user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+        ->where('userNetWorth', 336000)
+        ->where('netWorthBreakdown.user.wallets', 136000)
+        ->where('netWorthBreakdown.user.savings', 0)
+        ->where('netWorthBreakdown.user.investments', 200000));
 });
 
 test('dashboard attributes personal and shared savings to the correct owners', function () {
@@ -168,6 +191,38 @@ test('dashboard reports todays spending for each partner', function () {
         ->where('dailySpending', 200000)
         ->where('dailySpendingByUser.user', 75000)
         ->where('dailySpendingByUser.partner', 125000));
+});
+
+test('dashboard changes daily spending at midnight in Jakarta', function () {
+    Carbon::setTestNow(Carbon::parse('2026-09-10 06:00:00', 'Asia/Jakarta'));
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+    $wallet = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+    ]);
+
+    Transaction::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'wallet_id' => $wallet->id,
+        'type' => 'expense',
+        'amount' => 90000,
+        'transaction_date' => Carbon::parse('2026-09-09 23:59:00', 'Asia/Jakarta'),
+    ]);
+    Transaction::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'wallet_id' => $wallet->id,
+        'type' => 'expense',
+        'amount' => 10000,
+        'transaction_date' => Carbon::parse('2026-09-10 00:01:00', 'Asia/Jakarta'),
+    ]);
+
+    $this->actingAs($user)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+        ->where('dailySpending', 10000)
+        ->where('dailySpendingByUser.user', 10000));
 });
 
 test('dashboard reports monthly income for each partner', function () {
@@ -326,6 +381,49 @@ test('dashboard month chart includes only the current month through today', func
         ->where('chartSpendingTotal', 75000));
 });
 
+test('dashboard all time chart includes every transaction through today and groups trend by month', function () {
+    Carbon::setTestNow(Carbon::parse('2026-09-10 12:00:00'));
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+    $wallet = Wallet::factory()->create(['couple_space_id' => $space->id, 'user_id' => $user->id]);
+
+    Transaction::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'wallet_id' => $wallet->id,
+        'type' => 'expense',
+        'amount' => 100000,
+        'transaction_date' => Carbon::parse('2026-08-15 09:00:00'),
+    ]);
+    Transaction::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'wallet_id' => $wallet->id,
+        'type' => 'income',
+        'amount' => 500000,
+        'transaction_date' => Carbon::parse('2026-09-01 09:00:00'),
+    ]);
+    Transaction::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'wallet_id' => $wallet->id,
+        'type' => 'expense',
+        'amount' => 900000,
+        'transaction_date' => Carbon::parse('2026-10-01 09:00:00'),
+    ]);
+
+    $this->actingAs($user)->get(route('dashboard', ['chart_period' => 'all']))->assertInertia(fn (Assert $page) => $page
+        ->where('chartPeriod', 'all')
+        ->where('chartPeriodLabel', 'Semua Waktu')
+        ->has('dailyTrend', 2)
+        ->where('dailyTrend.0.date', 'Agu 2026')
+        ->where('dailyTrend.0.expense', 100000)
+        ->where('dailyTrend.1.date', 'Sep 2026')
+        ->where('dailyTrend.1.income', 500000)
+        ->where('chartSpendingTotal', 100000));
+});
+
 test('dashboard falls back to the seven day chart for an invalid period', function () {
     Carbon::setTestNow(Carbon::parse('2026-09-07 12:00:00'));
     $space = CoupleSpace::factory()->active()->create();
@@ -345,6 +443,7 @@ test('dashboard chart filter updates both chart datasets without a full page rel
         ->toContain("{ label: '7 Hari', value: '7d' }")
         ->toContain("{ label: '30 Hari', value: '30d' }")
         ->toContain("{ label: 'Bulan Ini', value: 'month' }")
+        ->toContain("{ label: 'Semua', value: 'all' }")
         ->toContain("'dailyTrend'")
         ->toContain("'categorySpending'")
         ->toContain('preserveScroll: true')
@@ -358,6 +457,9 @@ test('dashboard exposes the redesigned mobile finance shortcuts', function () {
     expect($dashboard)
         ->toContain('Total Kekayaan')
         ->toContain('Milik Bersama')
+        ->toContain('total: props.netWorthBreakdown.user.wallets')
+        ->toContain('total: props.netWorthBreakdown.partner.wallets')
+        ->toContain('total: props.netWorthBreakdown.joint.wallets')
         ->toContain("openModalWithDefaults({ type: 'transfer' })")
         ->toContain("openModalWithDefaults({ type: 'income' })")
         ->toContain("openModalWithDefaults({ type: 'expense' })")
@@ -367,6 +469,8 @@ test('dashboard exposes the redesigned mobile finance shortcuts', function () {
         ->toContain('<ArrowUpFromLine')
         ->toContain('<Ellipsis')
         ->not->toContain('Buat Tabungan')
+        ->not->toContain('Rincian aset')
+        ->not->toContain('showNetWorthDetails')
         ->not->toContain('group-hover:scale-105')
         ->and(substr_count($dashboard, 'shrink-0 translate-y-0.5'))
         ->toBe(4)

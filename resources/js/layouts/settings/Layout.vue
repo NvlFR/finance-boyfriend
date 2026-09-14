@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { User, Shield, Palette } from '@lucide/vue';
+import { computed } from 'vue';
 import PageHeader from '@/components/PageHeader.vue';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { edit as editAppearance } from '@/routes/appearance';
 import { edit as editProfile } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
+import type { AppRelease } from '@/types/ui';
 
 const navItems = [
     {
@@ -26,6 +28,10 @@ const navItems = [
 ];
 
 const { isCurrentOrParentUrl } = useCurrentUrl();
+const page = usePage();
+const appRelease = computed(
+    () => ((page.props as any).appRelease || null) as AppRelease | null,
+);
 </script>
 
 <template>
@@ -59,5 +65,21 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
         >
             <slot />
         </div>
+
+        <p
+            v-if="appRelease"
+            class="text-center text-[11px] font-medium text-zinc-400 dark:text-zinc-500"
+        >
+            Couple Finance v{{ appRelease.version }} · Diperbarui
+            {{
+                new Date(
+                    `${appRelease.released_at}T00:00:00`,
+                ).toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                })
+            }}
+        </p>
     </div>
 </template>

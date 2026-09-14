@@ -111,7 +111,13 @@ export type InvestmentTransaction = {
     transaction_date: string;
     notes: string | null;
     user?: User;
-    wallet?: Pick<Wallet, 'id' | 'name'>;
+    wallet?: Pick<Wallet, 'id' | 'name' | 'wallet_type' | 'color'>;
+    investment?: {
+        id: number;
+        name: string;
+        symbol: string | null;
+        scope: 'personal' | 'shared';
+    };
 };
 
 export type Investment = {

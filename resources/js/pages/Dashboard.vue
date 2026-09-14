@@ -40,7 +40,13 @@ import type {
     Transaction,
 } from '@/types/finance';
 
-type ChartPeriod = '7d' | '30d' | 'month';
+type ChartPeriod = '7d' | '30d' | 'month' | 'all';
+
+type NetWorthBreakdown = {
+    wallets: number;
+    savings: number;
+    investments: number;
+};
 
 const props = withDefaults(
     defineProps<{
@@ -55,6 +61,11 @@ const props = withDefaults(
         userNetWorth?: number;
         partnerNetWorth?: number;
         jointNetWorth?: number;
+        netWorthBreakdown?: {
+            user: NetWorthBreakdown;
+            partner: NetWorthBreakdown;
+            joint: NetWorthBreakdown;
+        };
         recentTransactions?: Transaction[];
         settlementDebt?: {
             net_balance: number;
@@ -124,6 +135,11 @@ const props = withDefaults(
         userNetWorth: 0,
         partnerNetWorth: 0,
         jointNetWorth: 0,
+        netWorthBreakdown: () => ({
+            user: { wallets: 0, savings: 0, investments: 0 },
+            partner: { wallets: 0, savings: 0, investments: 0 },
+            joint: { wallets: 0, savings: 0, investments: 0 },
+        }),
         recentTransactions: () => [],
         monthlySpending: 0,
         monthlyIncome: 0,
@@ -155,6 +171,7 @@ const chartPeriods: Array<{ label: string; value: ChartPeriod }> = [
     { label: '7 Hari', value: '7d' },
     { label: '30 Hari', value: '30d' },
     { label: 'Bulan Ini', value: 'month' },
+    { label: 'Semua', value: 'all' },
 ];
 
 const displayedWallets = computed(() => {
@@ -226,6 +243,27 @@ const userAvatarUrl = computed(
 const partnerAvatarUrl = computed(
     () => props.partner?.avatar_url || props.partner?.avatar || '',
 );
+
+const wealthOwners = computed(() => [
+    {
+        key: 'user',
+        label: 'Milik Kamu',
+        total: props.netWorthBreakdown.user.wallets,
+        breakdown: props.netWorthBreakdown.user,
+    },
+    {
+        key: 'partner',
+        label: `Milik ${partnerFirstName.value}`,
+        total: props.netWorthBreakdown.partner.wallets,
+        breakdown: props.netWorthBreakdown.partner,
+    },
+    {
+        key: 'joint',
+        label: 'Milik Bersama',
+        total: props.netWorthBreakdown.joint.wallets,
+        breakdown: props.netWorthBreakdown.joint,
+    },
+]);
 
 function formatCurrency(amount: number) {
     return 'Rp ' + Number(amount).toLocaleString('id-ID');
@@ -418,34 +456,31 @@ function selectChartPeriod(period: ChartPeriod): void {
                     {{ formattedTotalNetWorth }}
                 </div>
 
+                <p class="text-[11px] font-medium text-white/70">
+                    Dompet, tabungan, dan investasi
+                </p>
+
                 <div
                     class="grid grid-cols-3 divide-x divide-white/20 border-t border-white/20 pt-4"
                 >
-                    <div class="min-w-0 pr-2">
-                        <span class="text-[10px] font-medium text-white/70"
-                            >Milik Kamu</span
-                        >
-                        <p class="mt-1 truncate text-xs font-black sm:text-sm">
-                            {{ formatCurrency(userNetWorth) }}
-                        </p>
-                    </div>
-                    <div class="min-w-0 px-2 sm:px-4">
-                        <span class="text-[10px] font-medium text-white/70"
-                            >Milik {{ partnerFirstName }}</span
-                        >
-                        <p class="mt-1 truncate text-xs font-black sm:text-sm">
-                            {{ formatCurrency(partnerNetWorth) }}
-                        </p>
-                    </div>
-                    <div class="min-w-0 pl-2 sm:pl-4">
-                        <span class="text-[10px] font-medium text-white/70"
-                            >Milik Bersama</span
-                        >
-                        <p class="mt-1 truncate text-xs font-black sm:text-sm">
-                            {{ formatCurrency(jointNetWorth) }}
+                    <div
+                        v-for="(owner, index) in wealthOwners"
+                        :key="owner.key"
+                        class="min-w-0 px-2 first:pl-0 last:pr-0"
+                        :class="{
+                            'text-center': index === 1,
+                            'text-right': index === 2,
+                        }"
+                    >
+                        <span class="text-[9px] font-medium text-white/70 sm:text-[10px]">
+                            {{ owner.label }}
+                        </span>
+                        <p class="mt-1 truncate text-[11px] font-black sm:text-sm">
+                            {{ formatCurrency(owner.total) }}
                         </p>
                     </div>
                 </div>
+
             </div>
         </div>
 
@@ -901,7 +936,7 @@ function selectChartPeriod(period: ChartPeriod): void {
                 <div
                     role="group"
                     aria-label="Pilih periode grafik"
-                    class="grid grid-cols-3 gap-1 rounded-2xl bg-zinc-100 p-1 dark:bg-zinc-800"
+                    class="grid grid-cols-4 gap-1 rounded-2xl bg-zinc-100 p-1 dark:bg-zinc-800"
                 >
                     <button
                         v-for="period in chartPeriods"
@@ -909,7 +944,7 @@ function selectChartPeriod(period: ChartPeriod): void {
                         type="button"
                         :disabled="isChartFiltering"
                         :aria-pressed="chartPeriod === period.value"
-                        class="min-h-11 rounded-xl px-3 text-xs font-bold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-wait"
+                        class="min-h-11 rounded-xl px-2 text-[11px] font-bold transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-wait sm:px-3 sm:text-xs"
                         :class="
                             chartPeriod === period.value
                                 ? 'bg-white text-indigo-600 shadow-sm dark:bg-zinc-700 dark:text-indigo-300'

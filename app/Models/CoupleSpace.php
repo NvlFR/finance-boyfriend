@@ -47,12 +47,21 @@ class CoupleSpace extends Model
         ];
     }
 
-    /** @return Attribute<string|null, never> */
+    /** @return Attribute<string|null, mixed> */
     protected function dashboardCoverUrl(): Attribute
     {
-        return Attribute::get(fn (): ?string => $this->dashboard_cover_path
-            ? Storage::disk('public')->url($this->dashboard_cover_path)
-            : null);
+        return Attribute::make(
+            get: fn (mixed $value, array $attributes): ?string => $this->resolveDashboardCoverUrl($attributes),
+        );
+    }
+
+    /** @param array<string, mixed> $attributes */
+    private function resolveDashboardCoverUrl(array $attributes): ?string
+    {
+        return isset($attributes['dashboard_cover_path'])
+            && is_string($attributes['dashboard_cover_path'])
+            ? Storage::disk('public')->url($attributes['dashboard_cover_path'])
+            : null;
     }
 
     /**

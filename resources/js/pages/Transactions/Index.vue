@@ -12,6 +12,7 @@ import {
     FileText,
     X,
     Sparkles,
+    BarChart3,
     Coins,
     TrendingDown,
     TrendingUp,
@@ -20,7 +21,7 @@ import {
     Tag,
     Check,
 } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
 import CurrencyInput from '@/components/CurrencyInput.vue';
 import FormErrorSummary from '@/components/FormErrorSummary.vue';
@@ -43,6 +44,7 @@ import type {
     Category,
     Wallet,
     SavingsMovement,
+    InvestmentTransaction,
 } from '@/types/finance';
 
 const props = defineProps<{
@@ -50,6 +52,7 @@ const props = defineProps<{
         data: Transaction[];
         links: any[];
         total: number;
+        next_page_url?: string | null;
     };
     filters: {
         search?: string;
@@ -63,6 +66,14 @@ const props = defineProps<{
     wallets?: Wallet[];
     categories?: Category[];
     savingsMovements?: SavingsMovement[];
+    investmentMovements?: {
+        data: InvestmentTransaction[];
+        links?: Array<{
+            url: string | null;
+            label: string;
+            active: boolean;
+        }>;
+    };
     auth: {
         user: User;
     };
@@ -94,11 +105,22 @@ const selectedWalletId = ref(props.filters?.wallet_id || '');
 const selectedCategoryId = ref(props.filters?.category_id || '');
 const selectedStartDate = ref(props.filters?.start_date || '');
 const selectedEndDate = ref(props.filters?.end_date || '');
+const displayedTransactions = ref<Transaction[]>([...props.transactions.data]);
+const isLoadingMoreTransactions = ref(false);
+
+watch(
+    () => props.transactions,
+    (transactions) => {
+        if (!isLoadingMoreTransactions.value) {
+            displayedTransactions.value = [...transactions.data];
+        }
+    },
+);
 
 const groupedTransactions = computed(() => {
     const groups = new Map<string, Transaction[]>();
 
-    props.transactions.data.forEach((transaction) => {
+    displayedTransactions.value.forEach((transaction) => {
         const dateKey = transaction.transaction_date.slice(0, 10);
         const transactions = groups.get(dateKey) || [];
         transactions.push(transaction);
@@ -130,6 +152,27 @@ function formatDateHeading(date: string): string {
         month: 'long',
         year: 'numeric',
     });
+}
+
+function investmentWalletMutation(movement: InvestmentTransaction): number {
+    const grossAmount = Number(movement.gross_amount);
+    const feeAmount = Number(movement.fee_amount);
+
+    return movement.type === 'buy'
+        ? grossAmount + feeAmount
+        : Math.max(0, grossAmount - feeAmount);
+}
+
+function investmentQuantity(value: number | string): string {
+    return Number(value).toLocaleString('id-ID', {
+        maximumFractionDigits: 8,
+    });
+}
+
+function money(value: number | string): string {
+    return `Rp ${Number(value).toLocaleString('id-ID', {
+        maximumFractionDigits: 2,
+    })}`;
 }
 
 const editForm = useForm({
@@ -174,6 +217,39 @@ function resetFilters() {
     selectedStartDate.value = '';
     selectedEndDate.value = '';
     applyFilters();
+}
+
+function loadMoreTransactions(): void {
+    const nextPageUrl = props.transactions.next_page_url;
+
+    if (!nextPageUrl || isLoadingMoreTransactions.value) {
+        return;
+    }
+
+    router.get(
+        nextPageUrl,
+        {},
+        {
+            only: ['transactions'],
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+            onStart: () => (isLoadingMoreTransactions.value = true),
+            onSuccess: (page) => {
+                const nextTransactions = page.props.transactions as typeof props.transactions;
+                const currentTransactionIds = new Set(
+                    displayedTransactions.value.map((transaction) => transaction.id),
+                );
+
+                displayedTransactions.value.push(
+                    ...nextTransactions.data.filter(
+                        (transaction) => !currentTransactionIds.has(transaction.id),
+                    ),
+                );
+            },
+            onFinish: () => (isLoadingMoreTransactions.value = false),
+        },
+    );
 }
 
 function openEditModal(tx: Transaction) {
@@ -492,6 +568,118 @@ function exportPdf() {
         </div>
 
         <section
+            v-if="investmentMovements?.data.length"
+            class="rounded-3xl border border-violet-200/80 bg-violet-50/60 p-4 shadow-sm dark:border-violet-900/60 dark:bg-violet-950/20"
+        >
+            <div class="mb-3 flex items-start gap-2">
+                <div
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white"
+                >
+                    <BarChart3 class="h-4 w-4" />
+                </div>
+                <div>
+                    <h2
+                        class="text-sm font-bold text-zinc-900 dark:text-zinc-100"
+                    >
+                        Aktivitas Investasi
+                    </h2>
+                    <p
+                        class="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400"
+                    >
+                        Pembelian dan penjualan aset tercatat sebagai mutasi,
+                        bukan pengeluaran atau pemasukan harian.
+                    </p>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <div
+                    v-for="movement in investmentMovements.data"
+                    :key="movement.id"
+                    class="flex items-start justify-between gap-3 rounded-2xl border border-violet-100 bg-white/90 p-3 dark:border-violet-900/50 dark:bg-zinc-900/80"
+                >
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <span
+                                class="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                                :class="
+                                    movement.type === 'buy'
+                                        ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300'
+                                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+                                "
+                            >
+                                {{ movement.type === 'buy' ? 'Beli' : 'Jual' }}
+                            </span>
+                            <p
+                                class="truncate text-xs font-bold text-zinc-900 dark:text-zinc-100"
+                            >
+                                {{ movement.investment?.name || 'Investasi' }}
+                            </p>
+                        </div>
+                        <p class="mt-1 text-[10px] text-zinc-500">
+                            {{ movement.wallet?.name || 'Dompet' }} ·
+                            {{ investmentQuantity(movement.quantity) }} unit ·
+                            {{
+                                movement.user?.nickname ||
+                                movement.user?.name ||
+                                'Pengguna'
+                            }}
+                        </p>
+                        <p
+                            v-if="Number(movement.fee_amount) > 0"
+                            class="mt-0.5 text-[10px] text-zinc-400"
+                        >
+                            Termasuk admin
+                            {{ money(movement.fee_amount) }}
+                        </p>
+                    </div>
+                    <div class="shrink-0 text-right">
+                        <strong
+                            class="text-xs font-extrabold"
+                            :class="
+                                movement.type === 'buy'
+                                    ? 'text-zinc-900 dark:text-zinc-100'
+                                    : 'text-emerald-700 dark:text-emerald-400'
+                            "
+                        >
+                            {{ movement.type === 'buy' ? '-' : '+'
+                            }}{{ money(investmentWalletMutation(movement)) }}
+                        </strong>
+                        <p class="mt-0.5 text-[10px] text-zinc-400">
+                            {{
+                                new Date(
+                                    movement.transaction_date,
+                                ).toLocaleDateString('id-ID', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric',
+                                })
+                            }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                v-if="(investmentMovements.links?.length || 0) > 1"
+                class="mt-3 flex justify-center gap-2"
+            >
+                <Link
+                    v-for="link in investmentMovements.links || []"
+                    :key="link.label"
+                    :href="link.url || '#'"
+                    preserve-scroll
+                    preserve-state
+                    replace
+                    class="rounded-xl border border-violet-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-violet-700 transition-colors hover:bg-violet-100 dark:border-violet-800 dark:bg-zinc-900 dark:text-violet-300"
+                    :class="!link.url ? 'pointer-events-none opacity-40' : ''"
+                >
+                    <span v-html="link.label" />
+                </Link>
+            </div>
+        </section>
+
+        <section
             v-if="savingsMovements?.length"
             class="rounded-3xl border border-emerald-200/80 bg-emerald-50/60 p-4 shadow-sm dark:border-emerald-900/60 dark:bg-emerald-950/20"
         >
@@ -729,32 +917,30 @@ function exportPdf() {
             </section>
 
             <div
-                v-if="transactions.data.length === 0"
+                v-if="displayedTransactions.length === 0"
                 class="p-10 text-center text-xs text-zinc-500"
             >
                 Tidak ada transaksi yang cocok dengan filter.
             </div>
         </div>
 
-        <!-- Pagination -->
+        <!-- Load More Transactions -->
         <div
-            v-if="transactions.links && transactions.links.length > 3"
-            class="flex justify-center gap-1 pt-2"
+            v-if="transactions.next_page_url"
+            class="flex justify-center pt-2"
         >
-            <Link
-                v-for="link in transactions.links"
-                :key="link.label"
-                :href="link.url || '#'"
-                class="rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors"
-                :class="[
-                    link.active
-                        ? 'bg-indigo-600 text-white'
-                        : 'border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300',
-                    !link.url ? 'pointer-events-none opacity-40' : '',
-                ]"
+            <button
+                type="button"
+                :disabled="isLoadingMoreTransactions"
+                class="inline-flex min-h-11 items-center justify-center rounded-2xl border border-indigo-200 bg-indigo-50 px-4 text-xs font-bold text-indigo-700 transition-colors hover:bg-indigo-100 disabled:cursor-wait disabled:opacity-60 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-950/70"
+                @click="loadMoreTransactions"
             >
-                <span v-html="link.label" />
-            </Link>
+                {{
+                    isLoadingMoreTransactions
+                        ? 'Memuat transaksi…'
+                        : 'Muat transaksi lainnya'
+                }}
+            </button>
         </div>
 
         <!-- Edit Transaction Modal -->
