@@ -25,6 +25,9 @@ const wallets = computed(() => ((page.props as any).wallets || []) as Wallet[]);
 const categories = computed(
     () => ((page.props as any).categories || []) as Category[],
 );
+const emergencySavingsGoals = computed(
+    () => ((page.props as any).emergencySavingsGoals || []) as any[],
+);
 const appRelease = computed(
     () => ((page.props as any).appRelease || null) as AppRelease | null,
 );
@@ -115,6 +118,7 @@ onUnmounted(() => {
             v-model:open="isDrawerOpen"
             :wallets="wallets"
             :categories="categories"
+            :emergency-savings-goals="emergencySavingsGoals"
             :user="user"
             :partner="partner"
             :defaults="transactionDefaults"

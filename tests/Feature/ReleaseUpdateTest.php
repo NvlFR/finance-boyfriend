@@ -12,9 +12,9 @@ test('authenticated pages share the current application release', function () {
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('appRelease.version', '1.1.3')
-            ->where('appRelease.title', 'Rincian total kekayaan lebih jelas')
-            ->where('appRelease.released_at', '2026-09-14')
+            ->where('appRelease.version', '1.1.6')
+            ->where('appRelease.title', 'Dana darurat kini bisa ditransfer')
+            ->where('appRelease.released_at', '2026-09-20')
             ->has('appRelease.highlights', 2));
 });
 
@@ -41,7 +41,7 @@ test('release announcement is mounted globally and remembered per user', functio
     expect(config('releases.current_version'))
         ->toMatch('/^\d+\.\d+\.\d+$/')
         ->and(config('releases.items'))
-        ->toHaveCount(4)
+        ->toHaveCount(7)
         ->and($layout)
         ->toContain("import ReleaseUpdateModal from '@/components/ReleaseUpdateModal.vue'")
         ->toContain(':release="appRelease"')

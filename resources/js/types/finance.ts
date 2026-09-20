@@ -64,7 +64,8 @@ export type Transaction = {
     id: number;
     couple_space_id: number;
     user_id: number;
-    wallet_id: number;
+    wallet_id: number | null;
+    emergency_savings_goal_id?: number | null;
     to_wallet_id: number | null;
     category_id: number | null;
     type: TransactionType;
@@ -79,6 +80,7 @@ export type Transaction = {
     source_type?: 'subscription' | 'wishlist' | 'budget' | null;
     source_id?: number | null;
     wallet?: Wallet;
+    emergency_savings_goal?: { id: number; name: string; current_amount: number | string };
     to_wallet?: Wallet;
     category?: Category;
     user?: User;

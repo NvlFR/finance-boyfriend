@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Category;
+use App\Models\SavingsGoal;
 use App\Models\Wallet;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -55,6 +56,13 @@ class HandleInertiaRequests extends Middleware
         $categories = $space ? Category::where(function ($q) use ($space) {
             $q->whereNull('couple_space_id')->orWhere('couple_space_id', $space->id);
         })->get() : Category::whereNull('couple_space_id')->get();
+        $emergencySavingsGoals = $space ? SavingsGoal::query()
+            ->where('couple_space_id', $space->id)
+            ->where('is_emergency_fund', true)
+            ->where(fn ($query) => $query
+                ->where('scope', 'shared')
+                ->orWhere('created_by_user_id', $user->id))
+            ->get(['id', 'created_by_user_id', 'scope', 'name', 'current_amount', 'color']) : [];
 
         return [
             ...parent::share($request),
@@ -66,6 +74,7 @@ class HandleInertiaRequests extends Middleware
             'partner' => $partner,
             'wallets' => $wallets,
             'categories' => $categories,
+            'emergencySavingsGoals' => $emergencySavingsGoals,
             'appRelease' => $user ? $this->currentRelease() : null,
             'statusMessage' => fn (): ?array => session('success')
                 ? ['type' => 'success', 'message' => session('success')]

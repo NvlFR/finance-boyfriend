@@ -257,7 +257,9 @@ class TransactionReportService
             },
             $transaction->scope === 'shared' ? 'Bersama' : 'Pribadi',
             $transaction->category_id ? $transaction->category->name : '-',
-            $transaction->wallet->name,
+            $transaction->wallet_id
+                ? $transaction->wallet->name
+                : $transaction->emergencySavingsGoal->name,
             $transaction->to_wallet_id ? $transaction->toWallet->name : '-',
             $amount,
             $feeAmount,

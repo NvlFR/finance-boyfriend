@@ -215,6 +215,83 @@ test('user can store expense and balance decrements', function () {
     expect($wallet->fresh()->balance)->toBe('350000.00');
 });
 
+test('user can pay an urgent expense with an emergency savings goal', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+    $category = Category::factory()->create(['type' => 'expense']);
+    $goal = SavingsGoal::factory()->create([
+        'couple_space_id' => $space->id,
+        'created_by_user_id' => $user->id,
+        'scope' => 'personal',
+        'is_emergency_fund' => true,
+        'current_amount' => 500000,
+    ]);
+
+    $this->actingAs($user)->postJson(route('transactions.store'), [
+        'emergency_savings_goal_id' => $goal->id,
+        'category_id' => $category->id,
+        'type' => 'expense',
+        'scope' => 'personal',
+        'amount' => 150000,
+        'transaction_date' => now()->toIso8601String(),
+        'title' => 'Biaya rumah sakit',
+    ])->assertCreated()
+        ->assertJsonPath('transaction.emergency_savings_goal_id', $goal->id)
+        ->assertJsonPath('transaction.wallet_id', null);
+
+    expect($goal->fresh()->current_amount)->toBe('350000.00');
+});
+
+test('emergency savings payment rejects a non-emergency goal', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+    $goal = SavingsGoal::factory()->create([
+        'couple_space_id' => $space->id,
+        'created_by_user_id' => $user->id,
+        'scope' => 'personal',
+        'is_emergency_fund' => false,
+        'current_amount' => 500000,
+    ]);
+
+    $this->actingAs($user)->postJson(route('transactions.store'), [
+        'emergency_savings_goal_id' => $goal->id,
+        'type' => 'expense',
+        'scope' => 'personal',
+        'amount' => 150000,
+        'transaction_date' => now()->toIso8601String(),
+    ])->assertUnprocessable()->assertJsonValidationErrorFor('emergency_savings_goal_id');
+
+    expect($goal->fresh()->current_amount)->toBe('500000.00');
+});
+
+test('deleting an emergency savings payment restores the savings balance', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+    $goal = SavingsGoal::factory()->create([
+        'couple_space_id' => $space->id,
+        'created_by_user_id' => $user->id,
+        'scope' => 'personal',
+        'is_emergency_fund' => true,
+        'current_amount' => 200000,
+    ]);
+    $transaction = Transaction::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'wallet_id' => null,
+        'emergency_savings_goal_id' => $goal->id,
+        'type' => 'expense',
+        'amount' => 75000,
+    ]);
+
+    $this->actingAs($user)->deleteJson(route('transactions.destroy', $transaction))
+        ->assertOk();
+
+    expect($goal->fresh()->current_amount)->toBe('275000.00');
+});
+
 test('user can store transfer between wallets', function () {
     $space = CoupleSpace::factory()->active()->create();
     $user = $space->userOne;
@@ -246,6 +323,107 @@ test('user can store transfer between wallets', function () {
     $response->assertCreated();
     expect($source->fresh()->balance)->toBe('300000.00')
         ->and($dest->fresh()->balance)->toBe('300000.00');
+});
+
+test('user can transfer emergency savings to a wallet with an admin fee', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+    $goal = SavingsGoal::factory()->create([
+        'couple_space_id' => $space->id,
+        'created_by_user_id' => $user->id,
+        'scope' => 'personal',
+        'is_emergency_fund' => true,
+        'current_amount' => 500000,
+    ]);
+    $destination = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'balance' => 100000,
+    ]);
+
+    $this->actingAs($user)->postJson(route('transactions.store'), [
+        'emergency_savings_goal_id' => $goal->id,
+        'to_wallet_id' => $destination->id,
+        'type' => 'transfer',
+        'scope' => 'personal',
+        'amount' => 200000,
+        'fee_amount' => 2500,
+        'transaction_date' => now()->toIso8601String(),
+        'title' => 'Cairkan dana darurat',
+    ])->assertCreated()
+        ->assertJsonPath('transaction.wallet_id', null)
+        ->assertJsonPath('transaction.emergency_savings_goal_id', $goal->id)
+        ->assertJsonPath('transaction.to_wallet_id', $destination->id)
+        ->assertJsonPath('transaction.fee_amount', '2500.00');
+
+    expect($goal->fresh()->current_amount)->toBe('297500.00')
+        ->and($destination->fresh()->balance)->toBe('300000.00');
+});
+
+test('emergency savings transfer includes its admin fee in the balance check', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+    $goal = SavingsGoal::factory()->create([
+        'couple_space_id' => $space->id,
+        'created_by_user_id' => $user->id,
+        'scope' => 'personal',
+        'is_emergency_fund' => true,
+        'current_amount' => 200000,
+    ]);
+    $destination = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'balance' => 100000,
+    ]);
+
+    $this->actingAs($user)->postJson(route('transactions.store'), [
+        'emergency_savings_goal_id' => $goal->id,
+        'to_wallet_id' => $destination->id,
+        'type' => 'transfer',
+        'scope' => 'personal',
+        'amount' => 200000,
+        'fee_amount' => 2500,
+        'transaction_date' => now()->toIso8601String(),
+    ])->assertUnprocessable()->assertJsonValidationErrorFor('amount');
+
+    expect($goal->fresh()->current_amount)->toBe('200000.00')
+        ->and($destination->fresh()->balance)->toBe('100000.00');
+});
+
+test('deleting an emergency savings transfer restores savings and destination wallet', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+    $goal = SavingsGoal::factory()->create([
+        'couple_space_id' => $space->id,
+        'created_by_user_id' => $user->id,
+        'scope' => 'personal',
+        'is_emergency_fund' => true,
+        'current_amount' => 297500,
+    ]);
+    $destination = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'balance' => 300000,
+    ]);
+    $transaction = Transaction::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'wallet_id' => null,
+        'emergency_savings_goal_id' => $goal->id,
+        'to_wallet_id' => $destination->id,
+        'type' => 'transfer',
+        'amount' => 200000,
+        'fee_amount' => 2500,
+    ]);
+
+    $this->actingAs($user)->deleteJson(route('transactions.destroy', $transaction))
+        ->assertOk();
+
+    expect($goal->fresh()->current_amount)->toBe('500000.00')
+        ->and($destination->fresh()->balance)->toBe('100000.00');
 });
 
 test('transfer fee is deducted only from source wallet with exact cents', function () {
@@ -324,7 +502,7 @@ test('repeated transaction request only changes wallet balance once', function (
     $this->assertDatabaseCount('transactions', 1);
 });
 
-test('storing shared expense creates transaction split record automatically', function () {
+test('storing shared expense only creates a talangan when explicitly requested', function () {
     $space = CoupleSpace::factory()->active()->create();
     $user = $space->userOne;
     $user->update(['current_couple_space_id' => $space->id]);
@@ -346,6 +524,7 @@ test('storing shared expense creates transaction split record automatically', fu
             'amount' => 200000,
             'transaction_date' => now()->toIso8601String(),
             'title' => 'Romantic Dinner',
+            'create_split' => true,
             'split' => [
                 'paid_by_user_id' => $user->id,
                 'split_type' => 'split_equal',
@@ -362,6 +541,28 @@ test('storing shared expense creates transaction split record automatically', fu
         'user_two_amount' => 100000,
         'settled' => false,
     ]);
+});
+
+test('storing a shared expense without talangan does not create a debt record', function () {
+    $space = CoupleSpace::factory()->active()->create();
+    $user = $space->userOne;
+    $user->update(['current_couple_space_id' => $space->id]);
+    $wallet = Wallet::factory()->create([
+        'couple_space_id' => $space->id,
+        'user_id' => $user->id,
+        'balance' => 500000,
+    ]);
+
+    $this->actingAs($user)->postJson(route('transactions.store'), [
+        'wallet_id' => $wallet->id,
+        'type' => 'expense',
+        'scope' => 'shared',
+        'amount' => 100000,
+        'transaction_date' => now()->toIso8601String(),
+    ])->assertCreated()->assertJsonPath('transaction.split', null);
+
+    $this->assertDatabaseCount('transaction_splits', 0);
+    expect($wallet->fresh()->balance)->toBe('400000.00');
 });
 
 test('destroying transaction rolls back wallet balance', function () {
@@ -512,6 +713,9 @@ test('transaction drawer defaults to personal scope and explains transfer fees',
     expect($drawer)
         ->toContain("scope: 'personal'")
         ->toContain('fee_amount')
+        ->toContain('create_split: false')
+        ->toContain('Catat sebagai talangan')
+        ->toContain('Aktifkan hanya bila pasangan perlu mengganti uangmu.')
         ->toContain('transferSourceDebit')
         ->toContain('Biaya Admin')
         ->not->toContain('Kencan Bersama');
@@ -610,6 +814,7 @@ test('shared custom split must equal transaction amount', function () {
         'wallet_id' => $wallet->id,
         'type' => 'expense',
         'scope' => 'shared',
+        'create_split' => true,
         'amount' => 100000,
         'transaction_date' => now()->toIso8601String(),
         'split' => [

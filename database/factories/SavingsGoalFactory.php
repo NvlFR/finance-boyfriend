@@ -23,6 +23,7 @@ class SavingsGoalFactory extends Factory
             'couple_space_id' => CoupleSpace::factory(),
             'created_by_user_id' => User::factory(),
             'scope' => 'shared',
+            'is_emergency_fund' => false,
             'name' => fake()->words(3, true),
             'target_amount' => 10000000,
             'current_amount' => 0,

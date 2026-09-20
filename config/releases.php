@@ -10,9 +10,36 @@ return [
     | setiap deployment yang perlu diumumkan kepada pengguna.
     |
     */
-    'current_version' => '1.1.3',
+    'current_version' => '1.1.6',
 
     'items' => [
+        [
+            'version' => '1.1.6',
+            'title' => 'Dana darurat kini bisa ditransfer',
+            'released_at' => '2026-09-20',
+            'highlights' => [
+                'Dana darurat sekarang dapat dipindahkan langsung ke rekening atau dompet tujuan.',
+                'Nominal transfer dan biaya admin dipotong akurat dari tabungan dana darurat.',
+            ],
+        ],
+        [
+            'version' => '1.1.5',
+            'title' => 'Dana darurat siap dipakai saat mendesak',
+            'released_at' => '2026-09-16',
+            'highlights' => [
+                'Tandai tabungan sebagai dana darurat agar dapat dipilih sebagai metode pembayaran pengeluaran mendesak.',
+                'Pemakaian dana darurat tercatat di riwayat dan langsung mengurangi saldo tabungan terkait.',
+            ],
+        ],
+        [
+            'version' => '1.1.4',
+            'title' => 'Talangan kini perlu dipilih terlebih dahulu',
+            'released_at' => '2026-09-15',
+            'highlights' => [
+                'Transaksi bersama sekarang tidak otomatis membuat utang atau talangan.',
+                'Aktifkan Catat sebagai talangan hanya saat pasangan memang perlu mengganti uang.',
+            ],
+        ],
         [
             'version' => '1.1.3',
             'title' => 'Rincian total kekayaan lebih jelas',

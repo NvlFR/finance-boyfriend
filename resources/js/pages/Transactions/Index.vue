@@ -799,7 +799,7 @@ function exportPdf() {
                                 <div
                                     class="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400"
                                 >
-                                    <span>{{ tx.wallet?.name }}</span>
+                                    <span>{{ tx.wallet?.name || tx.emergency_savings_goal?.name || 'Dana darurat' }}</span>
                                     <span v-if="tx.to_wallet"
                                         >&rarr; {{ tx.to_wallet.name }}</span
                                     >

@@ -14,6 +14,7 @@ import {
     CreditCard,
     Coins,
     Plus,
+    ShieldAlert,
 } from '@lucide/vue';
 import { ref, computed, watch } from 'vue';
 import CurrencyInput from '@/components/CurrencyInput.vue';
@@ -36,6 +37,13 @@ const props = withDefaults(
         open?: boolean;
         wallets?: Wallet[];
         categories?: Category[];
+        emergencySavingsGoals?: Array<{
+            id: number;
+            name: string;
+            current_amount: string | number;
+            scope: 'personal' | 'shared';
+            color?: string;
+        }>;
         user?: User;
         partner?: User | null;
         defaults?: TransactionDefaults;
@@ -44,6 +52,7 @@ const props = withDefaults(
         open: false,
         wallets: () => [],
         categories: () => [],
+        emergencySavingsGoals: () => [],
         user: undefined,
         partner: null,
         defaults: () => ({}),
@@ -84,6 +93,9 @@ const sourceWallets = computed(() =>
             wallet.user_id === effectiveUser.value?.id,
     ),
 );
+const availableEmergencySavingsGoals = computed(() =>
+    props.emergencySavingsGoals.filter((goal) => Number(goal.current_amount) > 0),
+);
 const effectiveCoupleSpace = computed(
     () => (page.props as any).coupleSpace as CoupleSpace | null,
 );
@@ -122,6 +134,7 @@ const form = useForm({
     type: 'expense' as 'expense' | 'income' | 'transfer',
     scope: 'personal' as 'personal' | 'shared',
     wallet_id: sourceWallets.value[0]?.id || ('' as unknown as number),
+    emergency_savings_goal_id: null as number | null,
     to_wallet_id: null as number | null,
     category_id: effectiveCategories.value[0]?.id || null,
     amount: '' as string | number,
@@ -132,6 +145,7 @@ const form = useForm({
     client_reference: createClientReference(),
     source_type: null as TransactionDefaults['source_type'] | null,
     source_id: null as number | null,
+    create_split: false,
     split: {
         split_type: 'split_equal' as SplitType,
         user_one_amount: 0,
@@ -154,6 +168,8 @@ watch(
             form.fee_amount = 0;
             form.source_type = props.defaults.source_type || null;
             form.source_id = props.defaults.source_id || null;
+            form.create_split = false;
+            form.emergency_savings_goal_id = null;
             form.split.paid_by_user_id = effectiveUser.value?.id || 0;
             form.split.split_type = props.defaults.split_type || 'split_equal';
 
@@ -213,6 +229,14 @@ const filteredCategories = computed(() => {
 watch(
     () => form.type,
     (type) => {
+        if (type === 'income') {
+            form.emergency_savings_goal_id = null;
+
+            if (!form.wallet_id && sourceWallets.value[0]) {
+                form.wallet_id = sourceWallets.value[0].id;
+            }
+        }
+
         if (type === 'transfer') {
             form.category_id = null;
             form.scope = 'personal';
@@ -290,6 +314,11 @@ const selectedWallet = computed(() => {
         (w: Wallet) => w.id === Number(form.wallet_id),
     );
 });
+const selectedEmergencySavingsGoal = computed(() =>
+    availableEmergencySavingsGoals.value.find(
+        (goal) => goal.id === Number(form.emergency_savings_goal_id),
+    ),
+);
 
 const selectedToWallet = computed(() => {
     return effectiveWallets.value.find(
@@ -307,7 +336,13 @@ function addQuickAmount(val: number) {
 }
 
 function selectWallet(id: number) {
+    form.emergency_savings_goal_id = null;
     form.wallet_id = id;
+}
+
+function selectEmergencySavingsGoal(id: number): void {
+    form.wallet_id = null as unknown as number;
+    form.emergency_savings_goal_id = id;
 }
 
 function selectToWallet(id: number) {
@@ -508,7 +543,7 @@ function submit() {
                     </div>
                 </div>
 
-                <!-- Split Options (If Shared Expense) -->
+                <!-- Optional Settlement for Shared Expenses -->
                 <div
                     v-if="
                         form.type === 'expense' &&
@@ -517,21 +552,35 @@ function submit() {
                     "
                     class="space-y-2 rounded-2xl border border-rose-500/20 bg-rose-500/5 p-3"
                 >
-                    <div class="flex items-center justify-between">
-                        <span
-                            class="text-xs font-bold text-rose-700 dark:text-rose-400"
-                            >Pembagian Biaya (Split Bill)</span
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <span class="block text-xs font-bold text-rose-700 dark:text-rose-400">
+                                Catat sebagai talangan
+                            </span>
+                            <span class="mt-0.5 block text-[10px] text-zinc-500">
+                                Aktifkan hanya bila pasangan perlu mengganti uangmu.
+                            </span>
+                        </div>
+                        <button
+                            type="button"
+                            role="switch"
+                            :aria-checked="form.create_split"
+                            class="relative h-7 w-12 shrink-0 rounded-full transition-colors"
+                            :class="form.create_split ? 'bg-rose-500' : 'bg-zinc-300 dark:bg-zinc-700'"
+                            @click="form.create_split = !form.create_split"
                         >
-                        <span class="text-[10px] text-zinc-500"
-                            >Talangan oleh:
-                            {{
-                                effectiveUser?.nickname ||
-                                effectiveUser?.name?.split(' ')[0]
-                            }}</span
-                        >
+                            <span
+                                class="absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform"
+                                :class="form.create_split ? 'translate-x-6' : 'translate-x-1'"
+                            />
+                        </button>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-1.5 text-center">
+                    <div v-if="form.create_split" class="space-y-2 border-t border-rose-500/15 pt-2">
+                        <span class="block text-[10px] text-zinc-500">
+                            Talangan oleh: {{ effectiveUser?.nickname || effectiveUser?.name?.split(' ')[0] }}
+                        </span>
+                        <div class="grid grid-cols-3 gap-1.5 text-center">
                         <button
                             type="button"
                             @click="form.split.split_type = 'split_equal'"
@@ -570,6 +619,7 @@ function submit() {
                         >
                             Bayar Sendiri
                         </button>
+                        </div>
                     </div>
                 </div>
 
@@ -581,7 +631,7 @@ function submit() {
                         >
                             {{
                                 form.type === 'transfer'
-                                    ? 'Dari Dompet / Rekening Asal'
+                                    ? 'Pilih Sumber Dana'
                                     : 'Pilih Dompet / Rekening'
                             }}
                         </label>
@@ -685,6 +735,39 @@ function submit() {
                             </div>
                         </button>
                     </div>
+
+                    <div
+                        v-if="form.type !== 'income' && availableEmergencySavingsGoals.length"
+                        class="mt-3 border-t border-amber-200 pt-3 dark:border-amber-900/60"
+                    >
+                        <div class="mb-2 flex items-center gap-2">
+                            <ShieldAlert class="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                            <span class="text-xs font-bold text-amber-800 dark:text-amber-200">Dana darurat</span>
+                            <span class="text-[10px] text-zinc-500">{{ form.type === 'transfer' ? 'Transfer ke rekening' : 'Pakai hanya saat mendesak' }}</span>
+                        </div>
+                        <button
+                            v-for="goal in availableEmergencySavingsGoals"
+                            :key="goal.id"
+                            type="button"
+                            @click="selectEmergencySavingsGoal(goal.id)"
+                            :aria-pressed="form.emergency_savings_goal_id === goal.id"
+                            class="flex w-full items-center justify-between rounded-2xl border p-3 text-left transition-all"
+                            :class="form.emergency_savings_goal_id === goal.id ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-500/20 dark:bg-amber-950/30' : 'border-amber-200 bg-amber-50/50 hover:border-amber-300 dark:border-amber-900/60 dark:bg-amber-950/20'"
+                        >
+                            <span class="flex items-center gap-2">
+                                <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500 text-white"><ShieldAlert class="h-4 w-4" /></span>
+                                <span>
+                                    <span class="block text-xs font-bold text-zinc-900 dark:text-zinc-100">{{ goal.name }}</span>
+                                    <span class="block text-[10px] text-amber-700 dark:text-amber-300">{{ form.type === 'transfer' ? 'Pindahkan ke rekening tujuan' : 'Saldo tabungan akan berkurang' }}</span>
+                                </span>
+                            </span>
+                            <span class="text-xs font-bold text-amber-700 dark:text-amber-300">Rp {{ Number(goal.current_amount).toLocaleString('id-ID') }}</span>
+                        </button>
+                    </div>
+
+                    <p v-if="selectedEmergencySavingsGoal" class="mt-2 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                        {{ form.type === 'transfer' ? 'Transfer' : 'Pembayaran' }} akan dipotong dari {{ selectedEmergencySavingsGoal.name }}, bukan dari dompet.
+                    </p>
                 </div>
 
                 <!-- 💳 Destination Wallet (If Transfer) -->
@@ -826,7 +909,7 @@ function submit() {
                                     'id-ID',
                                 )
                             }}. Saldo
-                            {{ selectedWallet?.name || 'asal' }} berkurang Rp
+                            {{ selectedWallet?.name || selectedEmergencySavingsGoal?.name || 'asal' }} berkurang Rp
                             {{ transferSourceDebit.toLocaleString('id-ID') }}.
                         </p>
                         <p

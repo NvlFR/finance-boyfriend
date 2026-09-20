@@ -67,12 +67,14 @@ class SavingsGoalController extends Controller
             'icon' => 'nullable|string|max:50',
             'color' => 'nullable|string|max:20',
             'scope' => ['sometimes', Rule::in(['personal', 'shared'])],
+            'is_emergency_fund' => ['nullable', 'boolean'],
         ]);
 
         $goal = SavingsGoal::create([
             'couple_space_id' => $space->id,
             'created_by_user_id' => $user->id,
             'scope' => $validated['scope'] ?? 'personal',
+            'is_emergency_fund' => $validated['is_emergency_fund'] ?? false,
             'name' => $validated['name'],
             'target_amount' => $validated['target_amount'],
             'current_amount' => 0,
@@ -219,6 +221,7 @@ class SavingsGoalController extends Controller
             'target_date' => 'nullable|date',
             'icon' => 'nullable|string|max:50',
             'color' => 'nullable|string|max:20',
+            'is_emergency_fund' => ['nullable', 'boolean'],
         ]);
 
         $validated['status'] = (float) $savingsGoal->current_amount >= (float) $validated['target_amount']

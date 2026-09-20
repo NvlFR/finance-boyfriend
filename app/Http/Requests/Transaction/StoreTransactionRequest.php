@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Transaction;
 
 use App\Models\Category;
+use App\Models\SavingsGoal;
 use App\Models\Wallet;
 use Brick\Math\BigDecimal;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -32,7 +33,15 @@ class StoreTransactionRequest extends FormRequest
         $memberIds = $space ? array_filter([$space->user_one_id, $space->user_two_id]) : [];
 
         return [
-            'wallet_id' => ['required', 'integer', Rule::exists('wallets', 'id')->where('couple_space_id', $spaceId)],
+            'wallet_id' => ['nullable', 'required_without:emergency_savings_goal_id', 'integer', Rule::exists('wallets', 'id')->where('couple_space_id', $spaceId)],
+            'emergency_savings_goal_id' => [
+                'nullable',
+                'required_without:wallet_id',
+                'integer',
+                Rule::exists('savings_goals', 'id')->where(fn ($query) => $query
+                    ->where('couple_space_id', $spaceId)
+                    ->where('is_emergency_fund', true)),
+            ],
             'to_wallet_id' => ['nullable', 'required_if:type,transfer', 'integer', Rule::exists('wallets', 'id')->where('couple_space_id', $spaceId), 'different:wallet_id'],
             'category_id' => [
                 'nullable',
@@ -53,6 +62,7 @@ class StoreTransactionRequest extends FormRequest
             'client_reference' => ['nullable', 'string', 'max:64'],
             'source_type' => ['nullable', 'required_with:source_id', Rule::in(['subscription', 'wishlist', 'budget'])],
             'source_id' => ['nullable', 'required_with:source_type', 'integer'],
+            'create_split' => ['nullable', 'boolean'],
 
             // Split bill details (optional or required when scope=shared)
             'split' => ['nullable', 'array'],
@@ -101,11 +111,28 @@ class StoreTransactionRequest extends FormRequest
                     }
                 }
 
+                $emergencyGoalId = $this->integer('emergency_savings_goal_id');
+                if ($emergencyGoalId) {
+                    $emergencyGoal = SavingsGoal::query()->find($emergencyGoalId);
+
+                    if (! in_array($this->input('type'), ['expense', 'transfer'], true)) {
+                        $validator->errors()->add('emergency_savings_goal_id', 'Dana darurat hanya dapat digunakan untuk pengeluaran atau transfer ke rekening.');
+                    }
+
+                    if ($walletId) {
+                        $validator->errors()->add('emergency_savings_goal_id', 'Pilih salah satu sumber pembayaran: dompet atau dana darurat.');
+                    }
+
+                    if ($emergencyGoal && $emergencyGoal->scope === 'personal' && $emergencyGoal->created_by_user_id !== $this->user()?->id) {
+                        $validator->errors()->add('emergency_savings_goal_id', 'Tabungan darurat pribadi pasangan tidak dapat digunakan.');
+                    }
+                }
+
                 if ($this->input('type') !== 'expense' || $this->input('scope') !== 'shared') {
                     return;
                 }
 
-                if ($this->input('split.split_type') === 'custom') {
+                if ($this->boolean('create_split') && $this->input('split.split_type') === 'custom') {
                     $splitTotal = BigDecimal::of((string) $this->input('split.user_one_amount', 0))
                         ->plus((string) $this->input('split.user_two_amount', 0));
                     $amount = BigDecimal::of((string) $this->input('amount'));

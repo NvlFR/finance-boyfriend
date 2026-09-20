@@ -137,7 +137,7 @@ class DashboardController extends Controller
 
         // Recent Transactions
         $recentTransactions = Transaction::where('couple_space_id', $space->id)
-            ->with(['wallet', 'toWallet', 'category', 'split', 'user'])
+            ->with(['wallet', 'emergencySavingsGoal', 'toWallet', 'category', 'split', 'user'])
             ->orderBy('transaction_date', 'desc')
             ->orderBy('id', 'desc')
             ->limit(10)

@@ -39,6 +39,7 @@ type Goal = {
     target_date: string | null;
     status: string;
     color: string;
+    is_emergency_fund: boolean;
     percentage: number;
     created_by_user?: User;
     contributions?: any[];
@@ -84,6 +85,7 @@ const { dialogRef, handleDialogKeydown } = useAccessibleDialog(
 
 const createForm = useForm({
     scope: 'personal' as 'personal' | 'shared',
+    is_emergency_fund: false,
     name: '',
     target_amount: '' as string | number,
     target_date: '',
@@ -95,6 +97,7 @@ const editForm = useForm({
     target_amount: '' as string | number,
     target_date: '',
     color: '#6366F1',
+    is_emergency_fund: false,
 });
 
 const contributeForm = useForm({
@@ -194,6 +197,7 @@ function openEditModal(goal: Goal) {
     editForm.target_amount = goal.target_amount;
     editForm.target_date = goal.target_date || '';
     editForm.color = goal.color || '#6366F1';
+    editForm.is_emergency_fund = goal.is_emergency_fund;
     isEditModalOpen.value = true;
 }
 
@@ -213,6 +217,7 @@ function submitCreate() {
 function openCreateModal(): void {
     createForm.clearErrors();
     createForm.scope = activeScope.value === 'shared' ? 'shared' : 'personal';
+    createForm.is_emergency_fund = false;
     isCreateModalOpen.value = true;
 }
 
@@ -436,6 +441,12 @@ function confirmDeleteGoal(): void {
                                     />
                                     <UserRound v-else class="h-3 w-3" />
                                     {{ ownerLabel(goal) }}
+                                </span>
+                                <span
+                                    v-if="goal.is_emergency_fund"
+                                    class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300"
+                                >
+                                    Dana darurat
                                 </span>
                             </div>
                             <p class="text-xs text-zinc-500">
@@ -711,6 +722,14 @@ function confirmDeleteGoal(): void {
                         </div>
                     </div>
 
+                    <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
+                        <input v-model="createForm.is_emergency_fund" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500" />
+                        <span>
+                            <span class="block text-xs font-bold text-amber-900 dark:text-amber-100">Jadikan dana darurat</span>
+                            <span class="mt-0.5 block text-[10px] leading-relaxed text-amber-700 dark:text-amber-300">Bisa dipilih sebagai metode bayar untuk pengeluaran mendesak.</span>
+                        </span>
+                    </label>
+
                     <FormErrorSummary :errors="createForm.errors" />
 
                     <button
@@ -821,6 +840,14 @@ function confirmDeleteGoal(): void {
                             </button>
                         </div>
                     </div>
+
+                    <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
+                        <input v-model="editForm.is_emergency_fund" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500" />
+                        <span>
+                            <span class="block text-xs font-bold text-amber-900 dark:text-amber-100">Jadikan dana darurat</span>
+                            <span class="mt-0.5 block text-[10px] leading-relaxed text-amber-700 dark:text-amber-300">Tabungan ini dapat digunakan untuk pembayaran saat darurat.</span>
+                        </span>
+                    </label>
 
                     <FormErrorSummary :errors="editForm.errors" />
 

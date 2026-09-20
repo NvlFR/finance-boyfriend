@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Budget;
 use App\Models\CoupleSpace;
+use App\Models\SavingsGoal;
 use App\Models\Subscription;
 use App\Models\Transaction;
 use App\Models\TransactionSplit;
@@ -20,7 +21,7 @@ use InvalidArgumentException;
 class TransactionService
 {
     /**
-     * Create a transaction, update wallet balances, and create split details if shared.
+     * Create a transaction, update wallet balances, and create split details only for an explicit settlement.
      *
      * @param  array<string, mixed>  $data
      */
@@ -44,20 +45,48 @@ class TransactionService
                 $feeAmount = $type === 'transfer'
                     ? $this->normalizeMoney($data['fee_amount'] ?? 0)
                     : '0.00';
-                $walletId = (int) $data['wallet_id'];
+                $emergencySavingsGoalId = ! empty($data['emergency_savings_goal_id'])
+                    ? (int) $data['emergency_savings_goal_id']
+                    : null;
+                $walletId = ! empty($data['wallet_id']) ? (int) $data['wallet_id'] : null;
                 $toWalletId = ! empty($data['to_wallet_id']) ? (int) $data['to_wallet_id'] : null;
 
-                $sourceWallet = Wallet::where('couple_space_id', $space->id)
-                    ->where('id', $walletId)
-                    ->where(function ($query) use ($user) {
-                        $query->where('type', 'joint')->orWhere('user_id', $user->id);
-                    })
-                    ->lockForUpdate()
-                    ->firstOrFail();
+                $emergencySavingsGoal = null;
+                $sourceWallet = null;
+                if ($emergencySavingsGoalId) {
+                    if (! in_array($type, ['expense', 'transfer'], true)) {
+                        throw ValidationException::withMessages([
+                            'emergency_savings_goal_id' => 'Dana darurat hanya dapat digunakan untuk pengeluaran atau transfer ke rekening.',
+                        ]);
+                    }
+
+                    $emergencySavingsGoal = SavingsGoal::query()
+                        ->where('couple_space_id', $space->id)
+                        ->where('is_emergency_fund', true)
+                        ->whereKey($emergencySavingsGoalId)
+                        ->where(fn ($query) => $query
+                            ->where('scope', 'shared')
+                            ->orWhere('created_by_user_id', $user->id))
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
+                    $emergencySavingsDebit = $type === 'transfer'
+                        ? $this->addMoney($amount, $feeAmount)
+                        : $amount;
+                    $this->ensureSufficientSavings($emergencySavingsGoal, $emergencySavingsDebit);
+                } else {
+                    $sourceWallet = Wallet::where('couple_space_id', $space->id)
+                        ->where('id', $walletId)
+                        ->where(function ($query) use ($user) {
+                            $query->where('type', 'joint')->orWhere('user_id', $user->id);
+                        })
+                        ->lockForUpdate()
+                        ->firstOrFail();
+                }
 
                 $destWallet = null;
                 if ($type === 'transfer') {
-                    if (! $toWalletId || $toWalletId === $walletId) {
+                    if (! $toWalletId || ($sourceWallet && $toWalletId === $walletId)) {
                         throw new InvalidArgumentException('Destination wallet must be provided and distinct for transfers.');
                     }
                     $destWallet = Wallet::where('couple_space_id', $space->id)
@@ -68,14 +97,22 @@ class TransactionService
 
                 // Adjust balances
                 if ($type === 'expense') {
-                    $this->ensureSufficientBalance($sourceWallet, $amount);
-                    $this->decreaseBalance($sourceWallet, $amount);
+                    if ($emergencySavingsGoal) {
+                        $this->decreaseSavings($emergencySavingsGoal, $amount);
+                    } else {
+                        $this->ensureSufficientBalance($sourceWallet, $amount);
+                        $this->decreaseBalance($sourceWallet, $amount);
+                    }
                 } elseif ($type === 'income') {
                     $this->increaseBalance($sourceWallet, $amount);
                 } elseif ($type === 'transfer') {
                     $sourceDebit = $this->addMoney($amount, $feeAmount);
-                    $this->ensureSufficientBalance($sourceWallet, $sourceDebit);
-                    $this->decreaseBalance($sourceWallet, $sourceDebit);
+                    if ($emergencySavingsGoal) {
+                        $this->decreaseSavings($emergencySavingsGoal, $sourceDebit);
+                    } else {
+                        $this->ensureSufficientBalance($sourceWallet, $sourceDebit);
+                        $this->decreaseBalance($sourceWallet, $sourceDebit);
+                    }
                     $this->increaseBalance($destWallet, $amount);
                 }
 
@@ -83,7 +120,8 @@ class TransactionService
                 $transaction = Transaction::create([
                     'couple_space_id' => $space->id,
                     'user_id' => $user->id,
-                    'wallet_id' => $sourceWallet->id,
+                    'wallet_id' => $sourceWallet?->id,
+                    'emergency_savings_goal_id' => $emergencySavingsGoal?->id,
                     'to_wallet_id' => $destWallet?->id,
                     'category_id' => $type === 'transfer' ? null : ($data['category_id'] ?? null),
                     'type' => $type,
@@ -99,14 +137,14 @@ class TransactionService
                     'source_id' => $data['source_id'] ?? null,
                 ]);
 
-                // Handle Split for shared expenses or shared transactions
-                if ($scope === 'shared' && $type === 'expense') {
+                // Shared is a label by default. A split is only a talangan when explicitly requested.
+                if ($scope === 'shared' && $type === 'expense' && ($data['create_split'] ?? false)) {
                     $this->createSplitRecord($transaction, $user, $space, $data['split'] ?? []);
                 }
 
                 $this->applyFeatureContext($transaction, $user, $space);
 
-                return $transaction->load(['wallet', 'toWallet', 'category', 'split', 'user']);
+                return $transaction->load(['wallet', 'emergencySavingsGoal', 'toWallet', 'category', 'split', 'user']);
             });
         } catch (QueryException $exception) {
             if ($clientReference && $exception->getCode() === '23000') {
@@ -128,6 +166,12 @@ class TransactionService
      */
     public function updateTransaction(Transaction $transaction, array $data): Transaction
     {
+        if ($transaction->emergency_savings_goal_id) {
+            throw ValidationException::withMessages([
+                'transaction' => 'Transaksi dari dana darurat tidak dapat diubah. Hapus lalu catat ulang jika diperlukan.',
+            ]);
+        }
+
         return DB::transaction(function () use ($transaction, $data) {
             $space = $transaction->coupleSpace;
 
@@ -228,8 +272,12 @@ class TransactionService
                 'notes' => $data['notes'] ?? $transaction->notes,
             ]);
 
-            // Update split record if shared expense
-            if ($newScope === 'shared' && $newType === 'expense') {
+            $shouldCreateSplit = $newScope === 'shared'
+                && $newType === 'expense'
+                && ($data['create_split'] ?? $transaction->split !== null);
+
+            // Keep existing talangan records unless the caller explicitly disables them.
+            if ($shouldCreateSplit) {
                 if (array_key_exists('split', $data) || ! $transaction->split) {
                     $transaction->split()->delete();
                     $this->createSplitRecord($transaction, $transaction->user, $space, $data['split'] ?? []);
@@ -238,7 +286,7 @@ class TransactionService
                 $transaction->split()->delete();
             }
 
-            return $transaction->fresh(['wallet', 'toWallet', 'category', 'split', 'user']);
+            return $transaction->fresh(['wallet', 'emergencySavingsGoal', 'toWallet', 'category', 'split', 'user']);
         });
     }
 
@@ -262,6 +310,21 @@ class TransactionService
                 ->where('id', $transaction->wallet_id)
                 ->lockForUpdate()
                 ->first();
+
+            $emergencySavingsGoal = $transaction->emergency_savings_goal_id
+                ? SavingsGoal::query()
+                    ->where('couple_space_id', $transaction->couple_space_id)
+                    ->whereKey($transaction->emergency_savings_goal_id)
+                    ->lockForUpdate()
+                    ->first()
+                : null;
+
+            if ($emergencySavingsGoal) {
+                $emergencySavingsCredit = $type === 'transfer'
+                    ? $this->addMoney($amount, $feeAmount)
+                    : $amount;
+                $this->increaseSavings($emergencySavingsGoal, $emergencySavingsCredit);
+            }
 
             if ($sourceWallet) {
                 if ($type === 'expense') {
@@ -351,6 +414,39 @@ class TransactionService
         }
     }
 
+    private function ensureSufficientSavings(SavingsGoal $savingsGoal, string $amount): void
+    {
+        if (BigDecimal::of($savingsGoal->current_amount)->isLessThan($amount)) {
+            throw ValidationException::withMessages([
+                'amount' => "Saldo dana darurat {$savingsGoal->name} tidak mencukupi.",
+            ]);
+        }
+    }
+
+    private function decreaseSavings(SavingsGoal $savingsGoal, string $amount): void
+    {
+        $savingsGoal->current_amount = BigDecimal::of($savingsGoal->current_amount)
+            ->minus($amount)
+            ->toScale(2)
+            ->__toString();
+        $savingsGoal->status = (float) $savingsGoal->current_amount >= (float) $savingsGoal->target_amount
+            ? 'achieved'
+            : 'in_progress';
+        $savingsGoal->save();
+    }
+
+    private function increaseSavings(SavingsGoal $savingsGoal, string $amount): void
+    {
+        $savingsGoal->current_amount = BigDecimal::of($savingsGoal->current_amount)
+            ->plus($amount)
+            ->toScale(2)
+            ->__toString();
+        $savingsGoal->status = (float) $savingsGoal->current_amount >= (float) $savingsGoal->target_amount
+            ? 'achieved'
+            : 'in_progress';
+        $savingsGoal->save();
+    }
+
     private function increaseBalance(Wallet $wallet, string $amount): void
     {
         $wallet->balance = BigDecimal::of($wallet->balance)
@@ -387,7 +483,7 @@ class TransactionService
             ->where('couple_space_id', $space->id)
             ->where('user_id', $user->id)
             ->where('client_reference', $clientReference)
-            ->with(['wallet', 'toWallet', 'category', 'split', 'user'])
+            ->with(['wallet', 'emergencySavingsGoal', 'toWallet', 'category', 'split', 'user'])
             ->first();
     }
 

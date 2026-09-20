@@ -70,7 +70,7 @@ class TransactionController extends Controller
         }
 
         $query = Transaction::where('couple_space_id', $space->id)
-            ->with(['wallet', 'toWallet', 'category', 'split', 'user'])
+            ->with(['wallet', 'emergencySavingsGoal', 'toWallet', 'category', 'split', 'user'])
             ->orderBy('transaction_date', 'desc')
             ->orderBy('id', 'desc');
 
@@ -267,7 +267,9 @@ class TransactionController extends Controller
                     $tx->type,
                     $tx->scope === 'shared' ? 'Bersama' : 'Pribadi',
                     $tx->category_id ? $tx->category->name : '-',
-                    $tx->wallet->name,
+                    $tx->wallet_id
+                        ? $tx->wallet->name
+                        : $tx->emergencySavingsGoal->name,
                     $tx->to_wallet_id ? $tx->toWallet->name : '-',
                     $tx->amount,
                     $tx->fee_amount,
@@ -351,7 +353,7 @@ class TransactionController extends Controller
     {
         $query = Transaction::query()
             ->where('couple_space_id', $spaceId)
-            ->with(['wallet', 'toWallet', 'category', 'user'])
+            ->with(['wallet', 'emergencySavingsGoal', 'toWallet', 'category', 'user'])
             ->orderByDesc('transaction_date')
             ->orderByDesc('id');
 

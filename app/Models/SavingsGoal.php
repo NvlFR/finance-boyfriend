@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
  * @property int $couple_space_id
  * @property int $created_by_user_id
  * @property string $scope
+ * @property bool $is_emergency_fund
  * @property string $name
  * @property string $target_amount
  * @property string $current_amount
@@ -30,6 +31,7 @@ use Illuminate\Support\Carbon;
     'couple_space_id',
     'created_by_user_id',
     'scope',
+    'is_emergency_fund',
     'name',
     'target_amount',
     'current_amount',
@@ -55,6 +57,7 @@ class SavingsGoal extends Model
     protected function casts(): array
     {
         return [
+            'is_emergency_fund' => 'boolean',
             'target_amount' => 'decimal:2',
             'current_amount' => 'decimal:2',
             'target_date' => 'date',

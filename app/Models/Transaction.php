@@ -14,7 +14,8 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $couple_space_id
  * @property int $user_id
- * @property int $wallet_id
+ * @property int|null $wallet_id
+ * @property int|null $emergency_savings_goal_id
  * @property int|null $to_wallet_id
  * @property int|null $category_id
  * @property string $type
@@ -31,7 +32,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read User $user
- * @property-read Wallet $wallet
+ * @property-read Wallet|null $wallet
+ * @property-read SavingsGoal|null $emergencySavingsGoal
  * @property-read Wallet|null $toWallet
  * @property-read Category|null $category
  * @property-read TransactionSplit|null $split
@@ -40,6 +42,7 @@ use Illuminate\Support\Carbon;
     'couple_space_id',
     'user_id',
     'wallet_id',
+    'emergency_savings_goal_id',
     'to_wallet_id',
     'category_id',
     'type',
@@ -105,6 +108,16 @@ class Transaction extends Model
     public function wallet(): BelongsTo
     {
         return $this->belongsTo(Wallet::class, 'wallet_id');
+    }
+
+    /**
+     * Tabungan darurat yang digunakan sebagai sumber pembayaran.
+     *
+     * @return BelongsTo<SavingsGoal, $this>
+     */
+    public function emergencySavingsGoal(): BelongsTo
+    {
+        return $this->belongsTo(SavingsGoal::class, 'emergency_savings_goal_id');
     }
 
     /**

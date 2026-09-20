@@ -61,6 +61,24 @@ test('user can create a shared savings goal', function () {
     ]);
 });
 
+test('user can mark a savings goal as an emergency fund', function () {
+    $user = User::factory()->create();
+    $space = CoupleSpace::factory()->create(['user_one_id' => $user->id]);
+    $user->update(['current_couple_space_id' => $space->id]);
+
+    $this->actingAs($user)->post(route('goals.store'), [
+        'name' => 'Dana Darurat',
+        'target_amount' => 10000000,
+        'is_emergency_fund' => true,
+    ])->assertRedirect();
+
+    $this->assertDatabaseHas('savings_goals', [
+        'couple_space_id' => $space->id,
+        'name' => 'Dana Darurat',
+        'is_emergency_fund' => true,
+    ]);
+});
+
 test('savings goal rejects an invalid ownership type', function () {
     $space = CoupleSpace::factory()->active()->create();
     $user = $space->userOne;
