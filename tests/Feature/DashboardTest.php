@@ -456,7 +456,7 @@ test('dashboard exposes the redesigned mobile finance shortcuts', function () {
 
     expect($dashboard)
         ->toContain('Total Kekayaan')
-        ->toContain('Milik Bersama')
+        ->toContain('Dompet Bersama')
         ->toContain('total: props.netWorthBreakdown.user.wallets')
         ->toContain('total: props.netWorthBreakdown.partner.wallets')
         ->toContain('total: props.netWorthBreakdown.joint.wallets')

@@ -33,7 +33,7 @@ class StoreTransactionRequest extends FormRequest
         $memberIds = $space ? array_filter([$space->user_one_id, $space->user_two_id]) : [];
 
         return [
-            'wallet_id' => ['nullable', 'required_without:emergency_savings_goal_id', 'integer', Rule::exists('wallets', 'id')->where('couple_space_id', $spaceId)],
+            'wallet_id' => ['nullable', 'required_without:emergency_savings_goal_id', 'integer', Rule::exists('wallets', 'id')->where('couple_space_id', $spaceId)->where('is_active', true)],
             'emergency_savings_goal_id' => [
                 'nullable',
                 'required_without:wallet_id',
@@ -42,7 +42,7 @@ class StoreTransactionRequest extends FormRequest
                     ->where('couple_space_id', $spaceId)
                     ->where('is_emergency_fund', true)),
             ],
-            'to_wallet_id' => ['nullable', 'required_if:type,transfer', 'integer', Rule::exists('wallets', 'id')->where('couple_space_id', $spaceId), 'different:wallet_id'],
+            'to_wallet_id' => ['nullable', 'required_if:type,transfer', 'integer', Rule::exists('wallets', 'id')->where('couple_space_id', $spaceId)->where('is_active', true), 'different:wallet_id'],
             'category_id' => [
                 'nullable',
                 'integer',
@@ -56,7 +56,7 @@ class StoreTransactionRequest extends FormRequest
             'amount' => ['required', 'numeric', 'decimal:0,2', 'min:0.01'],
             'fee_amount' => ['nullable', 'numeric', 'decimal:0,2', 'min:0'],
             'transaction_date' => ['required', 'date'],
-            'title' => ['nullable', 'string', 'max:255'],
+            'title' => ['nullable', 'string', 'max:150'],
             'notes' => ['nullable', 'string'],
             'receipt_image_path' => ['nullable', 'string', 'max:255'],
             'client_reference' => ['nullable', 'string', 'max:64'],
@@ -68,8 +68,8 @@ class StoreTransactionRequest extends FormRequest
             'split' => ['nullable', 'array'],
             'split.paid_by_user_id' => ['nullable', 'integer', Rule::in($memberIds)],
             'split.split_type' => ['nullable', 'in:full_one,full_two,split_equal,custom,joint_fund'],
-            'split.user_one_amount' => ['nullable', 'numeric', 'min:0'],
-            'split.user_two_amount' => ['nullable', 'numeric', 'min:0'],
+            'split.user_one_amount' => ['nullable', 'numeric', 'decimal:0,2', 'min:0'],
+            'split.user_two_amount' => ['nullable', 'numeric', 'decimal:0,2', 'min:0'],
         ];
     }
 
@@ -91,6 +91,9 @@ class StoreTransactionRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                if ($validator->errors()->isNotEmpty()) {
+                    return;
+                }
                 $categoryId = $this->integer('category_id');
                 $transactionType = $this->input('type');
 

@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\PushSubscription;
 use App\Models\Trip;
 use App\Models\Wallet;
+use App\Services\PushEndpointValidator;
 use App\Services\PushNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -207,11 +208,25 @@ class TripController extends Controller
         $user = $request->user();
 
         $validated = $request->validate([
-            'endpoint' => 'required|url|max:2048',
+            'endpoint' => 'required|url:https|max:2048',
             'public_key' => 'required|string|max:255',
             'auth_token' => 'required|string|max:255',
             'content_encoding' => 'nullable|in:aesgcm,aes128gcm',
         ]);
+
+        $errors = [];
+        if (! PushEndpointValidator::allows($validated['endpoint'])) {
+            $errors['endpoint'] = 'Alamat layanan push tidak didukung.';
+        }
+        if (! PushEndpointValidator::validKey($validated['public_key'], 65)) {
+            $errors['public_key'] = 'Kunci enkripsi push tidak valid.';
+        }
+        if (! PushEndpointValidator::validKey($validated['auth_token'], 16)) {
+            $errors['auth_token'] = 'Token autentikasi push tidak valid.';
+        }
+        if ($errors) {
+            throw ValidationException::withMessages($errors);
+        }
 
         PushSubscription::updateOrCreate(
             [

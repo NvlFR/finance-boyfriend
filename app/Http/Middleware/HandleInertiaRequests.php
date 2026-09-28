@@ -83,7 +83,7 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * @return array{version: string, title: string, released_at: string, highlights: list<string>}|null
+     * @return array{version: string, title: string, released_at: string, highlights: list<string>, tour: list<array{path: string, target: string, title: string, description: string}>}|null
      */
     private function currentRelease(): ?array
     {
@@ -108,8 +108,19 @@ class HandleInertiaRequests extends Middleware
             }
 
             $validHighlights = array_values(array_filter($highlights, is_string(...)));
+            $tour = $release['tour'] ?? [];
 
-            if (count($validHighlights) !== count($highlights)) {
+            if (count($validHighlights) !== count($highlights) || ! is_array($tour)) {
+                return null;
+            }
+
+            $validTour = array_values(array_filter($tour, fn (mixed $step): bool => is_array($step)
+                && is_string($step['path'] ?? null)
+                && is_string($step['target'] ?? null)
+                && is_string($step['title'] ?? null)
+                && is_string($step['description'] ?? null)));
+
+            if (count($validTour) !== count($tour)) {
                 return null;
             }
 
@@ -118,6 +129,7 @@ class HandleInertiaRequests extends Middleware
                 'title' => $title,
                 'released_at' => $releasedAt,
                 'highlights' => $validHighlights,
+                'tour' => $validTour,
             ];
         }
 

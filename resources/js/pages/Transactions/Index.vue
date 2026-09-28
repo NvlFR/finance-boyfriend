@@ -26,8 +26,16 @@ import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
 import CurrencyInput from '@/components/CurrencyInput.vue';
 import FormErrorSummary from '@/components/FormErrorSummary.vue';
 import PageHeader from '@/components/PageHeader.vue';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
 import { useTransactionModal } from '@/composables/useTransactionModal';
+import { jakartaDateKey } from '@/lib/dates';
 import {
     destroy as transactionDestroy,
     exportMethod as transactionExport,
@@ -66,6 +74,11 @@ const props = defineProps<{
     wallets?: Wallet[];
     categories?: Category[];
     savingsMovements?: SavingsMovement[];
+    savingsPagination?: Array<{
+        url: string | null;
+        label: string;
+        active: boolean;
+    }>;
     investmentMovements?: {
         data: InvestmentTransaction[];
         links?: Array<{
@@ -90,7 +103,8 @@ const showExports = ref(false);
 const sourceWallets = computed(() =>
     (props.wallets || []).filter(
         (wallet) =>
-            wallet.type === 'joint' || wallet.user_id === props.auth.user.id,
+            wallet.is_active !== false &&
+            (wallet.type === 'joint' || wallet.user_id === props.auth.user.id),
     ),
 );
 const { dialogRef, handleDialogKeydown } = useAccessibleDialog(
@@ -111,9 +125,7 @@ const isLoadingMoreTransactions = ref(false);
 watch(
     () => props.transactions,
     (transactions) => {
-        if (!isLoadingMoreTransactions.value) {
-            displayedTransactions.value = [...transactions.data];
-        }
+        displayedTransactions.value = [...transactions.data];
     },
 );
 
@@ -121,7 +133,7 @@ const groupedTransactions = computed(() => {
     const groups = new Map<string, Transaction[]>();
 
     displayedTransactions.value.forEach((transaction) => {
-        const dateKey = transaction.transaction_date.slice(0, 10);
+        const dateKey = jakartaDateKey(transaction.transaction_date);
         const transactions = groups.get(dateKey) || [];
         transactions.push(transaction);
         groups.set(dateKey, transactions);
@@ -134,20 +146,22 @@ const groupedTransactions = computed(() => {
 });
 
 function formatDateHeading(date: string): string {
-    const parsedDate = new Date(`${date}T00:00:00`);
-    const today = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
+    const parsedDate = new Date(`${date}T00:00:00+07:00`);
+    const today = jakartaDateKey();
+    const yesterday = jakartaDateKey(
+        new Date(new Date(`${today}T00:00:00+07:00`).getTime() - 86400000),
+    );
 
-    if (parsedDate.toDateString() === today.toDateString()) {
+    if (date === today) {
         return 'Hari ini';
     }
 
-    if (parsedDate.toDateString() === yesterday.toDateString()) {
+    if (date === yesterday) {
         return 'Kemarin';
     }
 
     return parsedDate.toLocaleDateString('id-ID', {
+        timeZone: 'Asia/Jakarta',
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -228,25 +242,13 @@ function loadMoreTransactions(): void {
 
     router.get(
         nextPageUrl,
-        {},
+        { cumulative: true },
         {
             only: ['transactions'],
             preserveScroll: true,
             preserveState: true,
             replace: true,
             onStart: () => (isLoadingMoreTransactions.value = true),
-            onSuccess: (page) => {
-                const nextTransactions = page.props.transactions as typeof props.transactions;
-                const currentTransactionIds = new Set(
-                    displayedTransactions.value.map((transaction) => transaction.id),
-                );
-
-                displayedTransactions.value.push(
-                    ...nextTransactions.data.filter(
-                        (transaction) => !currentTransactionIds.has(transaction.id),
-                    ),
-                );
-            },
             onFinish: () => (isLoadingMoreTransactions.value = false),
         },
     );
@@ -263,7 +265,7 @@ function openEditModal(tx: Transaction) {
     editForm.to_wallet_id = tx.to_wallet_id || null;
     editForm.category_id = tx.category_id || null;
     editForm.transaction_date = tx.transaction_date
-        ? tx.transaction_date.slice(0, 10)
+        ? jakartaDateKey(tx.transaction_date)
         : '';
     editForm.notes = tx.notes || '';
     editForm.fee_amount = tx.fee_amount || 0;
@@ -394,6 +396,7 @@ function exportPdf() {
 
         <!-- Search & Filter Bar -->
         <div
+            data-tour="history-filter"
             class="space-y-3 rounded-[1.5rem] border border-slate-200/80 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
         >
             <div class="flex items-center gap-2">
@@ -437,15 +440,27 @@ function exportPdf() {
                         class="mb-1 block text-[11px] font-semibold text-zinc-500"
                         >Cakupan</label
                     >
-                    <select
-                        v-model="selectedScope"
-                        @change="applyFilters"
-                        class="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-2.5 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    <Select
+                        :model-value="selectedScope || 'all'"
+                        @update:model-value="
+                            (value) => {
+                                selectedScope =
+                                    value === 'all' ? '' : String(value);
+                                applyFilters();
+                            }
+                        "
                     >
-                        <option value="">Semua Cakupan</option>
-                        <option value="shared">Bersama</option>
-                        <option value="personal">Pribadi</option>
-                    </select>
+                        <SelectTrigger
+                            aria-label="Cakupan"
+                            class="min-h-11 w-full rounded-xl"
+                            ><SelectValue
+                        /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua Cakupan</SelectItem>
+                            <SelectItem value="shared">Bersama</SelectItem>
+                            <SelectItem value="personal">Pribadi</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <div>
@@ -480,16 +495,28 @@ function exportPdf() {
                         class="mb-1 block text-[11px] font-semibold text-zinc-500"
                         >Tipe Transaksi</label
                     >
-                    <select
-                        v-model="selectedType"
-                        @change="applyFilters"
-                        class="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-2.5 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    <Select
+                        :model-value="selectedType || 'all'"
+                        @update:model-value="
+                            (value) => {
+                                selectedType =
+                                    value === 'all' ? '' : String(value);
+                                applyFilters();
+                            }
+                        "
                     >
-                        <option value="">Semua Tipe</option>
-                        <option value="expense">Pengeluaran</option>
-                        <option value="income">Pemasukan</option>
-                        <option value="transfer">Transfer</option>
-                    </select>
+                        <SelectTrigger
+                            aria-label="Tipe transaksi"
+                            class="min-h-11 w-full rounded-xl"
+                            ><SelectValue
+                        /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua Tipe</SelectItem>
+                            <SelectItem value="expense">Pengeluaran</SelectItem>
+                            <SelectItem value="income">Pemasukan</SelectItem>
+                            <SelectItem value="transfer">Transfer</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <!-- Wallet Filter -->
@@ -498,23 +525,39 @@ function exportPdf() {
                         class="mb-1 block text-[11px] font-semibold text-zinc-500"
                         >Dompet</label
                     >
-                    <select
-                        v-model="selectedWalletId"
-                        @change="applyFilters"
-                        class="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-2.5 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    <Select
+                        :model-value="selectedWalletId || 'all'"
+                        @update:model-value="
+                            (value) => {
+                                selectedWalletId =
+                                    value === 'all' ? '' : String(value);
+                                applyFilters();
+                            }
+                        "
                     >
-                        <option value="">Semua Dompet</option>
-                        <option v-for="w in wallets" :key="w.id" :value="w.id">
-                            {{ w.name }} ·
-                            {{
-                                w.type === 'joint'
-                                    ? 'Bersama'
-                                    : w.user?.nickname ||
-                                      w.user?.name ||
-                                      'Tanpa pemilik'
-                            }}
-                        </option>
-                    </select>
+                        <SelectTrigger
+                            aria-label="Dompet"
+                            class="min-h-11 w-full rounded-xl"
+                            ><SelectValue
+                        /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua Dompet</SelectItem>
+                            <SelectItem
+                                v-for="w in wallets"
+                                :key="w.id"
+                                :value="String(w.id)"
+                            >
+                                {{ w.name }} ·
+                                {{
+                                    w.type === 'joint'
+                                        ? 'Bersama'
+                                        : w.user?.nickname ||
+                                          w.user?.name ||
+                                          'Tanpa pemilik'
+                                }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <!-- Category Filter -->
@@ -523,20 +566,32 @@ function exportPdf() {
                         class="mb-1 block text-[11px] font-semibold text-zinc-500"
                         >Kategori</label
                     >
-                    <select
-                        v-model="selectedCategoryId"
-                        @change="applyFilters"
-                        class="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-2.5 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    <Select
+                        :model-value="selectedCategoryId || 'all'"
+                        @update:model-value="
+                            (value) => {
+                                selectedCategoryId =
+                                    value === 'all' ? '' : String(value);
+                                applyFilters();
+                            }
+                        "
                     >
-                        <option value="">Semua Kategori</option>
-                        <option
-                            v-for="c in categories"
-                            :key="c.id"
-                            :value="c.id"
-                        >
-                            {{ c.name }}
-                        </option>
-                    </select>
+                        <SelectTrigger
+                            aria-label="Kategori"
+                            class="min-h-11 w-full rounded-xl"
+                            ><SelectValue
+                        /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua Kategori</SelectItem>
+                            <SelectItem
+                                v-for="c in categories"
+                                :key="c.id"
+                                :value="String(c.id)"
+                            >
+                                {{ c.name }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <div
@@ -601,7 +656,7 @@ function exportPdf() {
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-1.5">
                             <span
-                                class="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                                class="rounded-full px-2 py-0.5 text-xs font-bold"
                                 :class="
                                     movement.type === 'buy'
                                         ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300'
@@ -616,7 +671,7 @@ function exportPdf() {
                                 {{ movement.investment?.name || 'Investasi' }}
                             </p>
                         </div>
-                        <p class="mt-1 text-[10px] text-zinc-500">
+                        <p class="mt-1 text-xs text-zinc-500">
                             {{ movement.wallet?.name || 'Dompet' }} ·
                             {{ investmentQuantity(movement.quantity) }} unit ·
                             {{
@@ -627,7 +682,7 @@ function exportPdf() {
                         </p>
                         <p
                             v-if="Number(movement.fee_amount) > 0"
-                            class="mt-0.5 text-[10px] text-zinc-400"
+                            class="mt-0.5 text-xs text-zinc-400"
                         >
                             Termasuk admin
                             {{ money(movement.fee_amount) }}
@@ -645,11 +700,12 @@ function exportPdf() {
                             {{ movement.type === 'buy' ? '-' : '+'
                             }}{{ money(investmentWalletMutation(movement)) }}
                         </strong>
-                        <p class="mt-0.5 text-[10px] text-zinc-400">
+                        <p class="mt-0.5 text-xs text-zinc-400">
                             {{
                                 new Date(
                                     movement.transaction_date,
                                 ).toLocaleDateString('id-ID', {
+                                    timeZone: 'Asia/Jakarta',
                                     day: 'numeric',
                                     month: 'short',
                                     year: 'numeric',
@@ -717,7 +773,7 @@ function exportPdf() {
                             {{ movement.wallet?.name || 'Dana di luar dompet' }}
                             → {{ movement.goal?.name || 'Tabungan' }}
                         </p>
-                        <p class="mt-0.5 text-[10px] text-zinc-500">
+                        <p class="mt-0.5 text-xs text-zinc-500">
                             {{
                                 movement.user?.nickname ||
                                 movement.user?.name ||
@@ -728,6 +784,7 @@ function exportPdf() {
                                 new Date(
                                     movement.contributed_at,
                                 ).toLocaleDateString('id-ID', {
+                                    timeZone: 'Asia/Jakarta',
                                     day: 'numeric',
                                     month: 'short',
                                     year: 'numeric',
@@ -743,6 +800,28 @@ function exportPdf() {
                 </div>
             </div>
         </section>
+
+        <nav
+            v-if="(savingsPagination?.length || 0) > 3"
+            aria-label="Halaman setoran tabungan"
+            class="flex flex-wrap gap-2"
+        >
+            <Link
+                v-for="link in savingsPagination"
+                :key="link.label"
+                :href="link.url || '#'"
+                preserve-scroll
+                replace
+                :aria-current="link.active ? 'page' : undefined"
+                class="rounded-xl border px-3 py-2 text-sm"
+                :class="{
+                    'pointer-events-none opacity-40': !link.url,
+                    'bg-emerald-100 text-emerald-900': link.active,
+                }"
+            >
+                <span v-html="link.label" />
+            </Link>
+        </nav>
 
         <!-- Transactions Feed -->
         <div class="space-y-5">
@@ -799,7 +878,11 @@ function exportPdf() {
                                 <div
                                     class="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400"
                                 >
-                                    <span>{{ tx.wallet?.name || tx.emergency_savings_goal?.name || 'Dana darurat' }}</span>
+                                    <span>{{
+                                        tx.wallet?.name ||
+                                        tx.emergency_savings_goal?.name ||
+                                        'Dana darurat'
+                                    }}</span>
                                     <span v-if="tx.to_wallet"
                                         >&rarr; {{ tx.to_wallet.name }}</span
                                     >
@@ -809,7 +892,7 @@ function exportPdf() {
                                         tx.user?.name?.split(' ')[0]
                                     }}</span>
                                     <span
-                                        class="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                                        class="rounded-full px-2 py-0.5 text-xs font-bold"
                                         :class="
                                             tx.scope === 'shared'
                                                 ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400'
@@ -824,7 +907,7 @@ function exportPdf() {
                                     </span>
                                     <span
                                         v-if="tx.source_type"
-                                        class="rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400"
+                                        class="rounded-full bg-indigo-500/10 px-2 py-0.5 text-xs font-bold text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400"
                                     >
                                         Terhubung
                                         {{
@@ -861,7 +944,7 @@ function exportPdf() {
                                     }}</span
                                 >
                                 <p
-                                    class="text-[10px] whitespace-nowrap text-zinc-400"
+                                    class="text-xs whitespace-nowrap text-zinc-400"
                                 >
                                     <span
                                         v-if="
@@ -881,6 +964,7 @@ function exportPdf() {
                                         new Date(
                                             tx.transaction_date,
                                         ).toLocaleDateString('id-ID', {
+                                            timeZone: 'Asia/Jakarta',
                                             day: 'numeric',
                                             month: 'short',
                                         })
@@ -897,7 +981,8 @@ function exportPdf() {
                                     type="button"
                                     @click="openEditModal(tx)"
                                     class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                                    title="Edit Transaksi"
+                                    :aria-label="`Edit transaksi ${tx.title || 'tanpa judul'}`"
+                                    :title="`Edit transaksi ${tx.title || 'tanpa judul'}`"
                                 >
                                     <Edit2 class="h-4 w-4" />
                                 </button>
@@ -906,7 +991,8 @@ function exportPdf() {
                                     type="button"
                                     @click="deleteTransaction(tx)"
                                     class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
-                                    title="Hapus Transaksi"
+                                    :aria-label="`Hapus transaksi ${tx.title || 'tanpa judul'}`"
+                                    :title="`Hapus transaksi ${tx.title || 'tanpa judul'}`"
                                 >
                                     <Trash2 class="h-4 w-4" />
                                 </button>
@@ -925,10 +1011,7 @@ function exportPdf() {
         </div>
 
         <!-- Load More Transactions -->
-        <div
-            v-if="transactions.next_page_url"
-            class="flex justify-center pt-2"
-        >
+        <div v-if="transactions.next_page_url" class="flex justify-center pt-2">
             <button
                 type="button"
                 :disabled="isLoadingMoreTransactions"
@@ -1114,7 +1197,7 @@ function exportPdf() {
                                     />
                                 </div>
                                 <div
-                                    class="mt-1 flex items-center justify-between text-[10px]"
+                                    class="mt-1 flex items-center justify-between text-xs"
                                 >
                                     <span class="text-zinc-400">{{
                                         w.type === 'joint'

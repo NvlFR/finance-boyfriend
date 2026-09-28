@@ -318,7 +318,8 @@ function confirmDeleteItem(): void {
                         type="button"
                         @click="openEditModal(item)"
                         class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                        title="Edit Wishlist"
+                        :aria-label="`Edit wishlist ${item.title}`"
+                        :title="`Edit wishlist ${item.title}`"
                     >
                         <Edit2 class="h-4 w-4" />
                     </button>
@@ -327,7 +328,8 @@ function confirmDeleteItem(): void {
                         type="button"
                         @click="deleteItem(item)"
                         class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
-                        title="Hapus Wishlist"
+                        :aria-label="`Hapus wishlist ${item.title}`"
+                        :title="`Hapus wishlist ${item.title}`"
                     >
                         <Trash2 class="h-4 w-4" />
                     </button>

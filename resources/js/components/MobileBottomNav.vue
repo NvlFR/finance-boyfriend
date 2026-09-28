@@ -43,7 +43,7 @@ function isActive(pattern: string): boolean {
 
 <template>
     <div
-        class="pointer-events-none fixed right-0 bottom-0 left-0 z-40 px-4 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))] md:hidden"
+        class="pointer-events-none fixed right-0 bottom-0 left-0 z-40 px-4 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]"
     >
         <nav
             class="pointer-events-auto mx-auto grid max-w-md grid-cols-5 items-center rounded-[1.75rem] border border-slate-200/80 bg-white/95 px-2 py-2 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-zinc-800/80 dark:bg-zinc-900/95"

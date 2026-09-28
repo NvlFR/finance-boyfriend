@@ -12,6 +12,7 @@ use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -73,6 +74,9 @@ class InvestmentController extends Controller
             'realized_profit_loss' => '0.00',
         ]);
 
+        $summary['realized_profit_loss'] = BigDecimal::of((string) Investment::query()
+            ->where('couple_space_id', $space->id)->sum('realized_profit_loss'))->toScale(2)->__toString();
+
         return Inertia::render('Investments/Index', [
             'investments' => $investments,
             'wallets' => $wallets,
@@ -119,14 +123,15 @@ class InvestmentController extends Controller
     {
         Gate::authorize('delete', $investment);
 
-        if (! BigDecimal::of($investment->quantity)->isZero()) {
-            throw ValidationException::withMessages([
-                'investment' => 'Jual seluruh unit terlebih dahulu sebelum menghapus aset.',
-            ]);
-        }
+        DB::transaction(function () use ($investment): void {
+            $lockedInvestment = Investment::query()->whereKey($investment->id)->lockForUpdate()->firstOrFail();
+            Gate::authorize('delete', $lockedInvestment);
+            if (! BigDecimal::of($lockedInvestment->quantity)->isZero()) {
+                throw ValidationException::withMessages(['investment' => 'Jual seluruh unit sebelum mengarsipkan aset.']);
+            }
+            $lockedInvestment->update(['is_active' => false]);
+        });
 
-        $investment->delete();
-
-        return back()->with('success', 'Aset investasi berhasil dihapus.');
+        return back()->with('success', 'Aset investasi diarsipkan. Riwayat dan biaya tetap tersimpan.');
     }
 }

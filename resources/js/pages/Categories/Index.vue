@@ -195,7 +195,8 @@ function confirmDeleteCategory(): void {
                                 type="button"
                                 @click="openEditModal(cat)"
                                 class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
-                                title="Edit Kategori"
+                                :aria-label="`Edit kategori ${cat.name}`"
+                                :title="`Edit kategori ${cat.name}`"
                             >
                                 <Edit2 class="h-3.5 w-3.5" />
                             </button>
@@ -203,7 +204,8 @@ function confirmDeleteCategory(): void {
                                 type="button"
                                 @click="deleteCategory(cat)"
                                 class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
-                                title="Hapus Kategori"
+                                :aria-label="`Hapus kategori ${cat.name}`"
+                                :title="`Hapus kategori ${cat.name}`"
                             >
                                 <Trash2 class="h-3.5 w-3.5" />
                             </button>
@@ -261,7 +263,8 @@ function confirmDeleteCategory(): void {
                                 type="button"
                                 @click="openEditModal(cat)"
                                 class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
-                                title="Edit Kategori"
+                                :aria-label="`Edit kategori ${cat.name}`"
+                                :title="`Edit kategori ${cat.name}`"
                             >
                                 <Edit2 class="h-3.5 w-3.5" />
                             </button>
@@ -269,7 +272,8 @@ function confirmDeleteCategory(): void {
                                 type="button"
                                 @click="deleteCategory(cat)"
                                 class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
-                                title="Hapus Kategori"
+                                :aria-label="`Hapus kategori ${cat.name}`"
+                                :title="`Hapus kategori ${cat.name}`"
                             >
                                 <Trash2 class="h-3.5 w-3.5" />
                             </button>

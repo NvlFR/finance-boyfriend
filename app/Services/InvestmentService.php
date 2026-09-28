@@ -28,6 +28,7 @@ class InvestmentService
             return DB::transaction(function () use ($user, $investment, $data, $clientReference): InvestmentTransaction {
                 $lockedInvestment = Investment::query()
                     ->whereKey($investment->id)
+                    ->where('is_active', true)
                     ->where('couple_space_id', $user->current_couple_space_id)
                     ->where(function ($query) use ($user): void {
                         $query->where('scope', 'shared')->orWhere('user_id', $user->id);

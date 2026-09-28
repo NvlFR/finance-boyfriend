@@ -118,3 +118,12 @@ test('paying a subscription records one expense and advances its billing date', 
         ->assertUnprocessable()
         ->assertJsonValidationErrorFor('transaction');
 });
+
+test('subscription form defaults its billing date in Jakarta time', function () {
+    $source = file_get_contents(resource_path('js/pages/Subscriptions/Index.vue'));
+
+    expect($source)
+        ->toContain("import { jakartaDateKey } from '@/lib/dates'")
+        ->toContain('next_billing_date: jakartaDateKey()')
+        ->not->toContain('next_billing_date: new Date().toISOString().slice(0, 10)');
+});

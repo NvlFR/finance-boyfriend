@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Investment;
+use App\Models\InvestmentTransaction;
 use App\Models\SavingsGoal;
 use App\Models\Transaction;
 use App\Models\Wallet;
@@ -11,6 +12,7 @@ use App\Services\BirthdaySurpriseService;
 use App\Services\SettlementService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -150,9 +152,7 @@ class DashboardController extends Controller
         $startOfMonth = Carbon::now()->startOfMonth();
         $endOfMonth = Carbon::now()->endOfMonth();
 
-        $monthTransactions = Transaction::where('couple_space_id', $space->id)
-            ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
-            ->get();
+        $monthTransactions = $this->cashflowTransactions($space->id, $startOfMonth, $endOfMonth);
 
         $monthlyTransferFees = (float) $monthTransactions->where('type', 'transfer')->sum('fee_amount');
         $monthlySpending = (float) $monthTransactions->where('type', 'expense')->sum('amount') + $monthlyTransferFees;
@@ -195,13 +195,7 @@ class DashboardController extends Controller
             'personal' => $personalSpending,
         ];
 
-        $chartTransactions = Transaction::query()
-            ->where('couple_space_id', $space->id)
-            ->whereBetween('transaction_date', [
-                $chartStartDate->copy()->startOfDay(),
-                $chartEndDate->copy()->endOfDay(),
-            ])
-            ->get();
+        $chartTransactions = $this->cashflowTransactions($space->id, $chartStartDate->copy()->startOfDay(), $chartEndDate->copy()->endOfDay());
         $chartTransactionsByDate = $chartTransactions->groupBy(
             fn (Transaction $transaction): string => $transaction->transaction_date->toDateString()
         );
@@ -269,7 +263,7 @@ class DashboardController extends Controller
 
                 $categorySpending[] = [
                     'id' => $catId ?: 0,
-                    'name' => $cat ? $cat->name : 'Tanpa Kategori',
+                    'name' => (int) $catId === -2 ? 'Biaya Investasi' : ($cat ? $cat->name : 'Tanpa Kategori'),
                     'color' => $cat ? $cat->color : '#94A3B8',
                     'total' => $total,
                     'percentage' => $percentage,
@@ -377,8 +371,37 @@ class DashboardController extends Controller
             ->where('transaction_date', '<=', $chartEndDate->copy()->endOfDay())
             ->min('transaction_date');
 
+        $firstInvestmentFeeAt = InvestmentTransaction::query()
+            ->whereHas('investment', fn ($query) => $query->where('couple_space_id', $spaceId))
+            ->where('fee_amount', '>', 0)
+            ->where('transaction_date', '<=', $chartEndDate->copy()->endOfDay())
+            ->min('transaction_date');
+        $firstTransactionAt = collect([$firstTransactionAt, $firstInvestmentFeeAt])->filter()->sort()->first();
+
         return $firstTransactionAt
             ? Carbon::parse($firstTransactionAt)->startOfDay()
             : $chartEndDate->copy();
+    }
+
+    /** @return Collection<int, Transaction> */
+    private function cashflowTransactions(int $spaceId, Carbon $start, Carbon $end): Collection
+    {
+        $transactions = Transaction::query()->where('couple_space_id', $spaceId)
+            ->whereBetween('transaction_date', [$start, $end])->get()->toBase();
+        $fees = InvestmentTransaction::query()
+            ->whereHas('investment', fn ($query) => $query->where('couple_space_id', $spaceId))
+            ->with('investment')->where('fee_amount', '>', 0)
+            ->whereBetween('transaction_date', [$start, $end])->get();
+
+        foreach ($fees as $fee) {
+            $transactions->push(new Transaction([
+                'type' => 'expense', 'scope' => $fee->investment->scope,
+                'user_id' => $fee->user_id, 'amount' => $fee->fee_amount,
+                'fee_amount' => 0, 'category_id' => -2,
+                'transaction_date' => $fee->transaction_date,
+            ]));
+        }
+
+        return $transactions;
     }
 }

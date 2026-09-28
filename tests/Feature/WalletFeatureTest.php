@@ -121,6 +121,7 @@ test('user can update wallet balance and details', function () {
         ->putJson(route('wallets.update', $wallet), [
             'name' => 'Renamed Wallet',
             'balance' => 500000,
+            'expected_balance' => 100000,
         ]);
 
     $response->assertOk()
@@ -134,7 +135,7 @@ test('user can update wallet balance and details', function () {
     ]);
 });
 
-test('user can delete a wallet', function () {
+test('user can archive an empty wallet', function () {
     $space = CoupleSpace::factory()->active()->create();
     $user = $space->userOne;
     $user->update(['current_couple_space_id' => $space->id]);
@@ -142,20 +143,21 @@ test('user can delete a wallet', function () {
     $wallet = Wallet::factory()->create([
         'couple_space_id' => $space->id,
         'user_id' => $user->id,
+        'balance' => 0,
     ]);
 
     $response = $this->actingAs($user)
         ->deleteJson(route('wallets.destroy', $wallet));
 
     $response->assertOk();
-    $this->assertDatabaseMissing('wallets', ['id' => $wallet->id]);
+    expect($wallet->fresh()->is_active)->toBeFalse();
 });
 
 test('wallet with transaction history is archived instead of deleted', function () {
     $space = CoupleSpace::factory()->active()->create();
     $user = $space->userOne;
     $user->update(['current_couple_space_id' => $space->id]);
-    $wallet = Wallet::factory()->create(['couple_space_id' => $space->id, 'user_id' => $user->id]);
+    $wallet = Wallet::factory()->create(['couple_space_id' => $space->id, 'user_id' => $user->id, 'balance' => 0]);
     Transaction::factory()->create(['couple_space_id' => $space->id, 'user_id' => $user->id, 'wallet_id' => $wallet->id]);
 
     $this->actingAs($user)->deleteJson(route('wallets.destroy', $wallet))->assertOk();
@@ -168,7 +170,7 @@ test('wallet used for savings contributions is archived so it can be refunded la
     $space = CoupleSpace::factory()->active()->create();
     $user = $space->userOne;
     $user->update(['current_couple_space_id' => $space->id]);
-    $wallet = Wallet::factory()->create(['couple_space_id' => $space->id, 'user_id' => $user->id]);
+    $wallet = Wallet::factory()->create(['couple_space_id' => $space->id, 'user_id' => $user->id, 'balance' => 0]);
     $goal = SavingsGoal::factory()->create(['couple_space_id' => $space->id, 'created_by_user_id' => $user->id]);
     SavingsContribution::create([
         'savings_goal_id' => $goal->id,

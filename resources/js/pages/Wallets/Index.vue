@@ -221,13 +221,21 @@ function submitEditWallet() {
         return;
     }
 
-    editForm.put(walletUpdate.url(editingWallet.value.id), {
-        preserveScroll: true,
-        onSuccess: () => {
-            isEditModalOpen.value = false;
-            editingWallet.value = null;
-        },
-    });
+    const originalBalance = editingWallet.value.balance;
+    editForm
+        .transform(({ balance, ...details }) => ({
+            ...details,
+            ...(Number(balance) !== Number(originalBalance)
+                ? { balance, expected_balance: originalBalance }
+                : {}),
+        }))
+        .put(walletUpdate.url(editingWallet.value.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                isEditModalOpen.value = false;
+                editingWallet.value = null;
+            },
+        });
 }
 
 function handleDelete(w: Wallet) {
@@ -499,7 +507,7 @@ function confirmDeleteWallet(): void {
                 >
                     <div class="flex items-center justify-between">
                         <span
-                            class="rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase backdrop-blur-md"
+                            class="rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-bold tracking-wider uppercase backdrop-blur-md"
                         >
                             {{
                                 form.type === 'joint'
@@ -777,7 +785,7 @@ function confirmDeleteWallet(): void {
                 >
                     <div class="flex items-center justify-between">
                         <span
-                            class="rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase backdrop-blur-md"
+                            class="rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-bold tracking-wider uppercase backdrop-blur-md"
                         >
                             {{
                                 editForm.type === 'joint'
@@ -1016,8 +1024,9 @@ function confirmDeleteWallet(): void {
 
         <ConfirmActionDialog
             :open="walletToDelete !== null"
-            title="Hapus dompet?"
-            :description="`Dompet ${walletToDelete?.name || ''} akan dihapus. Pastikan saldo dan transaksi terkait sudah kamu periksa.`"
+            title="Arsipkan dompet?"
+            confirm-label="Ya, Arsipkan"
+            :description="`Dompet ${walletToDelete?.name || ''} akan disembunyikan dari daftar aktif. Pindahkan seluruh saldo terlebih dahulu. Semua riwayat tetap tersimpan.`"
             :processing="isDeleting"
             @update:open="walletToDelete = null"
             @confirm="confirmDeleteWallet"

@@ -153,7 +153,7 @@ test('transaction history mobile UI groups dates and keeps report exports', func
         ->toContain("only: ['transactions']")
         ->toContain('preserveScroll: true')
         ->toContain('Muat transaksi lainnya')
-        ->toContain('displayedTransactions.value.push')
+        ->toContain('cumulative: true')
         ->not->toContain('v-for="link in transactions.links"');
 });
 
@@ -708,7 +708,7 @@ test('user can export filtered transactions to Excel and a complete HTML financi
 });
 
 test('transaction drawer defaults to personal scope and explains transfer fees', function () {
-    $drawer = file_get_contents(resource_path('js/components/TransactionDrawer.vue'));
+    $drawer = preg_replace('/\s+/', ' ', file_get_contents(resource_path('js/components/TransactionDrawer.vue')));
 
     expect($drawer)
         ->toContain("scope: 'personal'")

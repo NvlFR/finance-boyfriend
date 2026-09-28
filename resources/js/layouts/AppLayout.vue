@@ -2,6 +2,7 @@
 import { usePage, router } from '@inertiajs/vue3';
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { toast } from 'vue-sonner';
+import FeatureTour from '@/components/FeatureTour.vue';
 import LogoutConfirmModal from '@/components/LogoutConfirmModal.vue';
 import MobileBottomNav from '@/components/MobileBottomNav.vue';
 import PwaInstallPrompt from '@/components/PwaInstallPrompt.vue';
@@ -35,6 +36,7 @@ const appRelease = computed(
 const { isOpen: isDrawerOpen, defaults: transactionDefaults } =
     useTransactionModal();
 const isNavigating = ref(false);
+const featureTourRequest = ref(0);
 
 watch(
     () => (page.props as any).statusMessage,
@@ -132,6 +134,13 @@ onUnmounted(() => {
             v-if="user"
             :release="appRelease"
             :user-id="user.id"
+            @start-tour="featureTourRequest += 1"
+        />
+        <FeatureTour
+            v-if="user"
+            :release="appRelease"
+            :user-id="user.id"
+            :start-request="featureTourRequest"
         />
 
         <PwaInstallPrompt />

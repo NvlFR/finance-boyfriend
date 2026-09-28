@@ -4,12 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Wallet\StoreWalletRequest;
 use App\Http\Requests\Wallet\UpdateWalletRequest;
-use App\Models\SavingsContribution;
-use App\Models\Transaction;
 use App\Models\Wallet;
+use Brick\Math\BigDecimal;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -146,7 +147,19 @@ class WalletController extends Controller
         }
 
         $data = array_filter($request->validated(), fn ($v) => $v !== null);
-        $wallet->update($data);
+        DB::transaction(function () use ($wallet, $data, $user, $space): void {
+            $lockedWallet = Wallet::query()->where('couple_space_id', $space->id)
+                ->where(fn ($query) => $query->where('type', 'joint')->orWhere('user_id', $user->id))
+                ->whereKey($wallet->id)->lockForUpdate()->firstOrFail();
+            if (array_key_exists('balance', $data) && ! BigDecimal::of($lockedWallet->balance)->isEqualTo($data['expected_balance'])) {
+                throw ValidationException::withMessages(['balance' => 'Saldo berubah sejak form dibuka. Tutup dan buka kembali form sebelum menyesuaikan saldo.']);
+            }
+            if (($data['is_active'] ?? true) === false && ! BigDecimal::of($data['balance'] ?? $lockedWallet->balance)->isZero()) {
+                throw ValidationException::withMessages(['balance' => 'Pindahkan seluruh saldo sebelum mengarsipkan dompet.']);
+            }
+            unset($data['expected_balance']);
+            $lockedWallet->update($data);
+        });
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -174,18 +187,16 @@ class WalletController extends Controller
             abort(403, 'Dompet pribadi pasangan hanya dapat dihapus oleh pemiliknya.');
         }
 
-        $hasTransactionHistory = Transaction::where('wallet_id', $wallet->id)
-            ->orWhere('to_wallet_id', $wallet->id)
-            ->exists();
-        $hasSavingsHistory = SavingsContribution::where('wallet_id', $wallet->id)->exists();
-
-        if ($hasTransactionHistory || $hasSavingsHistory) {
-            $wallet->update(['is_active' => false]);
-            $message = 'Dompet dinonaktifkan karena masih memiliki riwayat transaksi.';
-        } else {
-            $wallet->delete();
-            $message = 'Dompet berhasil dihapus.';
-        }
+        DB::transaction(function () use ($wallet, $user, $space): void {
+            $lockedWallet = Wallet::query()->where('couple_space_id', $space->id)
+                ->where(fn ($query) => $query->where('type', 'joint')->orWhere('user_id', $user->id))
+                ->whereKey($wallet->id)->lockForUpdate()->firstOrFail();
+            if (! BigDecimal::of($lockedWallet->balance)->isZero()) {
+                throw ValidationException::withMessages(['wallet' => 'Pindahkan seluruh saldo sebelum mengarsipkan dompet. Riwayat transaksi akan tetap tersimpan.']);
+            }
+            $lockedWallet->update(['is_active' => false]);
+        });
+        $message = 'Dompet diarsipkan. Seluruh riwayat tetap tersimpan.';
 
         if ($request->wantsJson()) {
             return response()->json([

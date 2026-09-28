@@ -15,6 +15,7 @@ ALLOW_SAME_VERSION=false
 ASSUME_YES=false
 REMOTE_ASSET_STAGING=""
 DEPLOY_LOCK_ACQUIRED=false
+DEPLOY_MUTATION_STARTED=false
 
 log_info() {
     printf '[%s] INFO  %s\n' "$(date +'%Y-%m-%d %H:%M:%S')" "$*"
@@ -32,10 +33,20 @@ handle_error() {
     local -r exit_code=$?
 
     log_error "Deployment gagal pada baris ${BASH_LINENO[0]}."
+    if [[ "$DEPLOY_MUTATION_STARTED" == true ]]; then
+        ssh -o BatchMode=yes "$DEPLOY_TARGET" bash -s -- "$DEPLOY_PATH" <<'REMOTE' || log_error "Gagal memastikan maintenance; periksa server secara manual."
+set -Eeuo pipefail
+readonly app_dir="$1"
+[[ "$app_dir" =~ ^/var/www/[A-Za-z0-9._-]+$ ]]
+cd "$app_dir"
+php artisan down --retry=30 --no-ansi
+REMOTE
+    fi
     if [[ -n "$REMOTE_ASSET_STAGING" ]]; then
         log_warn "Folder aset staging ditinggalkan untuk pemeriksaan: $REMOTE_ASSET_STAGING"
     fi
     log_warn "Periksa backup di $DEPLOY_PATH/storage/app/backups sebelum melakukan rollback."
+    log_warn "Jika maintenance sudah aktif, biarkan tetap aktif sampai kode, database, dan aset dinyatakan konsisten."
 
     exit "$exit_code"
 }
@@ -215,6 +226,7 @@ run_local_checks() {
         composer lint:check
         composer types:check
         npm run lint:check
+        npm run format:check
         npm run types:check
         php artisan test --compact
         npm run build
@@ -385,6 +397,20 @@ REMOTE
         "$DEPLOY_TARGET:$DEPLOY_PATH/$REMOTE_ASSET_STAGING/"
 }
 
+enable_remote_maintenance() {
+    ssh -o BatchMode=yes "$DEPLOY_TARGET" bash -s -- "$DEPLOY_PATH" <<'REMOTE'
+set -Eeuo pipefail
+readonly app_dir="$1"
+[[ "$app_dir" =~ ^/var/www/[A-Za-z0-9._-]+$ ]]
+cd "$app_dir"
+if [[ -f storage/framework/down ]]; then
+    printf 'Aplikasi sudah maintenance; periksa deployment sebelumnya terlebih dahulu.\n' >&2
+    exit 1
+fi
+php artisan down --retry=30 --no-ansi
+REMOTE
+}
+
 finalize_remote_deployment() {
     ssh -o BatchMode=yes "$DEPLOY_TARGET" bash -s -- \
         "$DEPLOY_PATH" "$REMOTE_ASSET_STAGING" "$PHP_FPM_SERVICE" <<'REMOTE'
@@ -394,23 +420,12 @@ readonly asset_staging="$2"
 readonly php_fpm_service="$3"
 readonly timestamp="$(date +%Y%m%d-%H%M%S)"
 readonly asset_backup="$app_dir/storage/app/backups/assets-pre-deploy-$timestamp"
-maintenance_enabled=false
-
-restore_availability() {
-    if [[ "$maintenance_enabled" == true ]]; then
-        php artisan up --no-ansi >/dev/null 2>&1 || true
-    fi
-}
-
-trap restore_availability EXIT
-
 [[ "$app_dir" =~ ^/var/www/[A-Za-z0-9._-]+$ ]]
 [[ "$asset_staging" =~ ^public/build-deploy-[A-Za-z0-9]+$ ]]
 cd "$app_dir"
 [[ -s "$asset_staging/manifest.json" ]]
 
-php artisan down --retry=30 --no-ansi
-maintenance_enabled=true
+[[ -f storage/framework/down ]]
 
 composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
 php artisan migrate --force --no-ansi
@@ -428,6 +443,8 @@ fi
 
 php artisan optimize:clear --no-ansi
 php artisan optimize --no-ansi
+php artisan migrate:status --no-ansi >/dev/null
+php artisan about --only=environment --no-ansi >/dev/null
 
 if sudo -n systemctl reload "$php_fpm_service"; then
     printf 'php_fpm=%s reloaded\n' "$php_fpm_service"
@@ -436,8 +453,6 @@ else
 fi
 
 php artisan up --no-ansi
-maintenance_enabled=false
-trap - EXIT
 
 printf 'asset_backup=%s\n' "$(basename "$asset_backup")"
 REMOTE
@@ -526,6 +541,9 @@ main() {
 
     confirm_deployment "$local_version" "$remote_version"
     acquire_deploy_lock
+    log_info "Mengaktifkan maintenance sebelum backup dan sinkronisasi kode."
+    enable_remote_maintenance
+    DEPLOY_MUTATION_STARTED=true
     log_info "Membuat backup database dan kode production."
     create_remote_backups
     log_info "Menyinkronkan source tanpa menyentuh data runtime."
@@ -539,4 +557,6 @@ main() {
     log_info "Deployment versi $local_version berhasil."
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi

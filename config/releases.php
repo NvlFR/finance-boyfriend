@@ -10,9 +10,71 @@ return [
     | setiap deployment yang perlu diumumkan kepada pengguna.
     |
     */
-    'current_version' => '1.1.6',
+    'current_version' => '1.1.8',
 
     'items' => [
+        [
+            'version' => '1.1.8',
+            'title' => 'Perlindungan data dan keamanan akun',
+            'released_at' => '2026-09-27',
+            'highlights' => [
+                'Arsip dompet dan investasi mempertahankan riwayat; akun dengan data ruang pasangan terlindungi dari penghapusan.',
+                'Login Google tetap meminta verifikasi dua langkah, dan akun wajib memverifikasi email.',
+                'Pembagian transaksi diperbarui dengan benar, pelunasan terlindungi, serta biaya investasi tercantum dalam laporan PDF.',
+                'Filter riwayat, ukuran teks, posisi tur fitur, dan penguncian scroll dialog diperbaiki.',
+            ],
+            'tour' => [
+                [
+                    'path' => '/dashboard',
+                    'target' => '[data-tour="wealth-summary"]',
+                    'title' => 'Ringkasan kekayaan lebih jelas',
+                    'description' => 'Total kekayaan mencakup dompet, tabungan, dan investasi. Rincian di bawahnya khusus menunjukkan saldo setiap dompet.',
+                ],
+                [
+                    'path' => '/transactions',
+                    'target' => '[data-tour="history-filter"]',
+                    'title' => 'Satu filter untuk semua aktivitas',
+                    'description' => 'Pencarian dan filter sekarang ikut menyaring transaksi, setoran tabungan, serta aktivitas investasi.',
+                ],
+                [
+                    'path' => '/goals',
+                    'target' => '[data-tour="savings-overview"]',
+                    'title' => 'Setoran tabungan lebih aman',
+                    'description' => 'Saat menyetor, sumber dana kini dipilih melalui kartu dompet yang jelas. Dana dari luar aplikasi juga diberi penjelasan khusus.',
+                ],
+            ],
+        ],
+        [
+            'version' => '1.1.7',
+            'title' => 'Saldo lebih aman, riwayat lebih konsisten',
+            'released_at' => '2026-09-20',
+            'highlights' => [
+                'Perlindungan saldo saat mengedit atau menghapus transaksi dan mengubah dompet.',
+                'Investasi tetap tersimpan saat bergabung ke ruang pasangan.',
+                'Tanggal riwayat mengikuti WIB; filter investasi dan tabungan kini konsisten.',
+                'Biaya investasi masuk pengeluaran dashboard, dengan navigasi dan pemilihan sumber setoran yang lebih jelas.',
+            ],
+            'tour' => [
+                [
+                    'path' => '/dashboard',
+                    'target' => '[data-tour="wealth-summary"]',
+                    'title' => 'Ringkasan kekayaan lebih jelas',
+                    'description' => 'Total kekayaan mencakup dompet, tabungan, dan investasi. Rincian di bawahnya khusus menunjukkan saldo setiap dompet.',
+                ],
+                [
+                    'path' => '/transactions',
+                    'target' => '[data-tour="history-filter"]',
+                    'title' => 'Satu filter untuk semua aktivitas',
+                    'description' => 'Pencarian dan filter sekarang ikut menyaring transaksi, setoran tabungan, serta aktivitas investasi.',
+                ],
+                [
+                    'path' => '/goals',
+                    'target' => '[data-tour="savings-overview"]',
+                    'title' => 'Setoran tabungan lebih aman',
+                    'description' => 'Saat menyetor, sumber dana kini dipilih melalui kartu dompet yang jelas. Dana dari luar aplikasi juga diberi penjelasan khusus.',
+                ],
+            ],
+        ],
         [
             'version' => '1.1.6',
             'title' => 'Dana darurat kini bisa ditransfer',

@@ -13,4 +13,10 @@ export type AppRelease = {
     title: string;
     released_at: string;
     highlights: string[];
+    tour: Array<{
+        path: string;
+        target: string;
+        title: string;
+        description: string;
+    }>;
 };

@@ -10,17 +10,24 @@ const focusableSelector = [
     '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 
+const scrollLocks = new Set<symbol>();
+let previousBodyOverflow = '';
+let previousRootOverflow = '';
+let previousRootOverscrollBehavior = '';
+
 export function useAccessibleDialog(
     isOpen: WatchSource<boolean>,
     closeDialog: () => void,
 ) {
     const dialogRef = ref<HTMLElement | null>(null);
     let previouslyFocusedElement: HTMLElement | null = null;
-    let previousBodyOverflow = '';
-    let previousRootOverflow = '';
-    let previousRootOverscrollBehavior = '';
+    const scrollLock = Symbol('dialog');
 
     function unlockPageScroll(): void {
+        if (!scrollLocks.delete(scrollLock) || scrollLocks.size > 0) {
+            return;
+        }
+
         document.body.style.overflow = previousBodyOverflow;
         document.documentElement.style.overflow = previousRootOverflow;
         document.documentElement.style.overscrollBehavior =
@@ -30,10 +37,15 @@ export function useAccessibleDialog(
     watch(isOpen, async (open) => {
         if (open) {
             previouslyFocusedElement = document.activeElement as HTMLElement;
-            previousBodyOverflow = document.body.style.overflow;
-            previousRootOverflow = document.documentElement.style.overflow;
-            previousRootOverscrollBehavior =
-                document.documentElement.style.overscrollBehavior;
+
+            if (scrollLocks.size === 0) {
+                previousBodyOverflow = document.body.style.overflow;
+                previousRootOverflow = document.documentElement.style.overflow;
+                previousRootOverscrollBehavior =
+                    document.documentElement.style.overscrollBehavior;
+            }
+
+            scrollLocks.add(scrollLock);
             document.body.style.overflow = 'hidden';
             document.documentElement.style.overflow = 'hidden';
             document.documentElement.style.overscrollBehavior = 'none';
@@ -72,7 +84,11 @@ export function useAccessibleDialog(
         const firstElement = focusableElements[0];
         const lastElement = focusableElements[focusableElements.length - 1];
 
-        if (event.shiftKey && document.activeElement === firstElement) {
+        if (
+            event.shiftKey &&
+            (document.activeElement === firstElement ||
+                document.activeElement === dialogRef.value)
+        ) {
             event.preventDefault();
             lastElement.focus();
         } else if (!event.shiftKey && document.activeElement === lastElement) {

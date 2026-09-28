@@ -15,6 +15,7 @@ import {
     ShoppingBag,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import { toast } from 'vue-sonner';
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
 import CurrencyInput from '@/components/CurrencyInput.vue';
 import FormErrorSummary from '@/components/FormErrorSummary.vue';
@@ -262,6 +263,8 @@ function confirmDeleteGoal(): void {
         preserveScroll: true,
         onStart: () => (isDeleting.value = true),
         onSuccess: () => (goalToDelete.value = null),
+        onError: (errors) =>
+            toast.error(errors.goal || 'Target tabungan belum dapat dihapus.'),
         onFinish: () => (isDeleting.value = false),
     });
 }
@@ -287,6 +290,7 @@ function confirmDeleteGoal(): void {
 
         <!-- Summary Progress Banner -->
         <div
+            data-tour="savings-overview"
             class="relative overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6 dark:border-zinc-800 dark:bg-zinc-900"
         >
             <div
@@ -310,7 +314,7 @@ function confirmDeleteGoal(): void {
                     >
                         <Coins class="h-5 w-5" />
                     </div>
-                    <span class="text-[10px] text-slate-400">Total Target</span>
+                    <span class="text-xs text-slate-400">Total Target</span>
                     <p
                         class="text-xs font-bold text-slate-700 dark:text-zinc-200"
                     >
@@ -428,7 +432,7 @@ function confirmDeleteGoal(): void {
                                     {{ goal.name }}
                                 </h3>
                                 <span
-                                    class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                                    class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold"
                                     :class="
                                         goal.scope === 'shared'
                                             ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
@@ -444,7 +448,7 @@ function confirmDeleteGoal(): void {
                                 </span>
                                 <span
                                     v-if="goal.is_emergency_fund"
-                                    class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300"
+                                    class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300"
                                 >
                                     Dana darurat
                                 </span>
@@ -478,7 +482,8 @@ function confirmDeleteGoal(): void {
                             type="button"
                             @click="openEditModal(goal)"
                             class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                            title="Edit Target"
+                            :aria-label="`Edit target ${goal.name}`"
+                            :title="`Edit target ${goal.name}`"
                         >
                             <Edit2 class="h-4 w-4" />
                         </button>
@@ -488,7 +493,8 @@ function confirmDeleteGoal(): void {
                             type="button"
                             @click="deleteGoal(goal)"
                             class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
-                            title="Hapus Target"
+                            :aria-label="`Hapus target ${goal.name}`"
+                            :title="`Hapus target ${goal.name}`"
                         >
                             <Trash2 class="h-4 w-4" />
                         </button>
@@ -635,7 +641,7 @@ function confirmDeleteGoal(): void {
                                 >
                                     <UserRound class="h-4 w-4" /> Pribadi
                                 </span>
-                                <span class="mt-1 block text-[10px] opacity-75">
+                                <span class="mt-1 block text-xs opacity-75">
                                     Hanya kamu yang mengelola
                                 </span>
                             </button>
@@ -655,7 +661,7 @@ function confirmDeleteGoal(): void {
                                 >
                                     <UsersRound class="h-4 w-4" /> Bersama
                                 </span>
-                                <span class="mt-1 block text-[10px] opacity-75">
+                                <span class="mt-1 block text-xs opacity-75">
                                     Bisa dikelola berdua
                                 </span>
                             </button>
@@ -722,11 +728,24 @@ function confirmDeleteGoal(): void {
                         </div>
                     </div>
 
-                    <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
-                        <input v-model="createForm.is_emergency_fund" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500" />
+                    <label
+                        class="flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/60 dark:bg-amber-950/20"
+                    >
+                        <input
+                            v-model="createForm.is_emergency_fund"
+                            type="checkbox"
+                            class="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                        />
                         <span>
-                            <span class="block text-xs font-bold text-amber-900 dark:text-amber-100">Jadikan dana darurat</span>
-                            <span class="mt-0.5 block text-[10px] leading-relaxed text-amber-700 dark:text-amber-300">Bisa dipilih sebagai metode bayar untuk pengeluaran mendesak.</span>
+                            <span
+                                class="block text-xs font-bold text-amber-900 dark:text-amber-100"
+                                >Jadikan dana darurat</span
+                            >
+                            <span
+                                class="mt-0.5 block text-xs leading-relaxed text-amber-700 dark:text-amber-300"
+                                >Bisa dipilih sebagai metode bayar untuk
+                                pengeluaran mendesak.</span
+                            >
                         </span>
                     </label>
 
@@ -841,11 +860,24 @@ function confirmDeleteGoal(): void {
                         </div>
                     </div>
 
-                    <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
-                        <input v-model="editForm.is_emergency_fund" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500" />
+                    <label
+                        class="flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/60 dark:bg-amber-950/20"
+                    >
+                        <input
+                            v-model="editForm.is_emergency_fund"
+                            type="checkbox"
+                            class="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                        />
                         <span>
-                            <span class="block text-xs font-bold text-amber-900 dark:text-amber-100">Jadikan dana darurat</span>
-                            <span class="mt-0.5 block text-[10px] leading-relaxed text-amber-700 dark:text-amber-300">Tabungan ini dapat digunakan untuk pembayaran saat darurat.</span>
+                            <span
+                                class="block text-xs font-bold text-amber-900 dark:text-amber-100"
+                                >Jadikan dana darurat</span
+                            >
+                            <span
+                                class="mt-0.5 block text-xs leading-relaxed text-amber-700 dark:text-amber-300"
+                                >Tabungan ini dapat digunakan untuk pembayaran
+                                saat darurat.</span
+                            >
                         </span>
                     </label>
 
@@ -933,21 +965,29 @@ function confirmDeleteGoal(): void {
                         />
                     </div>
 
-                    <div v-if="availableContributionWallets.length > 0">
+                    <div>
                         <label class="block text-xs font-medium text-zinc-500"
-                            >Potong dari Dompet (Opsional)</label
+                            >Sumber Dana</label
                         >
-                        <select
-                            v-model="contributeForm.wallet_id"
-                            class="mt-1 w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+                        <div
+                            class="mt-2 grid gap-2 sm:grid-cols-2"
+                            role="group"
+                            aria-label="Pilih sumber setoran"
                         >
-                            <option :value="null">
-                                -- Tanpa Potong Saldo Dompet --
-                            </option>
-                            <option
+                            <button
                                 v-for="w in availableContributionWallets"
                                 :key="w.id"
-                                :value="w.id"
+                                type="button"
+                                :aria-pressed="
+                                    contributeForm.wallet_id === w.id
+                                "
+                                @click="contributeForm.wallet_id = w.id"
+                                class="min-h-16 rounded-xl border p-3 text-left text-sm transition-colors"
+                                :class="
+                                    contributeForm.wallet_id === w.id
+                                        ? 'border-indigo-500 bg-indigo-50 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-100'
+                                        : 'border-zinc-200 dark:border-zinc-700'
+                                "
                             >
                                 {{ w.name }} ·
                                 {{
@@ -959,8 +999,31 @@ function confirmDeleteGoal(): void {
                                 }}
                                 (Rp
                                 {{ Number(w.balance).toLocaleString('id-ID') }})
-                            </option>
-                        </select>
+                            </button>
+                            <button
+                                type="button"
+                                :aria-pressed="
+                                    contributeForm.wallet_id === null
+                                "
+                                @click="contributeForm.wallet_id = null"
+                                class="min-h-16 rounded-xl border p-3 text-left text-sm"
+                                :class="
+                                    contributeForm.wallet_id === null
+                                        ? 'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-100'
+                                        : 'border-zinc-200 dark:border-zinc-700'
+                                "
+                            >
+                                Dana dari luar aplikasi
+                            </button>
+                        </div>
+                        <p
+                            v-if="contributeForm.wallet_id === null"
+                            class="mt-2 text-sm text-amber-700 dark:text-amber-300"
+                        >
+                            Gunakan hanya untuk uang yang belum tercatat di
+                            dompet aplikasi. Setoran ini menambah total kekayaan
+                            tanpa mengurangi dompet.
+                        </p>
                     </div>
 
                     <div>
@@ -997,7 +1060,7 @@ function confirmDeleteGoal(): void {
         <ConfirmActionDialog
             :open="goalToDelete !== null"
             title="Hapus target tabungan?"
-            :description="`Target ${goalToDelete?.name || ''} beserta riwayat setorannya akan dihapus.`"
+            :description="`Target ${goalToDelete?.name || ''} beserta riwayat setorannya akan dihapus. Setoran dari dompet dikembalikan ke dompet asal. Target yang sudah dipakai untuk transaksi dana darurat tidak dapat dihapus.`"
             :processing="isDeleting"
             @update:open="goalToDelete = null"
             @confirm="confirmDeleteGoal"

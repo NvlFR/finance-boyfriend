@@ -215,15 +215,15 @@ const todayDateFormatted = computed(() => {
 });
 
 const formattedTotalNetWorth = computed(() => {
-    return 'Rp ' + Number(props.totalNetWorth).toLocaleString('id-ID');
+    return formatCurrency(props.totalNetWorth);
 });
 
 const formattedMonthlySpending = computed(() => {
-    return 'Rp ' + Number(props.monthlySpending).toLocaleString('id-ID');
+    return formatCurrency(props.monthlySpending);
 });
 
 const formattedMonthlyIncome = computed(() => {
-    return 'Rp ' + Number(props.monthlyIncome).toLocaleString('id-ID');
+    return formatCurrency(props.monthlyIncome);
 });
 
 const userFirstName = computed(
@@ -247,26 +247,29 @@ const partnerAvatarUrl = computed(
 const wealthOwners = computed(() => [
     {
         key: 'user',
-        label: 'Milik Kamu',
+        label: 'Dompet Kamu',
         total: props.netWorthBreakdown.user.wallets,
         breakdown: props.netWorthBreakdown.user,
     },
     {
         key: 'partner',
-        label: `Milik ${partnerFirstName.value}`,
+        label: `Dompet ${partnerFirstName.value}`,
         total: props.netWorthBreakdown.partner.wallets,
         breakdown: props.netWorthBreakdown.partner,
     },
     {
         key: 'joint',
-        label: 'Milik Bersama',
+        label: 'Dompet Bersama',
         total: props.netWorthBreakdown.joint.wallets,
         breakdown: props.netWorthBreakdown.joint,
     },
 ]);
 
 function formatCurrency(amount: number) {
-    return 'Rp ' + Number(amount).toLocaleString('id-ID');
+    return (
+        'Rp ' +
+        Number(amount).toLocaleString('id-ID', { maximumFractionDigits: 2 })
+    );
 }
 
 function selectChartPeriod(period: ChartPeriod): void {
@@ -400,6 +403,7 @@ function selectChartPeriod(period: ChartPeriod): void {
 
         <!-- Hero Net Worth Card -->
         <div
+            data-tour="wealth-summary"
             class="relative isolate overflow-hidden rounded-[1.75rem] border border-indigo-900/10 bg-gradient-to-br from-indigo-950 via-indigo-900 to-rose-900 p-5 text-white shadow-xl shadow-indigo-950/15 sm:p-7 dark:border-white/10"
         >
             <img
@@ -472,15 +476,16 @@ function selectChartPeriod(period: ChartPeriod): void {
                             'text-right': index === 2,
                         }"
                     >
-                        <span class="text-[9px] font-medium text-white/70 sm:text-[10px]">
+                        <span class="text-xs font-medium text-white/90">
                             {{ owner.label }}
                         </span>
-                        <p class="mt-1 truncate text-[11px] font-black sm:text-sm">
+                        <p
+                            class="mt-1 truncate text-[11px] font-black sm:text-sm"
+                        >
                             {{ formatCurrency(owner.total) }}
                         </p>
                     </div>
                 </div>
-
             </div>
         </div>
 

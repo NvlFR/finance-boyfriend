@@ -206,19 +206,19 @@ test('trip from a previous couple space cannot receive position updates', functi
 
 test('push subscription stores encryption keys and endpoint ownership', function () {
     $user = User::factory()->create();
-    $endpoint = 'https://push.example.test/subscription/123';
+    $endpoint = 'https://fcm.googleapis.com/fcm/send/test-subscription';
 
     $this->actingAs($user)->postJson(route('push.subscribe'), [
         'endpoint' => $endpoint,
-        'public_key' => 'public-key',
-        'auth_token' => 'auth-token',
+        'public_key' => rtrim(strtr(base64_encode("\x04".str_repeat('x', 64)), '+/', '-_'), '='),
+        'auth_token' => rtrim(strtr(base64_encode(str_repeat('x', 16)), '+/', '-_'), '='),
         'content_encoding' => 'aes128gcm',
     ])->assertOk();
 
     $this->assertDatabaseHas('push_subscriptions', [
         'user_id' => $user->id,
         'endpoint_hash' => hash('sha256', $endpoint),
-        'public_key' => 'public-key',
-        'auth_token' => 'auth-token',
+        'public_key' => rtrim(strtr(base64_encode("\x04".str_repeat('x', 64)), '+/', '-_'), '='),
+        'auth_token' => rtrim(strtr(base64_encode(str_repeat('x', 16)), '+/', '-_'), '='),
     ]);
 });

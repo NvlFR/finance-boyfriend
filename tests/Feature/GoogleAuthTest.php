@@ -17,6 +17,7 @@ test('existing user can login via google oauth', function () {
     ]);
 
     $abstractUser = Mockery::mock('Laravel\Socialite\Two\User');
+    $abstractUser->user = ['verified_email' => true];
     $abstractUser->shouldReceive('getId')->andReturn('1234567890');
     $abstractUser->shouldReceive('getEmail')->andReturn('john.doe@gmail.com');
     $abstractUser->shouldReceive('getName')->andReturn('John Doe');
@@ -36,6 +37,7 @@ test('existing user can login via google oauth', function () {
 
 test('new user can register via google oauth automatically', function () {
     $abstractUser = Mockery::mock('Laravel\Socialite\Two\User');
+    $abstractUser->user = ['verified_email' => true];
     $abstractUser->shouldReceive('getId')->andReturn('9876543210');
     $abstractUser->shouldReceive('getEmail')->andReturn('new.couple@gmail.com');
     $abstractUser->shouldReceive('getName')->andReturn('Aulia Putri');

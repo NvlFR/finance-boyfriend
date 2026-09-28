@@ -78,7 +78,8 @@ class TransactionController extends Controller
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                    ->orWhere('notes', 'like', "%{$search}%");
+                    ->orWhere('notes', 'like', "%{$search}%")
+                    ->orWhereHas('category', fn ($category) => $category->where('name', 'like', "%{$search}%"));
             });
         }
 
@@ -111,6 +112,9 @@ class TransactionController extends Controller
 
         $perPage = min(100, max(1, $request->integer('per_page', 20)));
         $transactions = $query->paginate($perPage)->withQueryString();
+        if ($request->boolean('cumulative') && $transactions->currentPage() > 1) {
+            $transactions->setCollection((clone $query)->offset(0)->limit($transactions->currentPage() * $perPage)->get());
+        }
 
         $wallets = Wallet::where('couple_space_id', $space->id)
             ->with('user:id,name,nickname')
@@ -118,13 +122,14 @@ class TransactionController extends Controller
         $categories = Category::where(function ($q) use ($space) {
             $q->whereNull('couple_space_id')->orWhere('couple_space_id', $space->id);
         })->get();
-        $savingsMovements = SavingsContribution::query()
+        $savingsQuery = SavingsContribution::query()
             ->whereHas('goal', fn ($query) => $query->where('couple_space_id', $space->id))
             ->with(['goal:id,name', 'wallet.user:id,name,nickname', 'user:id,name,nickname'])
-            ->latest('contributed_at')
-            ->limit(20)
-            ->get();
-        $investmentMovements = InvestmentTransaction::query()
+            ->latest('contributed_at')->latest('id');
+        $this->applyMovementFilters($savingsQuery, $request, 'goal', 'contributed_at');
+        $savingsPagination = $savingsQuery->paginate(perPage: 20, pageName: 'savings_page')->withQueryString();
+        $savingsMovements = $savingsPagination->getCollection();
+        $investmentQuery = InvestmentTransaction::query()
             ->whereHas('investment', fn ($query) => $query->where('couple_space_id', $space->id))
             ->with([
                 'investment:id,name,symbol,scope',
@@ -132,9 +137,9 @@ class TransactionController extends Controller
                 'user:id,name,nickname',
             ])
             ->latest('transaction_date')
-            ->latest('id')
-            ->paginate(perPage: 20, pageName: 'investment_page')
-            ->withQueryString();
+            ->latest('id');
+        $this->applyMovementFilters($investmentQuery, $request, 'investment', 'transaction_date');
+        $investmentMovements = $investmentQuery->paginate(perPage: 20, pageName: 'investment_page')->withQueryString();
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -143,6 +148,7 @@ class TransactionController extends Controller
                 'wallets' => $wallets,
                 'categories' => $categories,
                 'savingsMovements' => $savingsMovements,
+                'savingsPagination' => $savingsPagination->linkCollection(),
                 'investmentMovements' => $investmentMovements,
             ]);
         }
@@ -153,6 +159,7 @@ class TransactionController extends Controller
             'wallets' => $wallets,
             'categories' => $categories,
             'savingsMovements' => $savingsMovements,
+            'savingsPagination' => $savingsPagination->linkCollection(),
             'investmentMovements' => $investmentMovements,
         ]);
     }
@@ -260,7 +267,7 @@ class TransactionController extends Controller
                     ? BigDecimal::of($tx->amount)->plus($tx->fee_amount)->toScale(2)->__toString()
                     : $tx->amount;
 
-                fputcsv($output, [
+                $row = [
                     $tx->id,
                     $tx->transaction_date->format('Y-m-d H:i'),
                     $tx->title ?: ($tx->category_id ? $tx->category->name : 'Transaksi'),
@@ -276,7 +283,14 @@ class TransactionController extends Controller
                     $sourceDebit,
                     $tx->user->name,
                     $tx->notes ?? '',
-                ]);
+                ];
+                foreach ([2, 5, 6, 7, 11, 12] as $column) {
+                    $value = (string) $row[$column];
+                    if (preg_match('/^[\s\x00-\x1F]*[=+@-]/u', $value)) {
+                        $row[$column] = "'".$value;
+                    }
+                }
+                fputcsv($output, $row);
             }
 
             fclose($output);
@@ -326,11 +340,48 @@ class TransactionController extends Controller
             ->get();
         $investments = Investment::query()
             ->where('couple_space_id', $space->id)
-            ->where('is_active', true)
             ->with('user:id,name,nickname')
             ->orderByDesc('current_price')
             ->get();
         $filters = $request->only(['search', 'scope', 'type', 'category_id', 'wallet_id', 'start_date', 'end_date']);
+        $investmentFees = InvestmentTransaction::query()
+            ->whereHas('investment', fn ($query) => $query->where('couple_space_id', $space->id))
+            ->where('fee_amount', '>', 0)->with(['investment', 'user', 'wallet']);
+        if ($request->filled('type') && $request->input('type') !== 'expense') {
+            $investmentFees->whereRaw('1 = 0');
+        }
+        if ($request->filled('category_id')) {
+            $investmentFees->whereRaw('1 = 0');
+        }
+        if ($request->filled('scope')) {
+            $investmentFees->whereHas('investment', fn ($query) => $query->where('scope', $request->input('scope')));
+        }
+        if ($request->filled('wallet_id')) {
+            $investmentFees->where('wallet_id', $request->integer('wallet_id'));
+        }
+        if ($request->filled('start_date')) {
+            $investmentFees->whereDate('transaction_date', '>=', $request->input('start_date'));
+        }
+        if ($request->filled('end_date')) {
+            $investmentFees->whereDate('transaction_date', '<=', $request->input('end_date'));
+        }
+        if ($request->filled('search')) {
+            $search = '%'.$request->string('search')->toString().'%';
+            $investmentFees->where(fn ($query) => $query->where('notes', 'like', $search)
+                ->orWhereHas('investment', fn ($asset) => $asset->where('name', 'like', $search)));
+        }
+        foreach ($investmentFees->get() as $fee) {
+            $expense = new Transaction([
+                'type' => 'expense', 'scope' => $fee->investment->scope, 'amount' => $fee->fee_amount,
+                'fee_amount' => 0, 'transaction_date' => $fee->transaction_date,
+                'title' => 'Biaya investasi: '.$fee->investment->name,
+                'user_id' => $fee->user_id, 'wallet_id' => $fee->wallet_id,
+                'category_id' => null, 'notes' => $fee->notes,
+            ]);
+            $expense->setRelation('user', $fee->user)->setRelation('wallet', $fee->wallet)->setRelation('category', null);
+            $transactions->push($expense);
+        }
+        $transactions = $transactions->sortByDesc('transaction_date')->values();
 
         return view('reports.financial', $this->transactionReportService->financialReport(
             $space,
@@ -371,7 +422,8 @@ class TransactionController extends Controller
             $search = $request->string('search')->toString();
             $query->where(fn (Builder $searchQuery) => $searchQuery
                 ->where('title', 'like', "%{$search}%")
-                ->orWhere('notes', 'like', "%{$search}%"));
+                ->orWhere('notes', 'like', "%{$search}%")
+                ->orWhereHas('category', fn ($category) => $category->where('name', 'like', "%{$search}%")));
         }
 
         foreach (['scope', 'type', 'category_id'] as $filter) {
@@ -393,6 +445,33 @@ class TransactionController extends Controller
 
         if ($request->filled('end_date')) {
             $query->whereDate('transaction_date', '<=', $request->date('end_date'));
+        }
+    }
+
+    /** @param Builder<InvestmentTransaction>|Builder<SavingsContribution> $query */
+    private function applyMovementFilters(Builder $query, Request $request, string $relation, string $dateColumn): void
+    {
+        if ($request->filled('category_id') || ($request->filled('type') && $request->input('type') !== 'transfer')) {
+            $query->whereRaw('1 = 0');
+        }
+        if ($request->filled('scope')) {
+            $query->whereHas($relation, fn ($asset) => $asset->where('scope', $request->input('scope')));
+        }
+        if ($request->filled('wallet_id')) {
+            $query->where('wallet_id', $request->integer('wallet_id'));
+        }
+        if ($request->filled('search')) {
+            $search = '%'.$request->string('search')->toString().'%';
+            $query->where(function ($movement) use ($search, $relation): void {
+                $movement->where('notes', 'like', $search)
+                    ->orWhereHas($relation, fn ($asset) => $asset->where('name', 'like', $search));
+            });
+        }
+        if ($request->filled('start_date')) {
+            $query->whereDate($dateColumn, '>=', $request->input('start_date'));
+        }
+        if ($request->filled('end_date')) {
+            $query->whereDate($dateColumn, '<=', $request->input('end_date'));
         }
     }
 }

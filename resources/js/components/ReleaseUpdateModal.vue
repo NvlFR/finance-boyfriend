@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { CheckCircle2, PartyPopper, Sparkles, X } from '@lucide/vue';
+import {
+    ArrowRight,
+    CheckCircle2,
+    PartyPopper,
+    Sparkles,
+    X,
+} from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
 import type { AppRelease } from '@/types/ui';
@@ -8,6 +14,7 @@ const props = defineProps<{
     release: AppRelease | null;
     userId: number;
 }>();
+const emit = defineEmits<{ (event: 'start-tour'): void }>();
 
 const isOpen = ref(false);
 const storageKey = computed(
@@ -42,6 +49,11 @@ function dismissRelease(): void {
     }
 
     isOpen.value = false;
+}
+
+function startTour(): void {
+    dismissRelease();
+    emit('start-tour');
 }
 
 function formatReleaseDate(date: string): string {
@@ -145,13 +157,23 @@ watch(
                     </ul>
                 </div>
 
-                <button
-                    type="button"
-                    class="flex min-h-12 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition-all hover:opacity-95 active:scale-[0.98]"
-                    @click="dismissRelease"
-                >
-                    Oke, lihat pembaruannya
-                </button>
+                <div class="grid gap-2 sm:grid-cols-2">
+                    <button
+                        type="button"
+                        class="min-h-12 rounded-2xl border border-zinc-200 px-4 text-sm font-bold text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        @click="dismissRelease"
+                    >
+                        Nanti saja
+                    </button>
+                    <button
+                        v-if="release.tour.length"
+                        type="button"
+                        class="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition-all hover:opacity-95 active:scale-[0.98]"
+                        @click="startTour"
+                    >
+                        Lihat fitur baru <ArrowRight class="h-4 w-4" />
+                    </button>
+                </div>
             </div>
         </section>
     </div>

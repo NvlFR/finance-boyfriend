@@ -16,6 +16,7 @@ import CurrencyInput from '@/components/CurrencyInput.vue';
 import FormErrorSummary from '@/components/FormErrorSummary.vue';
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
 import { useTransactionModal } from '@/composables/useTransactionModal';
+import { jakartaDateKey } from '@/lib/dates';
 import type { User } from '@/types/auth';
 import type { Wallet, Category } from '@/types/finance';
 
@@ -68,7 +69,7 @@ const createForm = useForm({
     name: '',
     amount: '' as string | number,
     billing_cycle: 'monthly' as 'monthly' | 'yearly',
-    next_billing_date: new Date().toISOString().slice(0, 10),
+    next_billing_date: jakartaDateKey(),
     split_mode: '50_50' as '50_50' | 'alternate' | 'single',
     wallet_id: props.wallets?.[0]?.id || null,
     color: '#6366F1',
@@ -297,7 +298,8 @@ function paySubscription(sub: SubscriptionItem) {
                             type="button"
                             @click="openEditModal(sub)"
                             class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                            title="Edit Langganan"
+                            :aria-label="`Edit langganan ${sub.name}`"
+                            :title="`Edit langganan ${sub.name}`"
                         >
                             <Edit2 class="h-4 w-4" />
                         </button>
@@ -306,7 +308,8 @@ function paySubscription(sub: SubscriptionItem) {
                             type="button"
                             @click="deleteSubscription(sub)"
                             class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
-                            title="Hapus Langganan"
+                            :aria-label="`Hapus langganan ${sub.name}`"
+                            :title="`Hapus langganan ${sub.name}`"
                         >
                             <Trash2 class="h-4 w-4" />
                         </button>

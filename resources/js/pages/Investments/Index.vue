@@ -19,6 +19,7 @@ import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue';
 import CurrencyInput from '@/components/CurrencyInput.vue';
 import FormErrorSummary from '@/components/FormErrorSummary.vue';
 import { useAccessibleDialog } from '@/composables/useAccessibleDialog';
+import { jakartaDateKey } from '@/lib/dates';
 import {
     destroy as investmentDestroy,
     store as investmentStore,
@@ -116,10 +117,7 @@ const estimatedWalletMutation = computed(() => {
 });
 
 function localDate(): string {
-    const now = new Date();
-    const offset = now.getTimezoneOffset() * 60_000;
-
-    return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+    return jakartaDateKey();
 }
 
 function createClientReference(): string {
@@ -307,15 +305,13 @@ function confirmDelete(): void {
                     class="grid grid-cols-2 gap-3 border-t border-white/15 pt-3"
                 >
                     <div>
-                        <p class="text-[10px] text-sky-200">Modal tersisa</p>
+                        <p class="text-xs text-sky-200">Modal tersisa</p>
                         <p class="text-sm font-bold">
                             {{ money(summary.cost_basis) }}
                         </p>
                     </div>
                     <div>
-                        <p class="text-[10px] text-sky-200">
-                            Untung/rugi berjalan
-                        </p>
+                        <p class="text-xs text-sky-200">Untung/rugi berjalan</p>
                         <p
                             class="text-sm font-bold"
                             :class="
@@ -325,7 +321,7 @@ function confirmDelete(): void {
                             "
                         >
                             {{ money(summary.unrealized_profit_loss) }}
-                            <span class="text-[10px]"
+                            <span class="text-xs"
                                 >({{ returnPercentage.toFixed(2) }}%)</span
                             >
                         </p>
@@ -381,12 +377,12 @@ function confirmDelete(): void {
                                 </h2>
                                 <span
                                     v-if="investment.symbol"
-                                    class="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold text-zinc-500 dark:bg-zinc-800"
+                                    class="rounded-md bg-zinc-100 px-1.5 py-0.5 text-xs font-bold text-zinc-500 dark:bg-zinc-800"
                                 >
                                     {{ investment.symbol }}
                                 </span>
                             </div>
-                            <p class="text-[10px] text-zinc-500">
+                            <p class="text-xs text-zinc-500">
                                 {{ assetLabel(investment.asset_type) }} ·
                                 {{
                                     investment.scope === 'shared'
@@ -413,7 +409,7 @@ function confirmDelete(): void {
                     class="mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-zinc-50 p-3 dark:bg-zinc-950/60"
                 >
                     <div>
-                        <p class="text-[10px] text-zinc-500">Nilai sekarang</p>
+                        <p class="text-xs text-zinc-500">Nilai sekarang</p>
                         <p
                             class="text-sm font-black text-zinc-900 dark:text-white"
                         >
@@ -421,7 +417,7 @@ function confirmDelete(): void {
                         </p>
                     </div>
                     <div class="text-right">
-                        <p class="text-[10px] text-zinc-500">Untung/rugi</p>
+                        <p class="text-xs text-zinc-500">Untung/rugi</p>
                         <p
                             class="text-sm font-black"
                             :class="
@@ -434,7 +430,7 @@ function confirmDelete(): void {
                         </p>
                     </div>
                     <div>
-                        <p class="text-[10px] text-zinc-500">Unit dimiliki</p>
+                        <p class="text-xs text-zinc-500">Unit dimiliki</p>
                         <p
                             class="text-xs font-bold text-zinc-800 dark:text-zinc-200"
                         >
@@ -442,7 +438,7 @@ function confirmDelete(): void {
                         </p>
                     </div>
                     <div class="text-right">
-                        <p class="text-[10px] text-zinc-500">Harga / unit</p>
+                        <p class="text-xs text-zinc-500">Harga / unit</p>
                         <p
                             class="text-xs font-bold text-zinc-800 dark:text-zinc-200"
                         >
@@ -502,7 +498,7 @@ function confirmDelete(): void {
                                     }}
                                     {{ quantity(movement.quantity) }} unit
                                 </p>
-                                <p class="truncate text-[10px] text-zinc-500">
+                                <p class="truncate text-xs text-zinc-500">
                                     {{
                                         new Date(
                                             movement.transaction_date,
@@ -782,7 +778,7 @@ function confirmDelete(): void {
                                     </span>
                                     <span class="mt-2 block">
                                         <span
-                                            class="block text-[10px] text-zinc-500 dark:text-zinc-400"
+                                            class="block text-xs text-zinc-500 dark:text-zinc-400"
                                         >
                                             {{
                                                 wallet.type === 'joint'
@@ -1004,8 +1000,9 @@ function confirmDelete(): void {
 
         <ConfirmActionDialog
             :open="investmentToDelete !== null"
-            title="Hapus aset investasi?"
-            description="Riwayat aset ini juga akan dihapus. Aset hanya bisa dihapus saat jumlah unit sudah nol."
+            title="Arsipkan aset investasi?"
+            confirm-label="Ya, Arsipkan"
+            description="Aset akan disembunyikan dari portofolio aktif. Seluruh riwayat beli, jual, dan biaya tetap tersimpan. Jual seluruh unit terlebih dahulu."
             :processing="isDeleting"
             @update:open="(open) => !open && (investmentToDelete = null)"
             @confirm="confirmDelete"

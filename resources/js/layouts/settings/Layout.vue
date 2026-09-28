@@ -32,6 +32,10 @@ const page = usePage();
 const appRelease = computed(
     () => ((page.props as any).appRelease || null) as AppRelease | null,
 );
+
+function replayFeatureTour(): void {
+    window.dispatchEvent(new CustomEvent('finance:start-feature-tour'));
+}
 </script>
 
 <template>
@@ -66,20 +70,30 @@ const appRelease = computed(
             <slot />
         </div>
 
-        <p
+        <div
             v-if="appRelease"
-            class="text-center text-[11px] font-medium text-zinc-400 dark:text-zinc-500"
+            class="flex flex-wrap items-center justify-center gap-2 text-center text-[11px] font-medium text-zinc-400 dark:text-zinc-500"
         >
-            Couple Finance v{{ appRelease.version }} · Diperbarui
-            {{
-                new Date(
-                    `${appRelease.released_at}T00:00:00`,
-                ).toLocaleDateString('id-ID', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                })
-            }}
-        </p>
+            <span>
+                Couple Finance v{{ appRelease.version }} · Diperbarui
+                {{
+                    new Date(
+                        `${appRelease.released_at}T00:00:00`,
+                    ).toLocaleDateString('id-ID', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                    })
+                }}
+            </span>
+            <button
+                v-if="appRelease.tour.length"
+                type="button"
+                class="min-h-10 rounded-full px-3 font-bold text-indigo-600 transition-colors hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/40"
+                @click="replayFeatureTour"
+            >
+                Lihat tur fitur
+            </button>
+        </div>
     </div>
 </template>

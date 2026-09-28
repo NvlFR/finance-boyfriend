@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\SavingsContribution;
 use App\Models\SavingsGoal;
+use App\Models\Transaction;
 use App\Models\Wallet;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -245,6 +246,11 @@ class SavingsGoalController extends Controller
 
         DB::transaction(function () use ($savingsGoal): void {
             $lockedGoal = SavingsGoal::query()->whereKey($savingsGoal->id)->lockForUpdate()->firstOrFail();
+            if (Transaction::where('emergency_savings_goal_id', $lockedGoal->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'goal' => 'Tabungan ini sudah digunakan untuk transaksi dana darurat. Riwayat dan saldonya harus dipertahankan; target tidak dapat dihapus.',
+                ]);
+            }
             $refunds = $lockedGoal->contributions()
                 ->whereNotNull('wallet_id')
                 ->selectRaw('wallet_id, SUM(amount) as total_amount')
@@ -252,11 +258,15 @@ class SavingsGoalController extends Controller
                 ->get();
 
             foreach ($refunds as $refund) {
-                Wallet::query()
+                $refundWallet = Wallet::query()
                     ->where('couple_space_id', $lockedGoal->couple_space_id)
                     ->whereKey($refund->wallet_id)
                     ->lockForUpdate()
-                    ->first()?->increment('balance', (float) $refund->total_amount);
+                    ->first();
+                if ($refundWallet) {
+                    $refundWallet->update(['is_active' => true]);
+                    $refundWallet->increment('balance', (float) $refund->total_amount);
+                }
             }
 
             $lockedGoal->delete();

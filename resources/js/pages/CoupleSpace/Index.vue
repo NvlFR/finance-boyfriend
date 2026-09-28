@@ -253,7 +253,8 @@ function submitEdit() {
                             type="button"
                             @click="openEditModal"
                             class="rounded-xl bg-white/10 p-2 text-white transition-all hover:bg-white/20"
-                            title="Edit Data Ruang"
+                            aria-label="Edit data ruang pasangan"
+                            title="Edit data ruang pasangan"
                         >
                             <Edit2 class="h-3.5 w-3.5" />
                         </button>

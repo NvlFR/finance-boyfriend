@@ -80,7 +80,11 @@ export type Transaction = {
     source_type?: 'subscription' | 'wishlist' | 'budget' | null;
     source_id?: number | null;
     wallet?: Wallet;
-    emergency_savings_goal?: { id: number; name: string; current_amount: number | string };
+    emergency_savings_goal?: {
+        id: number;
+        name: string;
+        current_amount: number | string;
+    };
     to_wallet?: Wallet;
     category?: Category;
     user?: User;

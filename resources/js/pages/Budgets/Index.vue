@@ -239,7 +239,8 @@ function recordBudgetExpense(budget: BudgetItem) {
                             type="button"
                             @click="openEditModal(b)"
                             class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                            title="Edit Anggaran"
+                            :aria-label="`Edit anggaran ${b.name}`"
+                            :title="`Edit anggaran ${b.name}`"
                         >
                             <Edit2 class="h-4 w-4" />
                         </button>
@@ -248,7 +249,8 @@ function recordBudgetExpense(budget: BudgetItem) {
                             type="button"
                             @click="deleteBudget(b)"
                             class="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
-                            title="Hapus Anggaran"
+                            :aria-label="`Hapus anggaran ${b.name}`"
+                            :title="`Hapus anggaran ${b.name}`"
                         >
                             <Trash2 class="h-4 w-4" />
                         </button>

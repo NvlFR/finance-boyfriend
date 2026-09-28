@@ -98,7 +98,7 @@ const { dialogRef, handleDialogKeydown } = useAccessibleDialog(
                         class="min-h-11 rounded-2xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
                         @click="emit('confirm')"
                     >
-                        {{ processing ? 'Menghapus...' : confirmLabel }}
+                        {{ processing ? 'Memproses...' : confirmLabel }}
                     </button>
                 </div>
             </div>

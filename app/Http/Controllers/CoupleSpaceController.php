@@ -8,6 +8,7 @@ use App\Http\Requests\CoupleSpace\UpdateCoupleSpaceRequest;
 use App\Models\Budget;
 use App\Models\Category;
 use App\Models\CoupleSpace;
+use App\Models\Investment;
 use App\Models\SavingsGoal;
 use App\Models\Settlement;
 use App\Models\Subscription;
@@ -201,6 +202,7 @@ class CoupleSpaceController extends Controller
 
     private function mergePersonalSpace(CoupleSpace $source, CoupleSpace $destination): void
     {
+        Investment::where('couple_space_id', $source->id)->update(['couple_space_id' => $destination->id]);
         Category::where('couple_space_id', $source->id)->update(['couple_space_id' => $destination->id]);
         Wallet::where('couple_space_id', $source->id)->update(['couple_space_id' => $destination->id]);
         Transaction::where('couple_space_id', $source->id)->update(['couple_space_id' => $destination->id]);

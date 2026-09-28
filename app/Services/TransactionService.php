@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Budget;
 use App\Models\CoupleSpace;
 use App\Models\SavingsGoal;
+use App\Models\Settlement;
 use App\Models\Subscription;
 use App\Models\Transaction;
 use App\Models\TransactionSplit;
@@ -76,6 +77,7 @@ class TransactionService
                     $this->ensureSufficientSavings($emergencySavingsGoal, $emergencySavingsDebit);
                 } else {
                     $sourceWallet = Wallet::where('couple_space_id', $space->id)
+                        ->where('is_active', true)
                         ->where('id', $walletId)
                         ->where(function ($query) use ($user) {
                             $query->where('type', 'joint')->orWhere('user_id', $user->id);
@@ -90,6 +92,7 @@ class TransactionService
                         throw new InvalidArgumentException('Destination wallet must be provided and distinct for transfers.');
                     }
                     $destWallet = Wallet::where('couple_space_id', $space->id)
+                        ->where('is_active', true)
                         ->where('id', $toWalletId)
                         ->lockForUpdate()
                         ->firstOrFail();
@@ -173,38 +176,9 @@ class TransactionService
         }
 
         return DB::transaction(function () use ($transaction, $data) {
+            $transaction = Transaction::query()->whereKey($transaction->id)->lockForUpdate()->firstOrFail();
+            $this->ensureNotSettled($transaction);
             $space = $transaction->coupleSpace;
-
-            // Revert original balances first
-            $oldAmount = $this->normalizeMoney($transaction->amount);
-            $oldFeeAmount = $this->normalizeMoney($transaction->fee_amount);
-            $oldType = $transaction->type;
-            $oldSourceWallet = Wallet::where('couple_space_id', $space->id)
-                ->where('id', $transaction->wallet_id)
-                ->lockForUpdate()
-                ->first();
-
-            if ($oldSourceWallet) {
-                if ($oldType === 'expense') {
-                    $this->increaseBalance($oldSourceWallet, $oldAmount);
-                } elseif ($oldType === 'income') {
-                    $this->ensureSufficientBalance($oldSourceWallet, $oldAmount);
-                    $this->decreaseBalance($oldSourceWallet, $oldAmount);
-                } elseif ($oldType === 'transfer') {
-                    $this->increaseBalance($oldSourceWallet, $this->addMoney($oldAmount, $oldFeeAmount));
-                }
-            }
-
-            if ($oldType === 'transfer' && $transaction->to_wallet_id) {
-                $oldDestWallet = Wallet::where('couple_space_id', $space->id)
-                    ->where('id', $transaction->to_wallet_id)
-                    ->lockForUpdate()
-                    ->first();
-                if ($oldDestWallet) {
-                    $this->ensureSufficientBalance($oldDestWallet, $oldAmount);
-                    $this->decreaseBalance($oldDestWallet, $oldAmount);
-                }
-            }
 
             // Prepare new values
             $newType = $data['type'] ?? $transaction->type;
@@ -216,7 +190,9 @@ class TransactionService
                 ? $this->normalizeMoney($data['fee_amount'] ?? $transaction->fee_amount)
                 : '0.00';
             $newWalletId = isset($data['wallet_id']) ? (int) $data['wallet_id'] : $transaction->wallet_id;
-            $newToWalletId = ! empty($data['to_wallet_id']) ? (int) $data['to_wallet_id'] : null;
+            $newToWalletId = $newType === 'transfer'
+                ? (isset($data['to_wallet_id']) ? (int) $data['to_wallet_id'] : $transaction->to_wallet_id)
+                : null;
 
             if ($transaction->source_type && $newType !== 'expense') {
                 throw ValidationException::withMessages([
@@ -224,36 +200,34 @@ class TransactionService
                 ]);
             }
 
-            $newSourceWallet = Wallet::where('couple_space_id', $space->id)
-                ->where('id', $newWalletId)
-                ->where(function ($query) use ($transaction) {
-                    $query->where('type', 'joint')->orWhere('user_id', $transaction->user_id);
-                })
+            $lockedWallets = Wallet::where('couple_space_id', $space->id)
+                ->whereIn('id', array_filter([$transaction->wallet_id, $transaction->to_wallet_id, $newWalletId, $newToWalletId]))
+                ->orderBy('id')
                 ->lockForUpdate()
-                ->firstOrFail();
+                ->get()->keyBy('id');
+            $newSourceWallet = $lockedWallets->get($newWalletId);
+            abort_unless($newSourceWallet && $newSourceWallet->is_active && ($newSourceWallet->type === 'joint' || $newSourceWallet->user_id === $transaction->user_id), 403);
 
             $newDestWallet = null;
             if ($newType === 'transfer') {
                 if (! $newToWalletId || $newToWalletId === $newWalletId) {
                     throw new InvalidArgumentException('Destination wallet must be provided and distinct for transfers.');
                 }
-                $newDestWallet = Wallet::where('couple_space_id', $space->id)
-                    ->where('id', $newToWalletId)
-                    ->lockForUpdate()
-                    ->firstOrFail();
+                $newDestWallet = $lockedWallets->get($newToWalletId);
+                abort_unless($newDestWallet !== null && $newDestWallet->is_active, 404);
             }
 
-            // Apply new balances
-            if ($newType === 'expense') {
-                $this->ensureSufficientBalance($newSourceWallet, $newAmount);
-                $this->decreaseBalance($newSourceWallet, $newAmount);
-            } elseif ($newType === 'income') {
-                $this->increaseBalance($newSourceWallet, $newAmount);
-            } elseif ($newType === 'transfer') {
-                $newSourceDebit = $this->addMoney($newAmount, $newFeeAmount);
-                $this->ensureSufficientBalance($newSourceWallet, $newSourceDebit);
-                $this->decreaseBalance($newSourceWallet, $newSourceDebit);
-                $this->increaseBalance($newDestWallet, $newAmount);
+            $oldEffects = $this->walletEffects($transaction->type, $transaction->wallet_id, $transaction->to_wallet_id, $transaction->amount, $transaction->fee_amount);
+            $newEffects = $this->walletEffects($newType, $newWalletId, $newToWalletId, $newAmount, $newFeeAmount);
+            foreach ($lockedWallets as $wallet) {
+                $delta = BigDecimal::of($newEffects[$wallet->id] ?? '0')->minus($oldEffects[$wallet->id] ?? '0');
+                $balance = BigDecimal::of($wallet->balance)->plus($delta);
+                if ($balance->isNegative()) {
+                    throw ValidationException::withMessages(['amount' => "Saldo dompet {$wallet->name} tidak mencukupi untuk perubahan ini."]);
+                }
+                if (! $delta->isZero()) {
+                    $wallet->update(['balance' => $balance->toScale(2)->__toString()]);
+                }
             }
 
             // Update Transaction
@@ -278,9 +252,14 @@ class TransactionService
 
             // Keep existing talangan records unless the caller explicitly disables them.
             if ($shouldCreateSplit) {
-                if (array_key_exists('split', $data) || ! $transaction->split) {
+                $splitData = $data['split'] ?? $transaction->split?->only(['split_type', 'paid_by_user_id', 'user_one_amount', 'user_two_amount']) ?? [];
+                if (($splitData['split_type'] ?? '') === 'custom'
+                    && ! BigDecimal::of((string) ($splitData['user_one_amount'] ?? 0))->plus((string) ($splitData['user_two_amount'] ?? 0))->isEqualTo($newAmount)) {
+                    throw ValidationException::withMessages(['amount' => 'Perbarui pembagian khusus agar jumlahnya sesuai nominal transaksi.']);
+                }
+                if (array_key_exists('split', $data) || ! $transaction->split || ! BigDecimal::of($transaction->split->user_one_amount)->plus($transaction->split->user_two_amount)->isEqualTo($newAmount)) {
                     $transaction->split()->delete();
-                    $this->createSplitRecord($transaction, $transaction->user, $space, $data['split'] ?? []);
+                    $this->createSplitRecord($transaction, $transaction->user, $space, $splitData);
                 }
             } elseif ($transaction->split) {
                 $transaction->split()->delete();
@@ -302,6 +281,14 @@ class TransactionService
         }
 
         DB::transaction(function () use ($transaction) {
+            $transaction = Transaction::query()->whereKey($transaction->id)->lockForUpdate()->first();
+            if (! $transaction) {
+                return;
+            }
+            $this->ensureNotSettled($transaction);
+            if ($transaction->source_type) {
+                throw ValidationException::withMessages(['transaction' => 'Transaksi yang terhubung ke fitur tidak dapat dihapus.']);
+            }
             $amount = $this->normalizeMoney($transaction->amount);
             $feeAmount = $this->normalizeMoney($transaction->fee_amount);
             $type = $transaction->type;
@@ -405,6 +392,13 @@ class TransactionService
         ]);
     }
 
+    private function ensureNotSettled(Transaction $transaction): void
+    {
+        if (Settlement::where('transaction_id', $transaction->id)->exists() || $transaction->split()->where('settled', true)->exists()) {
+            throw ValidationException::withMessages(['transaction' => 'Transaksi terkait pelunasan tidak dapat diubah atau dihapus agar saldo dan status lunas tetap konsisten.']);
+        }
+    }
+
     private function ensureSufficientBalance(Wallet $wallet, string $amount): void
     {
         if (BigDecimal::of($wallet->balance)->isLessThan($amount)) {
@@ -412,6 +406,19 @@ class TransactionService
                 'amount' => "Saldo dompet {$wallet->name} tidak mencukupi.",
             ]);
         }
+    }
+
+    /** @return array<int, string> */
+    private function walletEffects(string $type, int $walletId, ?int $toWalletId, string $amount, string $fee): array
+    {
+        $effects = [$walletId => $type === 'income'
+            ? $amount
+            : BigDecimal::of($amount)->plus($type === 'transfer' ? $fee : '0')->negated()->__toString()];
+        if ($type === 'transfer' && $toWalletId) {
+            $effects[$toWalletId] = $amount;
+        }
+
+        return $effects;
     }
 
     private function ensureSufficientSavings(SavingsGoal $savingsGoal, string $amount): void
@@ -449,6 +456,9 @@ class TransactionService
 
     private function increaseBalance(Wallet $wallet, string $amount): void
     {
+        if (BigDecimal::of($amount)->isPositive()) {
+            $wallet->is_active = true;
+        }
         $wallet->balance = BigDecimal::of($wallet->balance)
             ->plus($amount)
             ->toScale(2)

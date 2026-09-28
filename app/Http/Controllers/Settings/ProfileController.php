@@ -6,12 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\AvatarUpdateRequest;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
+use App\Models\CoupleSpace;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
@@ -98,9 +101,18 @@ class ProfileController extends Controller
     {
         $user = $request->user();
 
-        Auth::logout();
+        DB::transaction(function () use ($user): void {
+            $lockedUser = $user->newQuery()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            if ($lockedUser->current_couple_space_id || CoupleSpace::query()
+                ->where('user_one_id', $user->id)->orWhere('user_two_id', $user->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'password' => 'Akun masih terhubung ruang keuangan. Penghapusan diblokir untuk melindungi saldo, riwayat, dan data pasangan.',
+                ]);
+            }
+            $lockedUser->delete();
+        });
 
-        $user->delete();
+        Auth::logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

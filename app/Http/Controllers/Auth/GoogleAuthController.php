@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Laravel\Fortify\Events\TwoFactorAuthenticationChallenged;
+use Laravel\Fortify\Features;
 use Laravel\Socialite\Facades\Socialite;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse;
 
@@ -22,7 +25,7 @@ class GoogleAuthController extends Controller
     /**
      * Handle Callback from Google.
      */
-    public function callback(): RedirectResponse
+    public function callback(Request $request): RedirectResponse
     {
         try {
             $googleUser = Socialite::driver('google')->user();
@@ -34,6 +37,10 @@ class GoogleAuthController extends Controller
         $user = User::where('google_id', $googleUser->getId())->first();
 
         if (! $user) {
+            $verifiedEmail = ($googleUser->user['verified_email'] ?? $googleUser->user['email_verified'] ?? false) === true;
+            if (! $googleUser->getEmail() || ! $verifiedEmail) {
+                return redirect()->route('login')->with('error', 'Google belum memverifikasi alamat email ini. Gunakan akun Google dengan email terverifikasi.');
+            }
             // 2. Check if email already registered via normal register
             $user = User::where('email', $googleUser->getEmail())->first();
 
@@ -51,13 +58,23 @@ class GoogleAuthController extends Controller
                     'email' => $googleUser->getEmail(),
                     'google_id' => $googleUser->getId(),
                     'avatar_url' => $googleUser->getAvatar(),
-                    'email_verified_at' => now(),
                     'password' => null,
                 ]);
             }
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
+
+        if (Features::enabled(Features::twoFactorAuthentication()) && $user->hasEnabledTwoFactorAuthentication()) {
+            Auth::logout();
+            $request->session()->regenerate();
+            $request->session()->put(['login.id' => $user->id, 'login.remember' => true]);
+            TwoFactorAuthenticationChallenged::dispatch($user);
+
+            return redirect()->route('two-factor.login');
         }
 
         Auth::login($user, true);
+        $request->session()->regenerate();
 
         return redirect()->intended('/dashboard');
     }
